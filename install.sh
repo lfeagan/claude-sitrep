@@ -13,7 +13,11 @@ cp "$S" "$S.bak.$(date +%Y%m%dT%H%M%S)"
 slp=$(printf '%q' "$R/statusline/statusline.sh"); hp=$(printf '%q' "$R/hooks/notes-hook.sh")
 # Keep the existing status line (e.g. Claude HUD) as the upstream, unless it is already ours (from any clone).
 old=$(jq -r '.statusLine.command // empty' "$S")
-case "$old" in *statusline/statusline.sh*|"") ;; *) printf 'SITREP_HUD_CMD=%q\n' "$old" > "$CONF" ;; esac
+case "$old" in
+  "") echo "No existing status line found; showing the sitrep block only." ;;
+  *statusline/statusline.sh*) echo "Status line is already sitrep; keeping the saved upstream (if any)." ;;
+  *) printf 'SITREP_HUD_CMD=%q\n' "$old" > "$CONF"; echo "Wrapping the existing status line (it renders first): $old" ;;
+esac
 tmp=$(mktemp "$S.XXXXXX"); trap 'rm -f "$tmp"' EXIT
 jq --arg sl "bash $slp" --arg h "bash $hp" --arg hp "$hp" '
   def ours: ((.command // "") | tostring | contains($hp));

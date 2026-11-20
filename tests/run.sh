@@ -219,6 +219,20 @@ instc "$H3" "$T/clone-a" install.sh >/dev/null; instc "$H3" "$T/clone-b" install
 check "upstream stays the original after installs from two clones" bash -c "grep -q 'old-hud' '$H3/.claude/sitrep.conf' && ! grep -q 'statusline.sh' '$H3/.claude/sitrep.conf'"
 eq "status line refuses to render itself" "" "$(jq -nc '{session_id:"x"}' | SITREP_ACTIVE=1 bash "$R/statusline/statusline.sh")"
 
+# install output says what it found
+H9="$T/home9"; fresh "$H9" '{}'
+check "install reports no existing status line" has "$(instc "$H9" "$R" install.sh 2>&1)" "No existing status line"
+check "no sitrep.conf is written without an upstream" test ! -e "$H9/.claude/sitrep.conf"
+check "block renders without an upstream" has "$(jq -nc '{session_id:"sx"}' | HOME="$H9" bash "$R/statusline/statusline.sh")" "Queue (0)"
+H10="$T/home10"; fresh "$H10" '{"statusLine":{"type":"command","command":"echo hud"}}'
+check "install reports the status line it wraps" has "$(instc "$H10" "$R" install.sh 2>&1)" "Wrapping the existing status line (it renders first): echo hud"
+eq "wrapped upstream renders first" hud "$(jq -nc '{session_id:"sx"}' | HOME="$H10" bash "$R/statusline/statusline.sh" | head -1)"
+# a HUD setup that overwrites our status line is repaired by re-running install
+jq '.statusLine.command="echo hud-again"' "$H10/.claude/settings.json" > "$T/h10.json" && cp "$T/h10.json" "$H10/.claude/settings.json"
+instc "$H10" "$R" install.sh >/dev/null 2>&1
+eq "re-install after an overwrite wraps the new command" hud-again "$(jq -nc '{session_id:"sx"}' | HOME="$H10" bash "$R/statusline/statusline.sh" | head -1)"
+check "sitrep block is back after the overwrite" has "$(jq -nc '{session_id:"sx"}' | HOME="$H10" bash "$R/statusline/statusline.sh")" "Queue (0)"
+
 # paths with spaces
 H4="$T/home4"; fresh "$H4" '{}'
 clone "$T/my dir/sitrep"
