@@ -92,6 +92,41 @@ Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the envi
 
 It never touches a running session or one under two minutes old, and it never deletes a queue file.
 
+## For Programs
+
+`sitrep ls --json [-a] [-n items | --full]` prints one JSON document that describes the running sessions, and is meant for a program that draws its own view. `-a` includes ended sessions, `-n` caps the items listed in each queue (default 5, or `SITREP_QUEUE_ITEMS`), and `--full` lists them all. It follows these rules:
+
+1. It exits 0 and prints a valid document even with no sessions (`"sessions": []`). On an internal error it exits non-zero, prints a message on stderr and prints nothing on stdout.
+2. Every text field is a single line with no control or format characters, so it is safe to draw. A program should still strip them again.
+3. `version` is an integer that changes only when a field is removed or its meaning changes. New fields can appear without a new version, so a program should ignore fields it does not know and refuse a version higher than it was written for.
+4. The sessions are those active in the last day, newest first by when their state last changed.
+
+The top level holds these fields:
+
+| Field | Meaning |
+|---|---|
+| `version`, `generated` | The contract version, and the time of the listing in epoch seconds. |
+| `registry` | `ok` when liveness came from Claude Code's session registry, `unavailable` when it fell back to the hook states. |
+| `settings` | `queue_items`, `highlight_seconds` and `highlight_sgr`, as set in the environment or `sitrep.conf`. |
+| `inbox` | `count` is the true number of items, and `items` holds the first ones, up to the cap. |
+| `hidden` | `ended` counts the finished sessions left out, and `stranded_items` counts the queue items they still hold. |
+| `sessions` | One object per session, below. |
+
+Each session has these fields:
+
+| Field | Meaning |
+|---|---|
+| `id`, `short` | The full session id, and its first four characters. |
+| `dir`, `cwd` | The last part of the working directory, and the whole path. |
+| `running` | False for an ended session, which appears only with `-a`. |
+| `state` | `working`, `waiting`, `ended`, `running` (alive in the registry although the hooks say ended), or `-` (no state recorded). |
+| `state_label`, `age` | The text `watch` shows, such as `working 1m` or `idle? 25m`, and the seconds since the state changed. |
+| `state_changed` | When the state changed, in epoch seconds. |
+| `idle`, `quiet_secs` | `idle` is true for a working session whose transcript has been quiet for ten minutes. `quiet_secs` is that quiet time, and null unless the session is working. |
+| `pinned`, `highlight` | Whether the Objective is pinned, and whether the session changed within `highlight_seconds`. |
+| `objective`, `progress`, `now` | The three lines of the status block. |
+| `queue` | `count` is the true number of items, and `items` holds the first ones, up to the cap. |
+
 ## How It Works
 
 State lives in `~/.claude/sitrep/`: `<session_id>.{txt,queue,cwd}` per session, `inbox.queue` for the inbox, hidden `.<session_id>.*` files for the pin, the prompt count, the debounce and the session state, and `sitrep.conf`. The status line only reads files, so it renders instantly. The Haiku call runs in the background on `Stop`, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window (`SITREP_DEBOUNCE`). A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.

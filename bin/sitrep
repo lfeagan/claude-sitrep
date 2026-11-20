@@ -95,14 +95,20 @@ sword() { # id: the session's state word, from an allow-list (the file is untrus
   [ -f "$f" ] && read -r w < "$f"
   case "$w" in working|waiting|ended) echo "$w" ;; *) echo - ;; esac
 }
+tquiet() { # id now: seconds since the session's transcript last changed (the shortest, if there are several); empty when there is none
+  local tr trm q="" n
+  for tr in "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$1".jsonl; do   # an interrupt fires no Stop; the transcript still shows life
+    [ -f "$tr" ] && [ ! -L "$tr" ] || continue
+    trm=$(mtime "$tr"); [ -n "$trm" ] || continue
+    n=$(( $2 - trm )); { [ -z "$q" ] || [ "$n" -lt "$q" ]; } && q=$n
+  done
+  echo "$q"
+}
 stext() { # id changed now: "waiting 3m"; a working session whose transcript has been quiet for 10 minutes is "idle?"
-  local w c tr trm; w=$(sword "$1")
+  local w c q; w=$(sword "$1")
   [ "$w" = - ] && { echo -; return; }
   if [ "$w" = working ]; then
-    for tr in "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$1".jsonl; do   # an interrupt fires no Stop; the transcript still shows life
-      [ -f "$tr" ] && [ ! -L "$tr" ] || continue
-      trm=$(mtime "$tr"); [ -n "$trm" ] && [ $(( $3 - trm )) -gt 600 ] && { echo "idle? $(agetxt $(( $3 - trm )))"; return; }
-    done
+    q=$(tquiet "$1" "$3"); [ -n "$q" ] && [ "$q" -gt 600 ] && { echo "idle? $(agetxt "$q")"; return; }
   fi
   c=$(agetxt $(( $3 - $2 ))); echo "$w $c"
 }
@@ -165,6 +171,45 @@ gather() { # all: collect the sessions active in the last day, newest first, for
     [ -f "$t" ] || continue; key=${t##*/}; key="$dir/.${key%.txt}.state"; [ -f "$key" ] || key=$t
     echo "$(mtime "$key") $t"
   done | sort -rn)
+}
+
+json_frame() { # all cap: one JSON document for the running sessions (all: finished ones too); cap limits each queue's items, -1 for none
+  local all=$1 cap=$2 now live reg=0 ended=0 strand=0 isend=() ages=() sts=() ids=() full=() dirs=() ts=() i k sid w run state quiet idle pin hl hlsec q meta="" sep="" args=() out
+  gather "$all"
+  hlsec=$(hl_seconds)
+  for i in "${!full[@]}"; do
+    sid=${full[$i]}; [[ $sid =~ ^[A-Za-z0-9_-]+$ ]] || continue   # ids come from file names; anything else is not ours
+    w=$(sword "$sid"); run=true; [ "${isend[$i]}" = 1 ] && run=false
+    state=$w; if [ "$run" = false ]; then state=ended; elif [ "$w" = ended ]; then state=running; fi   # alive in the registry, so a stale ended is not true
+    quiet=null; idle=false
+    if [ "$w" = working ] && [ "$run" = true ]; then q=$(tquiet "$sid" "$now"); [ -n "$q" ] && quiet=$q; fi
+    [[ ${sts[$i]} == "idle?"* ]] && idle=true
+    pin=false; [ -e "$dir/.$sid.pinned" ] && pin=true
+    hl=false; [ "$run" = true ] && [ "$hlsec" -gt 0 ] && [ "${ages[$i]}" -le "$hlsec" ] && hl=true
+    [[ ${sts[$i]} =~ ^[a-z?]+(\ [0-9\<]+[mhd]?)?$ ]] || sts[i]=-   # the label is built from known words; only such a label goes into the JSON
+    meta+="$sep{\"i\":$i,\"id\":\"$sid\",\"short\":\"${sid:0:4}\",\"running\":$run,\"state\":\"$state\",\"state_label\":\"${sts[$i]}\",\"age\":${ages[$i]},\"state_changed\":$(( now - ages[i] )),\"quiet_secs\":$quiet,\"idle\":$idle,\"pinned\":$pin,\"highlight\":$hl}"; sep=","
+    for k in t:txt c:cwd q:queue; do   # a file that is missing or unreadable reads as empty, so one bad file does not blank the listing
+      if [ -f "$dir/$sid.${k#*:}" ] && [ -r "$dir/$sid.${k#*:}" ]; then args+=(--rawfile "${k%%:*}$i" "$dir/$sid.${k#*:}"); else args+=(--rawfile "${k%%:*}$i" /dev/null); fi
+    done
+  done
+  if [ -f "$(qf inbox)" ] && [ -r "$(qf inbox)" ]; then args+=(--rawfile inbox "$(qf inbox)"); else args+=(--rawfile inbox /dev/null); fi
+  out=$(printf '[%s]' "$meta" | jq -n "${args[@]}" --argjson cap "$cap" --argjson now "$now" \
+      --arg reg "$([ "$reg" = 1 ] && echo ok || echo unavailable)" \
+      --argjson hidden "{\"ended\":$ended,\"stranded_items\":$strand}" \
+      --argjson settings "{\"queue_items\":$(items_default),\"highlight_seconds\":$hlsec,\"highlight_sgr\":\"$(hl_sgr)\"}" '
+    def clean: gsub("\t"; " ") | gsub("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]"; "") | sub(" +$"; "");   # control and format characters never reach a consumer
+    def field($txt; $k): ($txt | split("\n") | map(select(startswith($k + ":"))) | first // "") | sub("^[^:]*: *"; "") | clean | .[0:200];
+    def items($txt): [$txt | split("\n")[] | clean | select(test("\\S")) | .[0:200]];
+    def queue($txt): items($txt) | {count: length, items: (if $cap < 0 then . else .[0:$cap] end)};
+    input as $meta | $ARGS.named as $n   # $meta arrives on stdin: one argument is capped at 128 KB on Linux
+    | { version: 1, generated: $now, registry: $reg, settings: $settings, hidden: $hidden,
+        inbox: queue($n.inbox),
+        sessions: [ $meta[] as $m
+          | $n["t\($m.i)"] as $t | $n["c\($m.i)"] as $c | $n["q\($m.i)"] as $q
+          | (($c | split("\n")[0] // "") | clean) as $cwd
+          | ($m | del(.i)) + { dir: ($cwd | split("/") | map(select(length > 0)) | last // "?"), cwd: $cwd[0:300],
+              objective: field($t; "Objective"), progress: field($t; "Progress"), now: field($t; "Now"), queue: queue($q) } ] }') || return 1
+  printf '%s\n' "$out"
 }
 
 render_frame() { # verbose rows cols items all wraplines highlight-seconds: the Inbox, then a table of running sessions (all: finished ones too). rows 0 means no height limit.
@@ -266,6 +311,7 @@ help_for() { # command: print its details; fails for an unknown command
   case "$1" in
     ls) cat <<'EOF'
 usage: sitrep ls [-a] [-v] [-n items] [id]
+       sitrep ls --json [-a] [-n items | --full]
 
 List running sessions with their state, queue, Objective and Now. With an id, list
 that queue instead; an id of inbox lists the inbox.
@@ -274,6 +320,8 @@ that queue instead; an id of inbox lists the inbox.
   -v          add the Progress line, and list each queue
   -n items    how many items each queue lists; implies -v, and 0 gives the count and
               the next item only
+  --json      print one JSON document for programs, see the README; -n caps the items
+              in each queue, and --full lists them all
 
 The default for -n is 5, or SITREP_QUEUE_ITEMS from the environment or sitrep.conf.
 EOF
@@ -372,15 +420,23 @@ cmd=${1:-ls}; [ $# -gt 0 ] && shift
 case "$1" in -h|--help) case "$cmd" in help|-h|--help) ;; *) help_for "$cmd" || die "unknown command '$cmd'; run 'sitrep help'"; exit 0 ;; esac ;; esac
 case "$cmd" in
   ls)
-    v=0; items=""; all=0
+    v=0; items=""; all=0; json=0; noncap=0
     while :; do case "$1" in   # -v adds Progress and the queue lists; -n sets how many items, and implies -v; -a includes finished sessions
       -v) v=1; shift ;;
+      --json) json=1; shift ;;
+      --full) noncap=1; shift ;;
       -a|--all) all=1; shift ;;
-      -n) [ $# -ge 2 ] || die "usage: sitrep ls [-a] [-v] [-n items] [id]"; items=$2; v=1; shift 2 ;;
+      -n) [ $# -ge 2 ] || die "usage: sitrep ls [-a] [-v] [-n items] [--json [--full]] [id]"; items=$2; v=1; shift 2 ;;
       *) break ;;
     esac; done
     [ -n "$items" ] || items=$(items_default); [[ $items =~ ^[0-9]+$ ]] || die "items must be a number"
-    if [ -n "$1" ]; then
+    [ "$noncap" = 0 ] || [ "$json" = 1 ] || die "--full needs --json"
+    for a in "$@"; do [ "$a" != --json ] || die "--json goes before an id, and takes none"; done
+    if [ "$json" = 1 ]; then   # a machine-readable listing of every session; with -n items per queue, or --full for all
+      [ -z "$1" ] || die "usage: sitrep ls --json [-a] [-n items | --full]"
+      cap=$items; [ "$noncap" = 1 ] && cap=-1
+      json_frame "$all" "$cap" || die "could not build the JSON"
+    elif [ -n "$1" ]; then
       sid=$(resolve "$1") || exit 1; f=$(qf "$sid")
       if [ "$sid" = inbox ]; then echo "Inbox"; else
         key="$dir/.$sid.state"; [ -f "$key" ] || key="$dir/$sid.txt"

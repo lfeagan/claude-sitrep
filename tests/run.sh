@@ -591,6 +591,124 @@ eq "--highlight needs a number" 1 "$(rc sitrep watch --once --highlight x)"
 eq "--highlight needs a value" 1 "$(rc sitrep watch --once --highlight)"
 rm -rf "$STATE"; mkdir -p "$STATE"
 
+# ---- ls --json
+rm -rf "$STATE"; mkdir -p "$STATE" "$HOME/.claude/sessions"; rm -f "$HOME/.claude/sessions"/*.json
+j() { sitrep ls --json "$@"; }
+eq "ls --json exits 0 with nothing to show" 0 "$(rc sitrep ls --json)"
+eq "no sessions is an empty array" "[]" "$(j | jq -c .sessions)"
+eq "the version is 1" 1 "$(j | jq .version)"
+sleep 300 & jp1=$!; sleep 300 & jp2=$!; sleep 300 & jp3=$!
+jl() { LC_ALL=C TZ=UTC ps -o lstart= -p "$1" | tr -s ' ' | sed 's/^ //; s/ $//'; }
+mk jsn00001 alive 20; st jsn00001 working 20
+mk jsn00002 gone 500; st jsn00002 waiting 500
+mk jsn00003 revived 500; st jsn00003 ended 500
+mk jsn00004 quiet 500; st jsn00004 working 500
+reg jsn00001 "$jp1" "$(jl "$jp1")"
+reg jsn00003 "$jp2" "$(jl "$jp2")"
+reg jsn00004 "$jp3" "$(jl "$jp3")"
+mkdir -p "$HOME/.claude/projects/p"; printf '{}\n' > "$HOME/.claude/projects/p/jsn00004.jsonl"; age 1500 "$HOME/.claude/projects/p/jsn00004.jsonl"
+printf '{}\n' > "$HOME/.claude/projects/p/jsn00001.jsonl"
+check "the document has the documented shape" bash -c "sitrep ls --json -a | jq -e '
+  .version == 1 and (.generated|type==\"number\") and (.registry == \"ok\" or .registry == \"unavailable\")
+  and (.settings.queue_items|type==\"number\") and (.settings.highlight_seconds|type==\"number\") and (.settings.highlight_sgr|type==\"string\")
+  and (.inbox.count|type==\"number\") and (.inbox.items|type==\"array\")
+  and (.hidden.ended|type==\"number\") and (.hidden.stranded_items|type==\"number\")
+  and (.sessions|type==\"array\")
+  and all(.sessions[]; (.id|test(\"^[A-Za-z0-9_-]+\$\")) and (.short|type==\"string\") and (.running|type==\"boolean\")
+    and (.state|IN(\"working\",\"waiting\",\"ended\",\"running\",\"-\")) and (.state_label|type==\"string\") and (.age|type==\"number\")
+    and (.state_changed|type==\"number\") and (.quiet_secs == null or (.quiet_secs|type==\"number\")) and (.idle|type==\"boolean\")
+    and (.pinned|type==\"boolean\") and (.highlight|type==\"boolean\") and (.dir|type==\"string\") and (.cwd|type==\"string\")
+    and (.objective|type==\"string\") and (.progress|type==\"string\") and (.now|type==\"string\")
+    and (.queue.count|type==\"number\") and (.queue.items|type==\"array\"))' >/dev/null"
+eq "the registry is read" ok "$(j | jq -r .registry)"
+eq "running sessions are listed by default" "jsn00001 jsn00003 jsn00004" "$(j | jq -r '[.sessions[].id] | sort | join(" ")')"
+eq "finished sessions are counted, not listed" 1 "$(j | jq .hidden.ended)"
+check "-a lists the finished one too" has "$(j -a | jq -r '[.sessions[].id] | join(" ")')" "jsn00002"
+eq "a finished session is not running" false "$(j -a | jq '.sessions[] | select(.id == "jsn00002") | .running')"
+eq "a finished session has state ended" ended "$(j -a | jq -r '.sessions[] | select(.id == "jsn00002") | .state')"
+check "its label says how long ago" has "$(j -a | jq -r '.sessions[] | select(.id == "jsn00002") | .state_label')" "ended "
+eq "a live session with a stale ended state is running" running "$(j | jq -r '.sessions[] | select(.id == "jsn00003") | .state')"
+eq "the recent live session is highlighted" true "$(j | jq '.sessions[] | select(.id == "jsn00001") | .highlight')"
+eq "an older live session is not" false "$(j | jq '.sessions[] | select(.id == "jsn00003") | .highlight')"
+eq "a finished session is never highlighted" false "$(j -a | jq '.sessions[] | select(.id == "jsn00002") | .highlight')"
+eq "a working session with a live transcript has a small quiet time" 1 "$(j | jq '.sessions[] | select(.id == "jsn00001") | (.quiet_secs >= 0 and .quiet_secs < 60 and (.idle|not))' | grep -c true)"
+eq "a working session with a quiet transcript is idle" true "$(j | jq '.sessions[] | select(.id == "jsn00004") | .idle')"
+check "its label says idle?" has "$(j | jq -r '.sessions[] | select(.id == "jsn00004") | .state_label')" "idle? "
+check "its quiet time is the transcript's" test "$(j | jq '.sessions[] | select(.id == "jsn00004") | .quiet_secs')" -ge 1500
+eq "a session that is not working has no quiet time" null "$(j | jq '.sessions[] | select(.id == "jsn00003") | .quiet_secs')"
+eq "the state change time is generated minus the age" 0 "$(j | jq '.generated as $g | [.sessions[] | (.state_changed + .age - $g | fabs)] | max | if . <= 2 then 0 else . end')"
+sitrep pin jsn00001 "pinned goal" >/dev/null
+eq "a pinned Objective is flagged" true "$(j | jq '.sessions[] | select(.id == "jsn00001") | .pinned')"
+eq "the Objective is the pinned text" "pinned goal" "$(j | jq -r '.sessions[] | select(.id == "jsn00001") | .objective')"
+eq "dir is the last part of the working directory" alive "$(j | jq -r '.sessions[] | select(.id == "jsn00001") | .dir')"
+eq "cwd has no trailing space" "/x/alive" "$(j | jq -r '.sessions[] | select(.id == "jsn00001") | .cwd')"
+# queues: the true count, and a cap on the items
+for n in 1 2 3 4 5 6 7; do sitrep add jsn00001 "item $n" >/dev/null; sitrep add inbox "box $n" >/dev/null; done
+eq "the count is the true count" 7 "$(j | jq '.sessions[] | select(.id == "jsn00001") | .queue.count')"
+eq "items are capped at five by default" 5 "$(j | jq '.sessions[] | select(.id == "jsn00001") | .queue.items | length')"
+eq "the items are in order" "item 1" "$(j | jq -r '.sessions[] | select(.id == "jsn00001") | .queue.items[0]')"
+eq "-n sets the cap" 2 "$(j -n 2 | jq '.sessions[] | select(.id == "jsn00001") | .queue.items | length')"
+eq "-n 0 lists no items but keeps the count" "0 7" "$(j -n 0 | jq -r '.sessions[] | select(.id == "jsn00001") | "\(.queue.items | length) \(.queue.count)"')"
+eq "--full lists every item" 7 "$(j --full | jq '.sessions[] | select(.id == "jsn00001") | .queue.items | length')"
+eq "the inbox has a true count" 7 "$(j | jq .inbox.count)"
+eq "the inbox is capped the same way" 5 "$(j | jq '.inbox.items | length')"
+eq "--full applies to the inbox" 7 "$(j --full | jq '.inbox.items | length')"
+rm -f "$STATE/inbox.queue"
+printf 'SITREP_QUEUE_ITEMS=2\nSITREP_HIGHLIGHT_SECONDS=5\nSITREP_HIGHLIGHT_SGR=41\n' > "$STATE/sitrep.conf"
+eq "settings come from sitrep.conf" "2 5 41" "$(j | jq -r '"\(.settings.queue_items) \(.settings.highlight_seconds) \(.settings.highlight_sgr)"')"
+eq "the default cap follows the setting" 2 "$(j | jq '.sessions[] | select(.id == "jsn00001") | .queue.items | length')"
+eq "the highlight window follows the setting" false "$(j | jq '.sessions[] | select(.id == "jsn00001") | .highlight')"
+rm -f "$STATE/sitrep.conf"
+eq "an id with --json is refused" 1 "$(rc sitrep ls --json jsn0)"
+eq "a bad -n is refused" 1 "$(rc sitrep ls --json -n x)"
+# hostile text: nothing but valid, clean JSON comes out
+printf 'Objective: q"uote back\\slash\ttab \033[31mred\033]0;x\a \xe2\x80\xaebidi \xe2\x80\xa8sep \xff\xfe bad\nProgress:  p\x01\x1fp\nNow:       n\n' > "$STATE/jsn00005.txt"
+printf '/x/ho"stile\\dir\t\033[0m \n' > "$STATE/jsn00005.cwd"
+printf 'item"1\\\twith\x1funit\n\xc3\x28 invalid\n\n   \n\033]0;t\aok\n' > "$STATE/jsn00005.queue"
+perl -e '$t = time - 5; utime $t, $t, @ARGV' "$STATE/jsn00005.txt"
+printf 'junk\n' > "$STATE/bad name.txt"; printf 'junk\n' > "$STATE/x.y.txt"
+out=$(j -a)
+eq "the output parses" 0 "$(printf '%s\n' "$out" | jq -e . >/dev/null 2>&1; echo $?)"
+eq "no string holds a control or format character" 0 "$(printf '%s\n' "$out" | jq '[.. | strings | select(test("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]"))] | length')"
+eq "quotes and backslashes survive" 1 "$(printf '%s\n' "$out" | jq '[.sessions[] | select(.id == "jsn00005") | .objective | select(contains("q\"uote back\\slash"))] | length')"
+eq "a bad file name is skipped" 0 "$(printf '%s\n' "$out" | jq '[.sessions[] | select(.id | test("^[A-Za-z0-9_-]+$") | not)] | length')"
+eq "blank queue lines are not items" 3 "$(printf '%s\n' "$out" | jq '.sessions[] | select(.id == "jsn00005") | .queue.count')"
+eq "a tab in text becomes a space" 1 "$(printf '%s\n' "$out" | jq '[.sessions[] | select(.id == "jsn00005") | .queue.items[0] | select(contains("\\ with"))] | length')"
+eq "the output is one document" 1 "$(printf '%s\n' "$out" | jq -s length)"
+# transcripts: the most recent one counts, and only a working session has a quiet time
+mkdir -p "$HOME/.claude/projects/q"
+printf '{}\n' > "$HOME/.claude/projects/q/jsn00001.jsonl"; age 700 "$HOME/.claude/projects/q/jsn00001.jsonl"
+check "with two transcripts the recent one decides: not idle" test "$(j | jq '.sessions[] | select(.id == "jsn00001") | .idle')" = false
+check "and the quiet time is the shorter one" test "$(j | jq '.sessions[] | select(.id == "jsn00001") | .quiet_secs')" -lt 60
+printf '{}\n' > "$HOME/.claude/projects/p/jsn00003.jsonl"; age 5000 "$HOME/.claude/projects/p/jsn00003.jsonl"
+eq "a session that is not working has no quiet time even with an old transcript" null "$(j | jq '.sessions[] | select(.id == "jsn00003") | .quiet_secs')"
+# shellcheck disable=SC2016  # the word must stay literal: it is the unsafe input under test
+printf 'rm -rf /$(x)\033[31m\n' > "$STATE/.jsn00004.state"
+eq "an unknown state word reads as a dash" "-" "$(j | jq -r '.sessions[] | select(.id == "jsn00004") | .state')"
+rm -f "$HOME/.claude/projects/q/jsn00001.jsonl" "$HOME/.claude/projects/p/jsn00003.jsonl"
+# flags
+eq "--full without --json is refused" 1 "$(rc sitrep ls --full)"
+eq "--json after an id is refused" 1 "$(rc sitrep ls jsn0 --json)"
+eq "--json -n without a value is refused" 1 "$(rc sitrep ls --json -n)"
+# an unreadable file reads as empty and does not blank the listing
+printf 'one\ntwo\n' > "$STATE/jsn00001.queue"; chmod 000 "$STATE/jsn00001.queue"
+if [ ! -r "$STATE/jsn00001.queue" ]; then   # root can read anything
+  eq "an unreadable queue does not break the listing" 0 "$(j | jq -e . >/dev/null 2>&1; echo $?)"
+  eq "and reads as empty" 0 "$(j | jq '.sessions[] | select(.id == "jsn00001") | .queue.count')"
+fi
+chmod 600 "$STATE/jsn00001.queue"
+# without a registry the listing falls back to the hook states
+rm -f "$HOME/.claude/sessions"/*.json
+eq "an unreadable registry is reported" unavailable "$(j | jq -r .registry)"
+eq "and the fallback still gives valid JSON" 0 "$(j | jq -e . >/dev/null 2>&1; echo $?)"
+# a big listing: the session data must not travel in one argument, which Linux caps at 128 KB
+rm -rf "$STATE"; mkdir -p "$STATE"
+for n in $(seq 1 600); do printf -v id 'big%05d' "$n"; printf 'Objective: o\nProgress:  p\nNow:       n\n' > "$STATE/$id.txt"; printf '/x/big\n' > "$STATE/$id.cwd"; done
+eq "600 sessions give one valid document" 600 "$(j | jq '.sessions | length')"
+kill "$jp1" "$jp2" "$jp3" 2>/dev/null; wait "$jp1" "$jp2" "$jp3" 2>/dev/null
+rm -f "$HOME/.claude/projects/p/jsn0000"*.jsonl
+rm -rf "$STATE"; mkdir -p "$STATE"
+
 # ---- help
 eq "sitrep help exits 0" 0 "$(rc sitrep help)"
 eq "-h is help too" "$(sitrep help)" "$(sitrep -h)"

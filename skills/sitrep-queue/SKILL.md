@@ -25,6 +25,7 @@ You do not get your own session id. Find it from `sitrep ls`:
 - `sitrep move <from> <to> [n]` hands an item to another queue.
 - `sitrep top <id> <n>` moves item `n` to the front, and `sitrep reorder <id> <from> <to>` moves it to any position. Reorder only when the user asks.
 - `sitrep ls -v` adds the Progress line and lists every queue in full, for all running sessions at once.
+- `sitrep ls --json` prints the same listing as one JSON document, with every queue's true count. Prefer it when you need to read sessions in code.
 - `sitrep prune --dry-run` shows which sessions are gone and what it would do. `sitrep prune` marks them ended and asks before moving their queued items to the inbox. Run it only when the user asks, run the dry run first and show the result, and never pass `-y` unless the user says to.
 - `inbox` is a shared queue that belongs to no session. Use it as an id with `add`, `ls`, `rm` and `move`, for example `sitrep add inbox <text>`. It has no Objective, so `pin` and `unpin` fail on it.
 
