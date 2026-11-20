@@ -1,4 +1,4 @@
-SCRIPTS := bin/q hooks/notes-hook.sh statusline/statusline.sh install.sh uninstall.sh tests/run.sh
+SCRIPTS := bin/sitrep hooks/notes-hook.sh statusline/statusline.sh install.sh uninstall.sh tests/run.sh
 
 .PHONY: lint
 lint:

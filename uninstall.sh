@@ -1,8 +1,8 @@
 #!/bin/bash
-# Removes our hooks, restores the upstream status line saved in ~/.claude/sitrep.conf, and unlinks `q` and the sitrep-queue skill if they are ours.
+# Removes our hooks, restores the upstream status line saved in ~/.claude/sitrep/sitrep.conf, and unlinks `sitrep` (and any alias) and the sitrep-queue skill if they are ours.
 set -e
 R=$(cd "$(dirname "$0")" && pwd)
-S="$HOME/.claude/settings.json"; BIN_DIR=${BIN_DIR:-$HOME/bin}; SKILLS_DIR=${SKILLS_DIR:-$HOME/.claude/skills}; CONF="$HOME/.claude/sitrep.conf"
+S="$HOME/.claude/settings.json"; BIN_DIR=${BIN_DIR:-$HOME/bin}; SKILLS_DIR=${SKILLS_DIR:-$HOME/.claude/skills}; CONF="$HOME/.claude/sitrep/sitrep.conf"
 cp "$S" "$S.bak.$(date +%Y%m%dT%H%M%S)"
 slp=$(printf '%q' "$R/statusline/statusline.sh"); hp=$(printf '%q' "$R/hooks/notes-hook.sh")
 up=""
@@ -19,6 +19,6 @@ jq -L "$R/lib" --arg up "$up" --arg slp "$slp" --arg hp "$hp" '
     else . end' "$S" > "$tmp"
 cat "$tmp" > "$S"
 rm -f "$CONF"   # consumed above; a stale upstream would otherwise outlive us
-[ "$(readlink "$BIN_DIR/q" 2>/dev/null)" = "$R/bin/q" ] && rm -f "$BIN_DIR/q"
+for l in "$BIN_DIR"/*; do [ "$(readlink "$l" 2>/dev/null)" = "$R/bin/sitrep" ] && rm -f "$l"; done
 [ "$(readlink "$SKILLS_DIR/sitrep-queue" 2>/dev/null)" = "$R/skills/sitrep-queue" ] && rm -f "$SKILLS_DIR/sitrep-queue"
-echo "Uninstalled. Notes in ~/.claude/session-notes are left in place."
+echo "Uninstalled. Notes in ~/.claude/sitrep are left in place."

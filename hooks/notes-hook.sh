@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hook for SessionStart, UserPromptSubmit and Stop. Maintains ~/.claude/session-notes/<session_id>.txt
+# Hook for SessionStart, UserPromptSubmit and Stop. Maintains ~/.claude/sitrep/<session_id>.txt
 # (three lines: Objective / Progress / Now). A Haiku summarizer runs in the background on Stop.
 [ -n "$CLAUDE_NOTES_RUNNING" ] && exit 0   # recursion guard: the summarizer's own claude -p fires hooks
 umask 077   # notes hold prompt text: owner-only
@@ -16,7 +16,7 @@ case "$tp" in
   "$cfg/projects/"*) { [ -f "$tp" ] && [ ! -L "$tp" ]; } || tp="" ;;
   *) tp="" ;;
 esac
-dir="$HOME/.claude/session-notes"; [ -d "$dir" ] || mkdir -p "$dir"; chmod 700 "$dir"
+dir="$HOME/.claude/sitrep"; [ -d "$dir" ] || mkdir -p "$dir"; chmod 700 "$dir"
 f="$dir/$sid.txt"
 
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
@@ -42,22 +42,25 @@ block() { jq -n --arg r "$1" '{decision:"block",reason:$r}'; }
 first_prompt() { # first real user message in the transcript; skips whole messages that are command/system wrappers (start with a tag)
   [ -f "$tp" ] && jq -r 'select(.type=="user") | .message.content | if type=="string" then . else map(select(.type=="text")|.text)|join(" ") end | select(test("^\\s*(<|&lt;)")|not) | select(test("\\S"))' "$tp" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e '/^$/d' | head -1
 }
-summarize() { # background Haiku call: rewrites Progress and Now
+pinned() { [ -e "$dir/.$sid.pinned" ]; }   # set by +goal and `sitrep goal`: the summarizer then leaves Objective alone
+summarize() { # background Haiku call: rewrites Progress and Now, and Objective unless pinned
   local since=; { read -r since < "$dir/.$sid.prompt"; } 2>/dev/null
   (
     export CLAUDE_NOTES_RUNNING=1
     work=$(mktemp -d) && cd "$work" || exit 0   # neutral cwd: no project CLAUDE.md, settings or MCP servers
     trap 'rm -rf "$work"' EXIT
     ctx=$(tail -n 40 "$tp" | jq -r 'select(.type=="user" or .type=="assistant") | "\(.type): " + ((.message.content | if type=="string" then . else map(select(.type=="text") | .text) | join(" ") end) // "")' 2>/dev/null | cut -c1-600 | tail -c 6000)
-    out=$(printf 'Objective so far: %s\n\nRecent transcript:\n%s\n\nReply with exactly two lines and nothing else:\nProgress: <what has been accomplished so far, max 120 chars>\nNow: <what is happening or awaiting the user right now, max 120 chars>' "$obj" "$ctx" \
+    out=$(printf 'Objective so far: %s\n\nRecent transcript:\n%s\n\nReply with exactly three lines and nothing else:\nObjective: <a short title for the overall goal of this session, max 80 chars; keep the objective so far if it still fits>\nProgress: <what has been accomplished so far, max 120 chars>\nNow: <what is happening or awaiting the user right now, max 120 chars>' "$obj" "$ctx" \
       | perl -e 'alarm shift; exec @ARGV' 60 claude -p --model haiku --no-session-persistence --disable-slash-commands --tools "" \
           --strict-mcp-config --mcp-config '{"mcpServers":{}}' --setting-sources "" --max-budget-usd 0.05 2>/dev/null)
+    o=$(printf '%s' "$out" | sed -n 's/^Objective: *//p' | head -1)
     p=$(printf '%s' "$out" | sed -n 's/^Progress: *//p' | head -1)
     n=$(printf '%s' "$out" | sed -n 's/^Now: *//p' | head -1)
     [ -n "$p" ] && [ -n "$n" ] || exit 0
     # A prompt submitted while we were summarizing makes this summary stale: drop it, the next Stop redoes it.
     [ "$(cat "$dir/.$sid.prompt" 2>/dev/null)" = "$since" ] || exit 0
-    write "$(get Objective)" "$(trunc "$p" 140)" "$(trunc "$n" 140)"
+    o=$(trunc "$o" 100); { pinned || [ -z "$o" ]; } && o=$(get Objective)
+    write "$o" "$(trunc "$p" 140)" "$(trunc "$n" 140)"
   ) >/dev/null 2>&1 &
 }
 
@@ -71,7 +74,7 @@ if [ "$event" = "UserPromptSubmit" ]; then
       text=${prompt#+goal }
       if short "$text"; then
         g=$(trunc "$text" 200)
-        if write "$g" "${prog:--}" "${now:--}"; then
+        if : > "$dir/.$sid.pinned" && write "$g" "${prog:--}" "${now:--}"; then
           block "Objective pinned: $g"; exit 0
         fi
       fi ;;

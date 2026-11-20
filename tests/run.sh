@@ -9,11 +9,11 @@ cat > "$T/bin/claude" <<'STUB'
 cat >/dev/null
 echo x >> "$STUB_CALLS"
 [ -e "$STUB_SLOW" ] && sleep 2
-printf 'Progress: stub progress\nNow: stub now\n'
+printf 'Objective: stub objective\nProgress: stub progress\nNow: stub now\n'
 STUB
 chmod +x "$T/bin/claude"
 export PATH="$T/bin:$R/bin:$PATH" STUB_CALLS="$T/calls" STUB_SLOW="$T/slow"
-NOTES="$HOME/.claude/session-notes"
+NOTES="$HOME/.claude/sitrep"
 pass=0; fail=0
 
 check() { # description, then a command whose success means pass
@@ -37,7 +37,7 @@ status() { status_in "$HOME" "$1"; }
 rc() { "$@" >/dev/null 2>&1; echo $?; }   # exit status of a command, for use inside eq
 waitfor() { for _ in $(seq 1 60); do [ "$(field "$1" "$2")" = "$3" ] && return 0; sleep 0.2; done; return 1; }
 mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
-reset() { rm -rf "$NOTES" "$HOME/.claude/sitrep.conf" "$STUB_CALLS" "$STUB_SLOW"; }
+reset() { rm -rf "$NOTES" "$HOME/.claude/sitrep/sitrep.conf" "$STUB_CALLS" "$STUB_SLOW"; }
 clone() { mkdir -p "$1"; (cd "$R" && tar --exclude=.git -cf - .) | (cd "$1" && tar xf -); }
 instc() { HOME="$1" BIN_DIR="$1/bin" bash "$2/$3"; }   # home, repo, script
 fresh() { rm -rf "$1"; mkdir -p "$1/.claude"; printf '%s' "$2" > "$1/.claude/settings.json"; }
@@ -85,10 +85,12 @@ mkdir -p "$HOME/.claude/projects/p"; TP="$HOME/.claude/projects/p/transcript.jso
 jq -nc '{type:"user",message:{content:"<local-command-caveat>x</local-command-caveat>\n   <command-name>/clear</command-name>\n   <command-message>clear</command-message>"}}' > "$TP"
 jq -nc '{type:"user",message:{content:"Debug the flaky test"}}' >> "$TP"
 jq -nc '{type:"assistant",message:{content:[{type:"text",text:"on it"}]}}' >> "$TP"
-ev sess0005 SessionStart "" "$TP" | hook
+touch "$STUB_SLOW"; ev sess0005 SessionStart "" "$TP" | hook
 eq "resume seeds the objective, skipping the /clear wrapper" "Debug the flaky test" "$(field sess0005 Objective)"
 check "summarizer fills Progress" waitfor sess0005 Progress "stub progress"
 eq "summarizer fills Now" "stub now" "$(field sess0005 Now)"
+eq "summarizer replaces an unpinned objective" "stub objective" "$(field sess0005 Objective)"
+rm -f "$STUB_SLOW"
 
 # ---- hook: summarizer never overwrites a pinned goal
 reset
@@ -97,6 +99,17 @@ ev sess0006 UserPromptSubmit "+goal Pinned" | hook >/dev/null
 ev sess0006 Stop "" "$TP" | hook
 check "stop summary arrives" waitfor sess0006 Progress "stub progress"
 eq "pinned objective survives the summarizer" "Pinned" "$(field sess0006 Objective)"
+reset
+ev sess0007 UserPromptSubmit "first" | hook
+ev sess0007 Stop "" "$TP" | hook
+check "stop summary arrives for an unpinned session" waitfor sess0007 Progress "stub progress"
+eq "an unpinned objective is summarized" "stub objective" "$(field sess0007 Objective)"
+reset
+ev sess0009 UserPromptSubmit "first" | hook
+sitrep goal sess "Pinned by cli" >/dev/null
+ev sess0009 Stop "" "$TP" | hook
+check "stop summary arrives after sitrep goal" waitfor sess0009 Progress "stub progress"
+eq "sitrep goal pins against the summarizer" "Pinned by cli" "$(field sess0009 Objective)"
 
 # ---- hook: C1 controls and bidi overrides are untrusted too
 reset
@@ -110,7 +123,7 @@ printf 'Objective: a\xc2\x9b31m\xe2\x80\xaeb\nProgress: -\nNow: -\n' > "$NOTES/s
 out=$(status sess0013)
 check "status line drops C1 and bidi at print time" hasnt "$out" $'\xc2\x9b'
 check "status line drops bidi at print time" hasnt "$out" $'\xe2\x80\xae'
-check "q ls drops C1 at print time" hasnt "$(q ls)" $'\xc2\x9b'
+check "sitrep ls drops C1 at print time" hasnt "$(sitrep ls)" $'\xc2\x9b'
 
 # ---- hook: + and +goal never lose a prompt
 reset
@@ -169,13 +182,13 @@ rm -f "$STUB_SLOW"
 reset
 out=$(status sess0007)
 check "placeholder objective before the first prompt" has "$out" "Objective: (set on your first prompt)"
-check "placeholder queue line" has "$out" "Queue (0) [sess]"
+check "placeholder queue line" has "$out" "Queue: empty  (session sess)"
 ev sess0007 UserPromptSubmit "hello" | hook
 ev sess0007 UserPromptSubmit "+ first item" | hook >/dev/null
 out=$(status sess0007)
 check "shows objective" has "$out" "Objective: hello"
-check "shows queue count and next item" has "$out" "Queue (1) [sess]  next: first item"
-printf 'SITREP_HUD_CMD=%q\n' "echo HUDLINE" > "$HOME/.claude/sitrep.conf"
+check "shows queue count and next item" has "$out" "Queue: 1 queued, next: first item  (session sess)"
+mkdir -p "$HOME/.claude/sitrep"; printf 'SITREP_HUD_CMD=%q\n' "echo HUDLINE" > "$HOME/.claude/sitrep/sitrep.conf"
 eq "upstream status line runs first" HUDLINE "$(status sess0007 | head -1)"
 printf 'Objective: a\033[31mb\033]0;t\a\nProgress: -\nNow: -\n' > "$NOTES/sess0008.txt"
 out=$(status sess0008)
@@ -185,28 +198,28 @@ check "escapes are stripped at print time" hasnt "$out" $'\033'
 reset
 ev abcd0001 UserPromptSubmit "obj one" | hook
 ev abef0002 UserPromptSubmit "obj two" | hook
-check "q add" bash -c "q add abc 'task A' && q add abc 'task B'"
-eq "q ls <session> lists the queue" " 1. task A" "$(q ls abc | sed -n 3p)"
-eq "q move reports the move" "moved to abef: task A" "$(q move abc abe)"
-eq "q done returns and removes the item" "task B" "$(q "done" abc)"
-eq "q done on an empty queue fails" 1 "$(rc q "done" abc)"
-eq "ambiguous prefix fails" 1 "$(rc q ls ab)"
-eq "non-numeric item is rejected" 1 "$(rc q "done" abe '1d')"
-eq "path-like session is rejected" 1 "$(rc q ls '../x')"
-q goal abe "New goal" >/dev/null
-eq "q goal pins the objective" "New goal" "$(field abef0002 Objective)"
-q add abe $'tab\there \033[31mred\xc2\x9b31m' >/dev/null
-check "q add strips escapes" nobytes "$NOTES/abef0002.queue" $'\033'
-check "q add strips C1 controls" nobytes "$NOTES/abef0002.queue" $'\xc2\x9b'
-check "q ls lists sessions" has "$(q ls)" "queue:"
+check "sitrep add" bash -c "sitrep add abc 'task A' && sitrep add abc 'task B'"
+eq "sitrep ls <session> lists the queue" " 1. task A" "$(sitrep ls abc | sed -n 3p)"
+eq "sitrep move reports the move" "moved to abef: task A" "$(sitrep move abc abe)"
+eq "sitrep done returns and removes the item" "task B" "$(sitrep "done" abc)"
+eq "sitrep done on an empty queue fails" 1 "$(rc sitrep "done" abc)"
+eq "ambiguous prefix fails" 1 "$(rc sitrep ls ab)"
+eq "non-numeric item is rejected" 1 "$(rc sitrep "done" abe '1d')"
+eq "path-like session is rejected" 1 "$(rc sitrep ls '../x')"
+sitrep goal abe "New goal" >/dev/null
+eq "sitrep goal pins the objective" "New goal" "$(field abef0002 Objective)"
+sitrep add abe $'tab\there \033[31mred\xc2\x9b31m' >/dev/null
+check "sitrep add strips escapes" nobytes "$NOTES/abef0002.queue" $'\033'
+check "sitrep add strips C1 controls" nobytes "$NOTES/abef0002.queue" $'\xc2\x9b'
+check "sitrep ls lists sessions" has "$(sitrep ls)" "queue:"
 printf 'Objective: only\n' > "$NOTES/abcd0001.txt"
-q goal abcd "replaced" >/dev/null
-eq "q goal works on an objective-only file" "replaced" "$(field abcd0001 Objective)"
-q add abcd one >/dev/null; q "done" abcd >/dev/null
-check "q ls prints no stray count for an emptied queue" bash -c '! q ls | grep -qx 0'
-eq "q add reports a zero count once" "queued on abcd (now 1)" "$(q add abcd two)"
-eq "q done past the end of the queue fails" 1 "$(rc q "done" abcd 9)"
-eq "q add rejects text that cleans to nothing" 1 "$(rc q add abcd "$(printf '\001')")"
+sitrep goal abcd "replaced" >/dev/null
+eq "sitrep goal works on an objective-only file" "replaced" "$(field abcd0001 Objective)"
+sitrep add abcd one >/dev/null; sitrep "done" abcd >/dev/null
+check "sitrep ls prints no stray count for an emptied queue" bash -c '! sitrep ls | grep -qx 0'
+eq "sitrep add reports a zero count once" "queued on abcd (now 1)" "$(sitrep add abcd two)"
+eq "sitrep done past the end of the queue fails" 1 "$(rc sitrep "done" abcd 9)"
+eq "sitrep add rejects text that cleans to nothing" 1 "$(rc sitrep add abcd "$(printf '\001')")"
 
 # ---- install / uninstall round trip, in a separate HOME
 H2="$T/home2"
@@ -220,16 +233,16 @@ done
 eq "install keeps the user's own Stop hook" 1 "$(jq '[.hooks.Stop[]|select(.hooks[0].command=="echo mine")]|length' "$S2")"
 check "status line points at the repo" jq -e '.statusLine.command|contains("statusline.sh")' "$S2"
 # shellcheck source=/dev/null
-eq "old status line saved as the upstream" "echo old-hud" "$(. "$H2/.claude/sitrep.conf"; echo "$SITREP_HUD_CMD")"
-check "q is linked" test -L "$H2/bin/q"
+eq "old status line saved as the upstream" "echo old-hud" "$(. "$H2/.claude/sitrep/sitrep.conf"; echo "$SITREP_HUD_CMD")"
+check "sitrep is linked" test -L "$H2/bin/sitrep"
 check "skill is linked" test -L "$H2/.claude/skills/sitrep-queue" -a -f "$H2/.claude/skills/sitrep-queue/SKILL.md"
-conf1=$(cat "$H2/.claude/sitrep.conf")
+conf1=$(cat "$H2/.claude/sitrep/sitrep.conf")
 instc "$H2" "$R" install.sh >/dev/null
 eq "second install does not duplicate hooks" 1 "$(jq '[.hooks.Stop[]|select(.hooks[0].command|contains("notes-hook"))]|length' "$S2")"
-eq "second install keeps the saved upstream" "$conf1" "$(cat "$H2/.claude/sitrep.conf")"
+eq "second install keeps the saved upstream" "$conf1" "$(cat "$H2/.claude/sitrep/sitrep.conf")"
 instc "$H2" "$R" uninstall.sh >/dev/null
 eq "uninstall restores settings exactly" "$(jq -S . "$T/original.json")" "$(jq -S . "$S2")"
-check "uninstall unlinks q" test ! -e "$H2/bin/q"
+check "uninstall unlinks sitrep" test ! -e "$H2/bin/sitrep"
 check "uninstall unlinks the skill" test ! -e "$H2/.claude/skills/sitrep-queue" -a ! -L "$H2/.claude/skills/sitrep-queue"
 
 # ---- install: clones, output and recovery
@@ -238,14 +251,14 @@ check "uninstall unlinks the skill" test ! -e "$H2/.claude/skills/sitrep-queue" 
 H3="$T/home3"; fresh "$H3" '{"statusLine":{"type":"command","command":"echo old-hud"}}'
 clone "$T/clone-a"; clone "$T/clone-b"
 instc "$H3" "$T/clone-a" install.sh >/dev/null; instc "$H3" "$T/clone-b" install.sh >/dev/null 2>&1
-check "upstream stays the original after installs from two clones" bash -c "grep -q 'old-hud' '$H3/.claude/sitrep.conf' && ! grep -q 'statusline.sh' '$H3/.claude/sitrep.conf'"
+check "upstream stays the original after installs from two clones" bash -c "grep -q 'old-hud' '$H3/.claude/sitrep/sitrep.conf' && ! grep -q 'statusline.sh' '$H3/.claude/sitrep/sitrep.conf'"
 eq "status line refuses to render itself" "" "$(jq -nc '{session_id:"x"}' | SITREP_ACTIVE=1 bash "$R/statusline/statusline.sh")"
 
 # install output says what it found
 H9="$T/home9"; fresh "$H9" '{}'
 check "install reports no existing status line" has "$(instc "$H9" "$R" install.sh 2>&1)" "No existing status line"
-check "no sitrep.conf is written without an upstream" test ! -e "$H9/.claude/sitrep.conf"
-check "block renders without an upstream" has "$(status_in "$H9")" "Queue (0)"
+check "no sitrep.conf is written without an upstream" test ! -e "$H9/.claude/sitrep/sitrep.conf"
+check "block renders without an upstream" has "$(status_in "$H9")" "Queue: empty"
 H10="$T/home10"; fresh "$H10" '{"statusLine":{"type":"command","command":"echo hud"}}'
 check "install reports the status line it wraps" has "$(instc "$H10" "$R" install.sh 2>&1)" "Wrapping the existing status line (it renders first): echo hud"
 eq "wrapped upstream renders first" hud "$(status_in "$H10" | head -1)"
@@ -253,26 +266,26 @@ eq "wrapped upstream renders first" hud "$(status_in "$H10" | head -1)"
 jq '.statusLine.command="echo hud-again"' "$H10/.claude/settings.json" > "$T/h10.json" && cp "$T/h10.json" "$H10/.claude/settings.json"
 instc "$H10" "$R" install.sh >/dev/null 2>&1
 eq "re-install after an overwrite wraps the new command" hud-again "$(status_in "$H10" | head -1)"
-check "sitrep block is back after the overwrite" has "$(status_in "$H10")" "Queue (0)"
+check "sitrep block is back after the overwrite" has "$(status_in "$H10")" "Queue: empty"
 
 # ---- install: stale config, look-alike status line, failed merge, upstream without a newline
-H11="$T/home11"; fresh "$H11" '{}'; printf 'SITREP_HUD_CMD=%q\n' "echo stale" > "$H11/.claude/sitrep.conf"
+H11="$T/home11"; fresh "$H11" '{}'; mkdir -p "$H11/.claude/sitrep"; printf 'SITREP_HUD_CMD=%q\n' "echo stale" > "$H11/.claude/sitrep/sitrep.conf"
 instc "$H11" "$R" install.sh >/dev/null
 out=$(status_in "$H11")
 check "a stale upstream is cleared when there is no status line" hasnt "$out" "stale"
 H12="$T/home12"; fresh "$H12" '{"statusLine":{"type":"command","command":"/opt/other/statusline/statusline.sh"}}'
 instc "$H12" "$R" install.sh >/dev/null 2>&1
-check "a foreign statusline.sh is wrapped, not mistaken for ours" grep -q "other/statusline" "$H12/.claude/sitrep.conf"
+check "a foreign statusline.sh is wrapped, not mistaken for ours" grep -q "other/statusline" "$H12/.claude/sitrep/sitrep.conf"
 instc "$H12" "$R" uninstall.sh >/dev/null
 eq "uninstall restores the foreign status line" "/opt/other/statusline/statusline.sh" "$(jq -r .statusLine.command "$H12/.claude/settings.json")"
-check "uninstall removes the consumed upstream config" test ! -e "$H12/.claude/sitrep.conf"
+check "uninstall removes the consumed upstream config" test ! -e "$H12/.claude/sitrep/sitrep.conf"
 H13="$T/home13"; fresh "$H13" '{"hooks":5,"statusLine":{"type":"command","command":"echo hud"}}'
 out=$(instc "$H13" "$R" install.sh 2>&1)
-check "a failed merge writes no upstream config" test ! -e "$H13/.claude/sitrep.conf"
+check "a failed merge writes no upstream config" test ! -e "$H13/.claude/sitrep/sitrep.conf"
 check "a failed merge does not claim to wrap anything" hasnt "$out" "Wrapping"
-printf 'SITREP_HUD_CMD=%q\n' "printf hud" > "$HOME/.claude/sitrep.conf"
+mkdir -p "$HOME/.claude/sitrep"; printf 'SITREP_HUD_CMD=%q\n' "printf hud" > "$HOME/.claude/sitrep/sitrep.conf"
 eq "upstream without a trailing newline does not glue onto our block" "hud" "$(status sess0007 | head -1)"
-rm -f "$HOME/.claude/sitrep.conf"
+rm -f "$HOME/.claude/sitrep/sitrep.conf"
 
 # paths with spaces
 H4="$T/home4"; fresh "$H4" '{}'
@@ -281,7 +294,7 @@ instc "$H4" "$T/my dir/sitrep" install.sh >/dev/null
 cmd=$(jq -r '.hooks.Stop[-1].hooks[0].command' "$H4/.claude/settings.json")
 eq "stored hook command runs from a path with spaces" 0 "$(echo '{}' | HOME="$H4" bash -c "$cmd" >/dev/null 2>&1; echo $?)"
 slc=$(jq -r '.statusLine.command' "$H4/.claude/settings.json")
-check "stored status line command runs from a path with spaces" has "$(jq -nc '{session_id:"sx"}' | HOME="$H4" bash -c "$slc")" "Queue (0)"
+check "stored status line command runs from a path with spaces" has "$(jq -nc '{session_id:"sx"}' | HOME="$H4" bash -c "$slc")" "Queue: empty"
 
 # hooks we do not own: non-command hooks, empty groups, look-alike names
 H5="$T/home5"; fresh "$H5" '{"hooks":{"Stop":[{"hooks":[{"type":"prompt","prompt":"x"}]},{"hooks":[]},{"hooks":[{"type":"command","command":"my-notes-hook-other.sh"}]}]},"statusLine":{"type":"command","command":"x","padding":2}}'
@@ -294,11 +307,11 @@ instc "$H5" "$R" uninstall.sh >/dev/null
 eq "uninstall restores settings with foreign hooks exactly" "$(jq -S . "$T/h5.json")" "$(jq -S . "$H5/.claude/settings.json")"
 
 # a q we do not own
-H6="$T/home6"; fresh "$H6" '{}'; mkdir -p "$H6/bin"; echo "mine" > "$H6/bin/q"
+H6="$T/home6"; fresh "$H6" '{}'; mkdir -p "$H6/bin"; echo "mine" > "$H6/bin/sitrep"
 instc "$H6" "$R" install.sh >/dev/null 2>&1
-eq "install leaves a foreign q alone" mine "$(cat "$H6/bin/q")"
+eq "install leaves a foreign sitrep alone" mine "$(cat "$H6/bin/sitrep")"
 instc "$H6" "$R" uninstall.sh >/dev/null
-eq "uninstall leaves a foreign q alone" mine "$(cat "$H6/bin/q")"
+eq "uninstall leaves a foreign sitrep alone" mine "$(cat "$H6/bin/sitrep")"
 
 # a symlinked settings.json stays a symlink
 H7="$T/home7"; fresh "$H7" ''; mkdir -p "$T/dotfiles"; echo '{}' > "$T/dotfiles/settings.json"
@@ -312,6 +325,23 @@ H8="$T/home8"; fresh "$H8" '{not json'
 check "install fails loudly on unparseable settings" bash -c "! HOME='$H8' BIN_DIR='$H8/bin' bash '$R/install.sh' >/dev/null 2>&1"
 eq "a failed install leaves settings untouched" "{not json" "$(cat "$H8/.claude/settings.json")"
 check "a failed install leaves no temp files" bash -c "! ls '$H8/.claude' | grep -q 'settings.json\\.[A-Za-z0-9]\\{6\\}'"
+
+# alias, migration from the old locations
+H14="$T/home14"; fresh "$H14" '{"statusLine":{"type":"command","command":"bash /x/statusline.sh # claude-sitrep"}}'; mkdir -p "$H14/.claude/session-notes"
+echo "Objective: kept" > "$H14/.claude/session-notes/abcd0001.txt"; echo 'SITREP_HUD_CMD=old' > "$H14/.claude/sitrep.conf"
+HOME="$H14" BIN_DIR="$H14/bin" bash "$R/install.sh" --alias q >/dev/null 2>&1
+check "install --alias links the alias" test "$(readlink "$H14/bin/q")" = "$R/bin/sitrep"
+check "install moves old notes" test -f "$H14/.claude/sitrep/abcd0001.txt" -a ! -e "$H14/.claude/session-notes"
+check "install moves the old config into the notes folder" test -f "$H14/.claude/sitrep/sitrep.conf" -a ! -e "$H14/.claude/sitrep.conf"
+instc "$H14" "$R" uninstall.sh >/dev/null
+check "uninstall removes the alias" test ! -e "$H14/bin/q" -a ! -L "$H14/bin/q"
+H15="$T/home15"; fresh "$H15" '{}'; mkdir -p "$H15/.claude/session-notes"; echo x > "$H15/.claude/session-notes/other.dat"
+instc "$H15" "$R" install.sh >/dev/null 2>&1
+check "install leaves a notes folder with foreign files alone" test -f "$H15/.claude/session-notes/other.dat"
+H16="$T/home16"; fresh "$H16" '{}'; mkdir -p "$H16/bin"; echo mine > "$H16/bin/q"
+HOME="$H16" BIN_DIR="$H16/bin" bash "$R/install.sh" --alias q >/dev/null 2>&1
+eq "install --alias leaves a foreign command alone" mine "$(cat "$H16/bin/q")"
+check "install rejects a bad alias" bash -c "! HOME='$H16' bash '$R/install.sh' --alias '../x' >/dev/null 2>&1"
 
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]

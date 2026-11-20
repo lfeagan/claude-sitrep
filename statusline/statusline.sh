@@ -4,7 +4,7 @@
 [ -n "$SITREP_ACTIVE" ] && exit 0   # never render ourselves, even if the upstream command points back here
 export SITREP_ACTIVE=1
 IFS= read -r -d '' input
-conf="$HOME/.claude/sitrep.conf"
+conf="$HOME/.claude/sitrep/sitrep.conf"
 # shellcheck source=/dev/null
 [ -f "$conf" ] && . "$conf"
 if [ -n "$SITREP_HUD_CMD" ]; then
@@ -12,7 +12,7 @@ if [ -n "$SITREP_HUD_CMD" ]; then
   [ -n "$up" ] && printf '%s\n' "$up"
 fi
 sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
-dir="$HOME/.claude/session-notes"; f="$dir/$sid.txt"
+dir="$HOME/.claude/sitrep"; f="$dir/$sid.txt"
 case "$sid" in *[!A-Za-z0-9_-]*) sid="" ;; esac
 # Our own block is untrusted text: drop control (Cc, incl. C1) and format (Cf, incl. bidi) characters; keeps tab and newline.
 strip() { perl -CSD -pe 's/(?!\n|\t)[\p{Cc}\p{Cf}]//g' 2>/dev/null; }
@@ -23,6 +23,7 @@ if [ -n "$sid" ]; then
     n=$(grep -c . "$qf"); read -r first < "$qf"
     next=$(printf '%s' "$first" | perl -CSD -pe 's/(?!\t)[\p{Cc}\p{Cf}]//g; $_=substr($_,0,90)' 2>/dev/null)
   fi
-  printf 'Queue (%s) [%s]%s\n' "$n" "${sid:0:4}" "${next:+  next: $next}"
+  if [ "$n" -eq 0 ]; then q="empty"; else q="$n queued"; fi
+  printf 'Queue: %s%s  (session %s)\n' "$q" "${next:+, next: $next}" "${sid:0:4}"
 fi
 exit 0
