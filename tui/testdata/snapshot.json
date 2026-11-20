@@ -6,7 +6,7 @@
   "hidden": {"ended": 1, "stranded_items": 2},
   "inbox": {"count": 3, "items": ["look at the nightly job", "check the CI flake on macOS and write down what the runner image does about the node deprecation"]},
   "sessions": [
-    {"id": "15f1db8a-b44f-4a1b-a5ed-01e3652e3178", "short": "15f1", "dir": "claude-sitrep", "cwd": "/Users/x/claude-sitrep", "running": true, "state": "working", "state_label": "working 1m", "age": 61, "state_changed": 1795199939, "quiet_secs": 4, "idle": false, "pinned": true, "highlight": true,
+    {"id": "15f1db8a-b44f-4a1b-a5ed-01e3652e3178", "short": "15f1", "dir": "claude-sitrep", "cwd": "/Users/x/claude-sitrep", "pid": 4242, "running": true, "state": "working", "state_label": "working 1m", "age": 61, "state_changed": 1795199939, "quiet_secs": 4, "idle": false, "pinned": true, "highlight": true,
      "objective": "Sitrep: add a Go front-end that reads sitrep ls --json, with a Watch tab and a Top tab, a status bar and a theme",
      "progress": "ls --json built and reviewed; Go module created; sanitizer, data layer and views written, tests next",
      "now": "writing the golden tests for the views",

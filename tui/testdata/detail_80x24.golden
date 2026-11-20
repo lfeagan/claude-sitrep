@@ -1,0 +1,24 @@
+ 15f1  claude-sitrep
+  Session   15f1db8a-b44f-4a1b-a5ed-01e3652e3178
+  Directory /Users/x/claude-sitrep
+  State     working 1m
+  Process   pid 4242
+  Quiet     4s
+  Pinned    yes: the Objective is kept as set
+
+  Objective Sitrep: add a Go front-end that reads sitrep ls --json, with a Watch
+            tab and a Top tab, a status bar and a theme
+  Progress  ls --json built and reviewed; Go module created; sanitizer, data
+            layer and views written, tests next
+  Now       writing the golden tests for the views
+
+  Queue     7 items, the first 3 shown
+            1. Decide whether to add a filter key
+            2. Add a help overlay on ? that lists the keys and what each tab
+               shows
+            3. Write the README section for the Go dashboard
+
+
+
+
+ esc back  up/down session  pgup/pgdn scroll                                    

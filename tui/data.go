@@ -63,6 +63,7 @@ type Session struct {
 	Idle         bool   `json:"idle"`
 	NeedsInput   bool   `json:"needs_input"`
 	QuietSecs    *int64 `json:"quiet_secs"`
+	PID          *int64 `json:"pid"`
 	Pinned       bool   `json:"pinned"`
 	Highlight    bool   `json:"highlight"`
 	Objective    string `json:"objective"`
@@ -157,7 +158,7 @@ func (l *limitedBuffer) Write(p []byte) (int, error) {
 func fetch(ctx context.Context, bin string, timeout time.Duration) (Snapshot, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "ls", "--json", "-a")
+	cmd := exec.CommandContext(ctx, bin, "ls", "--json", "-a", "--full") // every queue item: the views cap what they list
 	out := &limitedBuffer{max: maxOutput}
 	errs := &keepFirst{max: 4096}
 	cmd.Stdout, cmd.Stderr = out, errs

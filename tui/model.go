@@ -31,6 +31,8 @@ type model struct {
 	tab       int
 	showEnded bool
 	selID     string // the selected session, by id, so a refresh or a re-sort does not move it
+	detail    bool   // the detail pane is open for the selected session
+	scroll    int    // the top line of the detail pane
 	sortBy    int
 	help      bool
 	isDark    bool
@@ -54,6 +56,49 @@ func (m model) tickCmd() tea.Cmd {
 	return tea.Tick(m.interval, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
+// selected is the selected session, or nil.
+func (m model) selected() *Session {
+	for i := range m.snap.Sessions {
+		if m.snap.Sessions[i].ID == m.selID && m.selID != "" {
+			return &m.snap.Sessions[i]
+		}
+	}
+	return nil
+}
+
+// detailKey handles keys while the detail pane is open: up and down change the session, and
+// the page keys and the space bar scroll. Esc or i closes it.
+func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	x := m.selected()
+	if x == nil {
+		m.detail = false
+		return m, nil
+	}
+	maxScroll := detailMax(*x, m.width, m.height)
+	page := max(detailBody(m.height)-1, 1)
+	switch msg.String() {
+	case "q", "ctrl+c":
+		return m, tea.Quit
+	case "esc", "i", "backspace":
+		m.detail = false
+	case "up", "k":
+		m.moveSel(-1)
+		m.scroll = 0
+	case "down", "j":
+		m.moveSel(1)
+		m.scroll = 0
+	case "pgdown", "space", " ", "ctrl+d":
+		m.scroll = min(m.scroll+page, maxScroll)
+	case "pgup", "b", "ctrl+u":
+		m.scroll = max(m.scroll-page, 0)
+	case "home":
+		m.scroll = 0
+	case "end":
+		m.scroll = maxScroll
+	}
+	return m, nil
+}
+
 // visible is the ids on the current tab, in drawing order.
 func (m model) visible() []string { return visibleIDs(m.snap, m.tab, m.showEnded, m.sortBy) }
 
@@ -65,6 +110,7 @@ func (m *model) fixSel() {
 			return
 		}
 	}
+	m.detail = false // the selected session is gone, so a detail pane would show another one
 	m.selID = ""
 	if len(ids) > 0 {
 		m.selID = ids[0]
@@ -117,6 +163,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 	case tea.KeyPressMsg:
+		if m.detail {
+			return m.detailKey(msg)
+		}
 		if m.help { // any key closes the key list; ctrl+c still quits
 			if msg.String() == "ctrl+c" {
 				return m, tea.Quit
@@ -143,6 +192,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveSelTo(0)
 		case "end":
 			m.moveSelTo(-1)
+		case "i", "space", " ":
+			if m.selected() != nil {
+				m.detail, m.scroll = true, 0
+			}
 		case "a":
 			m.showEnded = !m.showEnded
 			m.fixSel()
@@ -178,6 +231,8 @@ func (m model) View() tea.View {
 	theme := newTheme(m.isDark, m.snap.Settings.HighlightSGR)
 	body := "waiting for sitrep…"
 	switch {
+	case m.detail && m.selected() != nil:
+		body = detailScreen(*m.selected(), m.width, m.height, m.scroll, theme)
 	case m.help:
 		body = helpScreen(m.width, m.height, theme)
 	case m.haveSnap || m.err != nil:

@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +24,18 @@ func key(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	case "?":
 		return tea.KeyPressMsg{Code: '?', Text: "?"}
+	case "esc":
+		return tea.KeyPressMsg{Code: tea.KeyEscape}
+	case "enter":
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
+	case "space":
+		return tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
+	case "pgdown":
+		return tea.KeyPressMsg{Code: tea.KeyPgDown}
+	case "pgup":
+		return tea.KeyPressMsg{Code: tea.KeyPgUp}
+	case "backspace":
+		return tea.KeyPressMsg{Code: tea.KeyBackspace}
 	case "up":
 		return tea.KeyPressMsg{Code: tea.KeyUp}
 	case "down":
@@ -380,5 +393,131 @@ func TestSelectionKeysIgnoredInTheKeyList(t *testing.T) {
 	m, _ = press(t, m, "j")
 	if m.help || m.selID != m.snap.Sessions[0].ID {
 		t.Errorf("a key that closes the list must not also move the selection")
+	}
+}
+
+func TestDetailOpensAndCloses(t *testing.T) {
+	for _, k := range []string{"i", "space"} {
+		m, _ := press(t, loaded(t, tabWatch), k)
+		if !m.detail {
+			t.Errorf("%s opens the detail pane", k)
+		}
+		for _, c := range []string{"esc", "i", "backspace"} {
+			closed, _ := press(t, m, c)
+			if closed.detail {
+				t.Errorf("%s closes the detail pane", c)
+			}
+		}
+	}
+	m, _ := press(t, loaded(t, tabWatch), "enter")
+	if m.detail {
+		t.Errorf("enter is for the jump, not the detail pane")
+	}
+	if empty := newModel("x", time.Second, tabWatch); true {
+		e, _ := press(t, empty, "i")
+		if e.detail {
+			t.Errorf("with nothing selected there is nothing to open")
+		}
+	}
+}
+
+func TestDetailUpDownSwitchSessions(t *testing.T) {
+	m, _ := press(t, loaded(t, tabWatch), "i")
+	first := m.selID
+	m.scroll = 5
+	m, _ = press(t, m, "down")
+	if m.selID == first || !m.detail || m.scroll != 0 {
+		t.Errorf("down shows the next session from the top: sel %q scroll %d", m.selID, m.scroll)
+	}
+	m, _ = press(t, m, "k")
+	if m.selID != first {
+		t.Errorf("k goes back")
+	}
+}
+
+func TestDetailScrolls(t *testing.T) {
+	snap := loadFixture(t)
+	for i := 0; i < 40; i++ {
+		snap.Sessions[0].Queue.Items = append(snap.Sessions[0].Queue.Items, fmt.Sprintf("queued item number %d with some words", i))
+	}
+	snap.Sessions[0].Queue.Count = len(snap.Sessions[0].Queue.Items)
+	m := newModel("x", time.Second, tabWatch)
+	next, _ := m.Update(snapMsg{snap: snap})
+	next, _ = next.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
+	m = next.(model)
+	m, _ = press(t, m, "i")
+	maxScroll := detailMax(*m.selected(), 80, 20)
+	if maxScroll < 20 {
+		t.Fatalf("the long queue should need scrolling: %d", maxScroll)
+	}
+	m, _ = press(t, m, "pgdown")
+	if m.scroll <= 0 || m.scroll > maxScroll {
+		t.Errorf("pgdown scrolls within range: %d", m.scroll)
+	}
+	m, _ = press(t, m, "space")
+	m, _ = press(t, m, "end")
+	if m.scroll != maxScroll {
+		t.Errorf("end scrolls to the bottom: %d of %d", m.scroll, maxScroll)
+	}
+	m, _ = press(t, m, "pgdown")
+	if m.scroll != maxScroll {
+		t.Errorf("scrolling stops at the bottom: %d", m.scroll)
+	}
+	m, _ = press(t, m, "pgup")
+	if m.scroll >= maxScroll {
+		t.Errorf("pgup scrolls back")
+	}
+	m, _ = press(t, m, "home")
+	if m.scroll != 0 {
+		t.Errorf("home scrolls to the top")
+	}
+	m, _ = press(t, m, "pgup")
+	if m.scroll != 0 {
+		t.Errorf("scrolling stops at the top")
+	}
+}
+
+func TestDetailQuitAndRefresh(t *testing.T) {
+	m, _ := press(t, loaded(t, tabWatch), "i")
+	for _, k := range []string{"q", "ctrl+c"} {
+		if _, cmd := press(t, m, k); cmd == nil {
+			t.Errorf("%s quits from the detail pane", k)
+		}
+	}
+	next, _ := m.Update(snapMsg{snap: loadFixture(t)}) // a refresh must not close it
+	if !next.(model).detail {
+		t.Errorf("a refresh keeps the detail pane open")
+	}
+	snap := loadFixture(t)
+	snap.Sessions = snap.Sessions[1:] // the session being shown is gone
+	next, _ = m.Update(snapMsg{snap: snap})
+	if next.(model).detail {
+		t.Errorf("the detail pane closes when its session is gone")
+	}
+}
+
+func TestDetailView(t *testing.T) {
+	m, _ := press(t, loaded(t, tabWatch), "i")
+	v := m.View()
+	if !v.AltScreen {
+		t.Errorf("alternate screen")
+	}
+	for _, want := range []string{"Session", m.selID, "pid 4242", "Objective", "writing the golden tests"} {
+		if !strings.Contains(v.Content, want) {
+			t.Errorf("the detail view should contain %q", want)
+		}
+	}
+	if strings.Contains(v.Content, "[Watch]") {
+		t.Errorf("the detail pane replaces the tabs")
+	}
+}
+
+func TestListsCapQueueItemsBySetting(t *testing.T) {
+	snap := loadFixture(t)
+	snap.Settings.QueueItems = 2
+	snap.Sessions[0].Queue = Queue{Count: 9, Items: []string{"a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9"}}
+	out := render(snap, tabWatch, "", opts(80, 60))
+	if !strings.Contains(out, "2. a2") || strings.Contains(out, "3. a3") || !strings.Contains(out, "+7 more") {
+		t.Errorf("the Watch view lists the setting's number of items and counts the rest:\n%s", out)
 	}
 }

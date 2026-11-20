@@ -172,7 +172,10 @@ func field(label, text string, width, maxLines int) []string {
 
 // queueLines lists numbered items, the first under label, each wrapped to maxLines. Items
 // sit under the label column, or at indent when there is no label.
-func queueLines(label string, q Queue, width, maxLines, indent int) []string {
+func queueLines(label string, q Queue, width, maxLines, indent, limit int) []string {
+	if limit >= 0 && len(q.Items) > limit { // sitrep sends every item; the setting says how many to list
+		q.Items = q.Items[:limit]
+	}
 	var out []string
 	pad := strings.Repeat(" ", indent)
 	for i, it := range q.Items {
@@ -243,7 +246,7 @@ func watchBody(s Snapshot, o viewOpts) []string {
 	var head []string
 	if s.Inbox.Count > 0 {
 		head = append(head, "Inbox: "+queueWord(s.Inbox.Count))
-		head = append(head, queueLines("", s.Inbox, o.Width, 2, 4)...)
+		head = append(head, queueLines("", s.Inbox, o.Width, 2, 4, s.Settings.QueueItems)...)
 	}
 	dw, sw := 9, 5
 	for _, x := range list {
@@ -256,7 +259,7 @@ func watchBody(s Snapshot, o viewOpts) []string {
 		block = append(block, field("Objective:", x.Objective, o.Width, 3)...)
 		block = append(block, field("Progress:", x.Progress, o.Width, 3)...)
 		block = append(block, field("Now:", x.Now, o.Width, 3)...)
-		block = append(block, queueLines("Queue:", x.Queue, o.Width, 2, 4+11)...)
+		block = append(block, queueLines("Queue:", x.Queue, o.Width, 2, 4+11, s.Settings.QueueItems)...)
 		blocks = append(blocks, mark(block, x, o))
 	}
 	return fitBlocks(head, blocks, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
@@ -436,6 +439,7 @@ func helpScreen(width, height int, th Theme) string {
 		"Keys",
 		"",
 		"  up, down, j, k, home, end      move the selection (the \u25b8 marker)",
+		"  i, space                       the selected session in full (esc closes)",
 		"  tab, shift+tab, left, right    switch tab (also 1 and 2)",
 		"  a                              show or hide ended sessions",
 		"  s                              cycle the Top sort: activity, state, dir, queue",
