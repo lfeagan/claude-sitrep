@@ -14,7 +14,7 @@ get() { [ -f "$f" ] && sed -n "s/^$1: //p" "$f" | head -1; }
 write() { # objective progress now
   printf 'Objective: %s\nProgress:  %s\nNow:       %s\n' "$1" "$2" "$3" > "$f.tmp" && mv "$f.tmp" "$f"
 }
-trunc() { printf '%s' "$1" | tr '\n' ' ' | cut -c1-${2:-140}; }
+trunc() { printf '%s' "$1" | tr '\n' ' ' | cut -c1-"${2:-140}"; }
 
 printf '%s' "$input" | jq -r '.cwd // empty' > "$dir/$sid.cwd"
 qfile="$dir/$sid.queue"

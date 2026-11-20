@@ -38,6 +38,10 @@ Inside a session, a prompt starting with `+ ` queues the rest of the line, and o
 
 State lives in `~/.claude/session-notes/<session_id>.{txt,queue,cwd}`, so the status line only reads files and renders instantly. The Haiku call runs in the background on `Stop`, is skipped if the last update was under 45 seconds ago, is capped at $0.05 per call, and sets `CLAUDE_NOTES_RUNNING` so its own hooks do not recurse.
 
+## Development
+
+`make lint` runs `bash -n` and `shellcheck` over every script. The scripts assume macOS (`stat -f`, `sed -i ''`).
+
 ## Status
 
 The queue does not feed work to Claude automatically. Whether a `Stop` hook should hand over the next item is TBD, as an unattended session that keeps itself busy is also a runaway session. Nothing is pushed to the cmux sidebar yet.

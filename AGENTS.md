@@ -2,6 +2,10 @@
 
 Guidance for agents working in this repository. The commit and comment rules are adapted from `savannah-dbagent`.
 
+## Linting
+
+After editing any shell script, run `make lint`. It runs `bash -n` and `shellcheck` over every script listed in the `Makefile`, which CI also runs. Add a new script to `SCRIPTS` there.
+
 ## Commit Messages
 
 Keep them short, in Simple Technical English, using the project's own terms.

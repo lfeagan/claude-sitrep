@@ -20,12 +20,12 @@ case "$cmd" in
       sed -n 's/^Objective: /  Objective: /p' "$dir/$sid.txt"
       [ -s "$f" ] && nl -w2 -s'. ' "$f" || echo "  (queue empty)"
     else
-      for t in $(ls -t "$dir"/*.txt 2>/dev/null); do
+      while read -r _ t; do
         [ -n "$(find "$t" -mtime -1 2>/dev/null)" ] || continue
         sid=$(basename "$t" .txt); cwd=$(cat "$dir/$sid.cwd" 2>/dev/null)
         printf '%s  %s  queue:%s\n' "${sid:0:4}" "$(basename "${cwd:-?}")" "$(count "$sid")"
         sed -n 's/^Objective: /    Objective: /p;s/^Now: */    Now:       /p' "$t"
-      done
+      done < <(stat -f '%m %N' "$dir"/*.txt 2>/dev/null | sort -rn)
     fi ;;
   add)  [ $# -ge 2 ] || die "usage: q add <session> <text>"
         sid=$(resolve "$1"); shift; echo "$*" >> "$(qf "$sid")"; echo "queued on ${sid:0:4} (now $(count "$sid"))" ;;

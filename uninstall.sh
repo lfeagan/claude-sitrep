@@ -3,7 +3,9 @@
 set -e
 S="$HOME/.claude/settings.json"; BIN_DIR=${BIN_DIR:-$HOME/bin}
 cp "$S" "$S.bak.$(date +%Y%m%dT%H%M%S)"
-up=""; [ -f "$HOME/.claude/sitrep.conf" ] && { . "$HOME/.claude/sitrep.conf"; up=$SITREP_HUD_CMD; }
+up=""
+# shellcheck source=/dev/null
+[ -f "$HOME/.claude/sitrep.conf" ] && { . "$HOME/.claude/sitrep.conf"; up=$SITREP_HUD_CMD; }
 jq --arg up "$up" '
   .hooks.SessionStart|=((. // [])|map(select(.hooks[0].command|contains("notes-hook")|not)))
   | .hooks.UserPromptSubmit|=((. // [])|map(select(.hooks[0].command|contains("notes-hook")|not)))
