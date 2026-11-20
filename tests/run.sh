@@ -235,6 +235,42 @@ eq "sitrep add reports a zero count once" "queued on abcd (now 1)" "$(sitrep add
 eq "sitrep rm past the end of the queue fails" 1 "$(rc sitrep rm abcd 9)"
 eq "sitrep add rejects text that cleans to nothing" 1 "$(rc sitrep add abcd "$(printf '\001')")"
 
+# ---- hook: +inbox and +take
+rm -f "$STATE/inbox.queue" "$STATE/tk000001.queue"
+out=$(ev tk000001 UserPromptSubmit "+inbox look at the CI flake" | hook)
+eq "+inbox blocks the prompt" block "$(jq -r .decision <<<"$out")"
+eq "+inbox reports the inbox count" "Inbox (1): look at the CI flake" "$(jq -r .reason <<<"$out")"
+eq "+inbox writes to the inbox" "look at the CI flake" "$(head -1 "$STATE/inbox.queue")"
+check "+inbox leaves the session queue alone" test ! -s "$STATE/tk000001.queue"
+eq "+inbox passes a long prompt through" "" "$(ev tk000001 UserPromptSubmit "+inbox $(printf 'y%.0s' $(seq 1 300))" | hook)"
+eq "+inbox passes a multi-line prompt through" "" "$(ev tk000001 UserPromptSubmit $'+inbox one\ntwo' | hook)"
+sitrep add inbox 'second item' >/dev/null; sitrep add inbox 'third item' >/dev/null
+out=$(ev tk000001 UserPromptSubmit "+take" | hook)
+eq "+take blocks the prompt" block "$(jq -r .decision <<<"$out")"
+eq "+take reports the item" "Took from the inbox: look at the CI flake" "$(jq -r .reason <<<"$out")"
+eq "+take puts the item on this session" "look at the CI flake" "$(head -1 "$STATE/tk000001.queue")"
+eq "+take removes it from the inbox" 2 "$(grep -c . "$STATE/inbox.queue")"
+ev tk000001 UserPromptSubmit "+take 2" | hook >/dev/null
+eq "+take N takes item N" "third item" "$(tail -1 "$STATE/tk000001.queue")"
+eq "+take leaves the rest" "second item" "$(cat "$STATE/inbox.queue")"
+eq "+take with text after it goes to Claude" "" "$(ev tk000001 UserPromptSubmit "+take care of the rest" | hook)"
+eq "+take past the end goes to Claude" "" "$(ev tk000001 UserPromptSubmit "+take 9" | hook)"
+eq "a failed +take changed nothing" "second item" "$(cat "$STATE/inbox.queue")"
+: > "$STATE/inbox.queue"
+eq "+take on an empty inbox goes to Claude" "" "$(ev tk000001 UserPromptSubmit "+take" | hook)"
+ev tk000001 UserPromptSubmit "+inbox    padded" | hook >/dev/null
+eq "+inbox drops leading spaces" "padded" "$(tail -1 "$STATE/inbox.queue")"
+: > "$STATE/inbox.queue"; printf 'a\tb\xe2\x80\xa8c\n' > "$STATE/inbox.queue"
+out=$(ev tk000001 UserPromptSubmit "+take" | hook)
+eq "+take prints the item without tabs or line separators" "Took from the inbox: a b c" "$(jq -r .reason <<<"$out")"
+printf 'keep\n' > "$STATE/inbox.queue"; : > "$STATE/tk000001.queue"; chmod 400 "$STATE/tk000001.queue"
+if [ ! -w "$STATE/tk000001.queue" ]; then   # root ignores the mode
+  eq "+take that cannot write the session queue goes to Claude" "" "$(ev tk000001 UserPromptSubmit "+take" | hook)"
+  eq "a failed +take does not lose the inbox item" keep "$(cat "$STATE/inbox.queue")"
+fi
+chmod 600 "$STATE/tk000001.queue"
+rm -f "$STATE/inbox.queue" "$STATE"/tk000001.* "$STATE"/.tk000001.*
+
 # ---- reorder
 printf 'Objective: r\n' > "$STATE/rord0001.txt"; rm -f "$STATE/rord0001.queue"
 for w in one two three four; do sitrep add rord "$w" >/dev/null; done

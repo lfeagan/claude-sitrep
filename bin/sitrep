@@ -109,7 +109,8 @@ case "$cmd" in
         f=$(qf "$from"); item=$(sed -n "${n}p" "$f" 2>/dev/null); [ -n "$item" ] || die "no item $n on $(label "$from")"
         t=$(without "$f" "$n" "$item") || die "queue changed; run 'sitrep ls $(label "$from")'"
         # append first, then swap the source in: a crash leaves a duplicate, never a lost item
-        printf '%s\n' "$item" >> "$(qf "$to")"; mv "$t" "$f" || { rm -f "$t"; die "could not update $(label "$from")"; }
+        printf '%s\n' "$item" >> "$(qf "$to")" || { rm -f "$t"; die "could not queue on $(label "$to")"; }
+        mv "$t" "$f" || { rm -f "$t"; die "could not update $(label "$from")"; }
         echo "moved to $(label "$to"): $(printf '%s' "$item" | strip)" ;;
   *) die "usage: sitrep [ls [id]] | add <id> <text> | pin <id> <text> | unpin <id> | rm <id> [n] | top <id> <n> | reorder <id> <from> <to> | move <from> <to> [n]" ;;
 esac

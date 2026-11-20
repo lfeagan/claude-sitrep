@@ -68,7 +68,7 @@ if [ "$event" = "UserPromptSubmit" ]; then
   prompt=$(printf '%s' "$input" | jq -r '.prompt // empty')
   c=0; { read -r c < "$dir/.$sid.count"; } 2>/dev/null
   echo $(( ${c:-0} + 1 )) > "$dir/.$sid.count"   # prompt count, for the stale-summary check
-  # +pin and + are handled here only for a short single line. Anything else goes to Claude untouched.
+  # +pin, +inbox, +take and + are handled here only for a short single line. Anything else goes to Claude untouched.
   case "$prompt" in
     "+pin "*) # pin the objective; the summarizer never overwrites it
       text=${prompt#+pin }
@@ -85,6 +85,22 @@ if [ "$event" = "UserPromptSubmit" ]; then
         if [ -n "$item" ] && printf '%s\n' "$item" >> "$qfile"; then
           [ -f "$f" ] || write "-" "-" "-"
           block "Queued ($(grep -c . "$qfile")): $item"; exit 0
+        fi
+      fi ;;
+    "+inbox "*) # queue to the inbox, which belongs to no session
+      text=${prompt#+inbox }; text=${text#"${text%%[![:space:]]*}"}   # drop leading spaces
+      if short "$text"; then
+        item=$(trunc "$text" 200)
+        if [ -n "$item" ] && printf '%s\n' "$item" >> "$dir/inbox.queue"; then
+          block "Inbox ($(grep -c . "$dir/inbox.queue")): $item"; exit 0
+        fi
+      fi ;;
+    "+take"|"+take "*) # move an inbox item (default 1) into this session's queue; sitrep does the work
+      n=${prompt#+take}; n=${n# }; n=${n:-1}
+      if [[ $n =~ ^[1-9][0-9]*$ ]]; then
+        [ -f "$f" ] || write "-" "-" "-"
+        if took=$(bash "$(dirname "$0")/../bin/sitrep" move inbox "$sid" "$n" 2>/dev/null); then
+          block "Took from the inbox: $(trunc "${took#moved to *: }" 200)"; exit 0
         fi
       fi ;;
   esac
