@@ -19,7 +19,7 @@ The block works as follows:
 
 ## Install
 
-Requires `jq`, `perl` and the `claude` CLI. Run `./install.sh`. It backs up `~/.claude/settings.json`, adds `SessionStart`, `UserPromptSubmit` and `Stop` hooks, and points the status line at `statusline/statusline.sh`. Any existing status line, such as Claude HUD, is saved to `~/.claude/sitrep.conf` as `SITREP_HUD_CMD` and runs first, so its output stays above the sitrep block. `./uninstall.sh` reverses all of this.
+Requires `jq`, `perl` and the `claude` CLI. Run `./install.sh`. It backs up `~/.claude/settings.json`, adds `SessionStart`, `UserPromptSubmit` and `Stop` hooks, and points the status line at `statusline/statusline.sh`. Any existing status line, such as Claude HUD, is saved to `~/.claude/sitrep.conf` as `SITREP_HUD_CMD` and runs first, so its output stays above the sitrep block. It also links `q` into `~/bin` and the `sitrep-queue` skill into `~/.claude/skills`, which lets Claude queue work and pin the Objective when you ask. `./uninstall.sh` reverses all of this.
 
 Claude HUD is optional. With no existing status line, only the sitrep block is shown, and `install.sh` says so. If Claude HUD's `/claude-hud:setup` runs after sitrep is installed, it replaces the status line command and the sitrep lines disappear from the display, although the hooks and `q` keep working. Re-run `./install.sh` to restore them: it saves the HUD command as the upstream again and puts the sitrep wrapper in front. If the upstream program is later removed, delete the `SITREP_HUD_CMD` line from `~/.claude/sitrep.conf`.
 

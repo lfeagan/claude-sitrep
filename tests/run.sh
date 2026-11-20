@@ -222,6 +222,7 @@ check "status line points at the repo" jq -e '.statusLine.command|contains("stat
 # shellcheck source=/dev/null
 eq "old status line saved as the upstream" "echo old-hud" "$(. "$H2/.claude/sitrep.conf"; echo "$SITREP_HUD_CMD")"
 check "q is linked" test -L "$H2/bin/q"
+check "skill is linked" test -L "$H2/.claude/skills/sitrep-queue" -a -f "$H2/.claude/skills/sitrep-queue/SKILL.md"
 conf1=$(cat "$H2/.claude/sitrep.conf")
 instc "$H2" "$R" install.sh >/dev/null
 eq "second install does not duplicate hooks" 1 "$(jq '[.hooks.Stop[]|select(.hooks[0].command|contains("notes-hook"))]|length' "$S2")"
@@ -229,6 +230,7 @@ eq "second install keeps the saved upstream" "$conf1" "$(cat "$H2/.claude/sitrep
 instc "$H2" "$R" uninstall.sh >/dev/null
 eq "uninstall restores settings exactly" "$(jq -S . "$T/original.json")" "$(jq -S . "$S2")"
 check "uninstall unlinks q" test ! -e "$H2/bin/q"
+check "uninstall unlinks the skill" test ! -e "$H2/.claude/skills/sitrep-queue" -a ! -L "$H2/.claude/skills/sitrep-queue"
 
 # ---- install: clones, output and recovery
 

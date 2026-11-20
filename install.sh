@@ -1,12 +1,12 @@
 #!/bin/bash
-# Wires claude-sitrep into ~/.claude/settings.json (with a timestamped backup) and links `q` into BIN_DIR (default ~/bin).
+# Wires claude-sitrep into ~/.claude/settings.json (with a timestamped backup) links `q` into BIN_DIR (default ~/bin) and the sitrep-queue skill into SKILLS_DIR (default ~/.claude/skills).
 set -e
 R=$(cd "$(dirname "$0")" && pwd)
-S="$HOME/.claude/settings.json"; BIN_DIR=${BIN_DIR:-$HOME/bin}; CONF="$HOME/.claude/sitrep.conf"
+S="$HOME/.claude/settings.json"; BIN_DIR=${BIN_DIR:-$HOME/bin}; SKILLS_DIR=${SKILLS_DIR:-$HOME/.claude/skills}; CONF="$HOME/.claude/sitrep.conf"
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 command -v perl >/dev/null || { echo "perl is required" >&2; exit 1; }
 umask 077
-mkdir -p "$HOME/.claude/session-notes" "$BIN_DIR"
+mkdir -p "$HOME/.claude/session-notes" "$BIN_DIR" "$SKILLS_DIR"
 chmod 700 "$HOME/.claude/session-notes"; chmod 600 "$HOME"/.claude/session-notes/* 2>/dev/null || true
 [ -f "$S" ] || echo '{}' > "$S"
 cp "$S" "$S.bak.$(date +%Y%m%dT%H%M%S)"
@@ -32,5 +32,11 @@ if [ -e "$BIN_DIR/q" ] || [ -L "$BIN_DIR/q" ]; then
   [ "$(readlink "$BIN_DIR/q")" = "$R/bin/q" ] || echo "Note: $BIN_DIR/q exists and is not ours; left alone. Run $R/bin/q directly." >&2
 else
   ln -s "$R/bin/q" "$BIN_DIR/q"
+fi
+sk="$SKILLS_DIR/sitrep-queue"
+if [ -e "$sk" ] || [ -L "$sk" ]; then
+  [ "$(readlink "$sk")" = "$R/skills/sitrep-queue" ] || echo "Note: $sk exists and is not ours; left alone." >&2
+else
+  ln -s "$R/skills/sitrep-queue" "$sk"
 fi
 echo "Installed. Restart Claude Code sessions to pick up the status line and hooks."
