@@ -27,7 +27,7 @@ Requires `jq`, `perl` and the `claude` CLI. Run `./install.sh`, which does the f
 4. Links the `sitrep-queue` skill into `~/.claude/skills`, which lets Claude queue work and pin the Objective when asked.
 5. Moves state and config from earlier versions (`~/.claude/session-notes`, `~/.claude/sitrep.conf`) into `~/.claude/sitrep/`. A file that already exists there is never overwritten, so a stale copy can stay behind in `~/.claude/session-notes`. A folder holding files that are not ours is left alone.
 
-`./uninstall.sh` reverses the hooks, status line and links, and leaves your state in place.
+`./uninstall.sh` reverses the hooks, status line and links, and leaves your state in place. After pulling an update, run `./install.sh` again: hook paths and names change between versions, and until it runs the old path in `settings.json` fails with a non-blocking "No such file" hook error. It also removes a dangling `~/bin/q` link left by the old command name.
 
 Claude HUD is optional. With no existing status line, only the sitrep block is shown, and `install.sh` says so. If Claude HUD's `/claude-hud:setup` runs after sitrep is installed, it replaces the status line command and the sitrep lines disappear from the display, although the hooks and `sitrep` keep working. Re-run `./install.sh` to restore them: it saves the HUD command as the upstream again and puts the sitrep wrapper in front. If the upstream program is later removed, delete the `SITREP_HUD_CMD` line from `~/.claude/sitrep/sitrep.conf`.
 

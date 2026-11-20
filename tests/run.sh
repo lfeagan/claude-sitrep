@@ -216,6 +216,10 @@ check "sitrep add strips escapes" nobytes "$STATE/abef0002.queue" $'\033'
 check "sitrep add strips C1 controls" nobytes "$STATE/abef0002.queue" $'\xc2\x9b'
 check "sitrep ls has a header" has "$(sitrep ls)" "ID    DIRECTORY"
 check "sitrep ls shows the item count and next item" has "$(sitrep ls)" "2 items, next: task A"
+mkdir -p "$STATE"; printf 'Objective: wide\n' > "$STATE/wide0001.txt"; printf '/x/a-very-long-directory-name\n' > "$STATE/wide0001.cwd"
+cols=$(sitrep ls | grep -E '^(ID|wide|abef)' | awk '{print index($0,"empty") + index($0,"2 items") + index($0,"QUEUE")}' | sort -u | wc -l | tr -d ' ')
+eq "sitrep ls aligns the queue column for long directory names" 1 "$cols"
+rm -f "$STATE/wide0001".*
 check "sitrep ls says empty for an empty queue" has "$(sitrep ls)" "empty"
 printf 'Objective: only\n' > "$STATE/abcd0001.txt"
 sitrep pin abcd "replaced" >/dev/null
@@ -340,6 +344,12 @@ check "install moves old state" test -f "$H14/.claude/sitrep/abcd0001.txt" -a ! 
 check "install moves the old config into the state folder" test -f "$H14/.claude/sitrep/sitrep.conf" -a ! -e "$H14/.claude/sitrep.conf"
 instc "$H14" "$R" uninstall.sh >/dev/null
 check "uninstall removes the alias" test ! -e "$H14/bin/q" -a ! -L "$H14/bin/q"
+H19="$T/home19"; fresh "$H19" '{}'; mkdir -p "$H19/bin"; ln -s "$R/bin/q" "$H19/bin/q"
+instc "$H19" "$R" install.sh >/dev/null 2>&1
+check "install removes a dangling old q link from this checkout" test ! -L "$H19/bin/q"
+H20="$T/home20"; fresh "$H20" '{}'; mkdir -p "$H20/bin"; ln -s /elsewhere/q "$H20/bin/q"
+instc "$H20" "$R" install.sh >/dev/null 2>&1
+check "install leaves a dangling q link that is not ours" test -L "$H20/bin/q"
 H17="$T/home17"; fresh "$H17" '{}'; mkdir -p "$H17/.claude/session-notes" "$H17/.claude/sitrep"
 echo old > "$H17/.claude/session-notes/abcd0001.txt"; echo old > "$H17/.claude/session-notes/ijkl0003.txt"; echo new > "$H17/.claude/sitrep/abcd0001.txt"
 instc "$H17" "$R" install.sh >/dev/null 2>&1

@@ -51,6 +51,8 @@ link() { # name: link BIN_DIR/name to bin/sitrep unless something else owns it
   fi
 }
 link sitrep
+# The command was called `q` before 0.2; drop its link from this checkout, which now dangles.
+[ -L "$BIN_DIR/q" ] && [ ! -e "$BIN_DIR/q" ] && [ "$(readlink "$BIN_DIR/q")" = "$R/bin/q" ] && rm -f "$BIN_DIR/q" && echo "Removed the old q link."
 [ -z "$ALIAS" ] || link "$ALIAS"
 sk="$SKILLS_DIR/sitrep-queue"
 if [ -e "$sk" ] || [ -L "$sk" ]; then

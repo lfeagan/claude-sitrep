@@ -33,15 +33,18 @@ case "$cmd" in
       sed -n 's/^Objective: /  Objective: /p' "$dir/$sid.txt" | strip
       [ -s "$f" ] && strip < "$f" | nl -w2 -s'. ' || echo "  (queue empty)"
     else
-      hdr=1
-      for t in "$dir"/*.txt; do [ -f "$t" ] && echo "$(mtime "$t") $t"; done | sort -rn | while read -r _ t; do
+      ids=(); dirs=(); qs=(); ts=(); w=9   # w: width of the DIRECTORY column, grown to the longest name
+      while read -r _ t; do
         [ -n "$(find "$t" -mtime -1 2>/dev/null)" ] || continue
-        sid=$(basename "$t" .txt); cwd=$(cwd_of "$sid"); n=$(count "$sid")
-        [ -n "$hdr" ] && { printf '%-4s  %-14s  %s\n' ID DIRECTORY QUEUE; hdr=; }
+        sid=$(basename "$t" .txt); cwd=$(cwd_of "$sid"); n=$(count "$sid"); d=$(basename "${cwd:-?}")
         case "$n" in 0) q="empty" ;; 1) q="1 item" ;; *) q="$n items" ;; esac
         [ "$n" -gt 0 ] && q="$q, next: $(head -n 1 "$(qf "$sid")" | strip | cut -c1-90)"
-        printf '%-4s  %-14s  %s\n' "${sid:0:4}" "$(basename "${cwd:-?}")" "$q"
-        sed -n 's/^Objective: /    Objective: /p;s/^Now: */    Now:       /p' "$t" | strip
+        ids+=("${sid:0:4}"); dirs+=("$d"); qs+=("$q"); ts+=("$t"); [ ${#d} -gt "$w" ] && w=${#d}
+      done < <(for t in "$dir"/*.txt; do [ -f "$t" ] && echo "$(mtime "$t") $t"; done | sort -rn)
+      [ ${#ids[@]} -gt 0 ] && printf '%-4s  %-*s  %s\n' ID "$w" DIRECTORY QUEUE
+      for i in "${!ids[@]}"; do
+        printf '%-4s  %-*s  %s\n' "${ids[$i]}" "$w" "${dirs[$i]}" "${qs[$i]}"
+        sed -n 's/^Objective: /    Objective: /p;s/^Now: */    Now:       /p' "${ts[$i]}" | strip
       done
     fi ;;
   add)  [ $# -ge 2 ] || die "usage: sitrep add <id> <text>"
