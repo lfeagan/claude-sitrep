@@ -549,21 +549,40 @@ rm -rf "$STATE"; mkdir -p "$STATE"
 rm -rf "$STATE"; mkdir -p "$STATE"
 mk hot00001 hot 10; st hot00001 working 10
 mk cld00002 cold 500; st cld00002 waiting 500
+SGR=$'\033[48;5;238m'
 hlrun() { ( sleep 3; printf q ) | TERM=xterm bounded bash -c "$(declare -f pty); pty '$1 LINES=30 COLUMNS=60 sitrep watch $2 100; echo \"exit=\$?\"'" 2>&1; }
+hlcount() { # output text sgr: how often a line holding the text was drawn, and how often it began with the highlight
+  printf '%s\n' "$1" | tr -d '\r' | awk -v t="$2" -v s="$3" 'index($0, t) { n++; if (index($0, s) == 1) h++ } END { print n + 0, h + 0 }'
+}
+# Each case looks at its own two sessions, so a stray session file or an extra redraw cannot change the result.
 if command -v script >/dev/null 2>&1; then
   out=$(hlrun "" "")
-  eq "only the recently active session is highlighted, on each of its lines" 4 "$(printf '%s\n' "$out" | grep -cF $'\033[48;5;238m')"
+  read -r tot hit <<<"$(hlcount "$out" 'obj hot00001' "$SGR")"
+  check "the recently active session is drawn" test "$tot" -gt 0
+  eq "the recently active session is highlighted every time it is drawn" "$tot" "$hit"
+  read -r tot hit <<<"$(hlcount "$out" 'obj cld00002' "$SGR")"
+  check "the idle session is drawn" test "$tot" -gt 0
+  eq "the idle session is never highlighted" 0 "$hit"
   check "the highlight fills the rest of the row and is reset" has "$out" $'\033[K\033[0m'
-  eq "--highlight 0 turns it off" 0 "$(hlrun "" "--highlight 0" | grep -cF $'\033[48;5;238m')"
-  eq "NO_COLOR turns it off" 0 "$(hlrun "NO_COLOR=1" "" | grep -cF $'\033[48;5;238m')"
-  eq "a wider window highlights the older session too" 8 "$(hlrun "" "--highlight 1000" | grep -cF $'\033[48;5;238m')"
+  eq "--highlight 0 turns it off" 0 "$(hlrun "" "--highlight 0" | grep -cF "$SGR")"
+  eq "NO_COLOR turns it off" 0 "$(hlrun "NO_COLOR=1" "" | grep -cF "$SGR")"
+  out=$(hlrun "" "--highlight 1000")
+  read -r tot hit <<<"$(hlcount "$out" 'obj cld00002' "$SGR")"
+  check "a wider window draws the older session" test "$tot" -gt 0
+  eq "a wider window highlights the older session too" "$tot" "$hit"
   printf 'SITREP_HIGHLIGHT_SGR=41\n' > "$STATE/sitrep.conf"
   check "the colour comes from sitrep.conf" has "$(hlrun "" "")" $'\033[41m'
   # shellcheck disable=SC2016  # the value must stay literal: it is the unsafe input under test
   printf 'SITREP_HIGHLIGHT_SGR=1m;$(x)\n' > "$STATE/sitrep.conf"
-  eq "a bad colour setting falls back to the default" 4 "$(hlrun "" "" | grep -cF $'\033[48;5;238m')"
+  out=$(hlrun "" "")
+  read -r tot hit <<<"$(hlcount "$out" 'obj hot00001' "$SGR")"
+  check "a bad colour setting is not drawn" hasnt "$out" "1m;"
+  eq "a bad colour setting falls back to the default colour" "$tot" "$hit"
   printf 'SITREP_HIGHLIGHT_SECONDS=1000\n' > "$STATE/sitrep.conf"
-  eq "the window comes from sitrep.conf" 8 "$(hlrun "" "" | grep -cF $'\033[48;5;238m')"
+  out=$(hlrun "" "")
+  read -r tot hit <<<"$(hlcount "$out" 'obj cld00002' "$SGR")"
+  check "the window from sitrep.conf draws the older session" test "$tot" -gt 0
+  eq "the window comes from sitrep.conf" "$tot" "$hit"
   rm -f "$STATE/sitrep.conf"
 fi
 check "--once prints no escape codes" hasnt "$(LINES=30 COLUMNS=60 bounded sitrep watch --once)" $'\033'
