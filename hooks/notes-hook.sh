@@ -19,9 +19,11 @@ trunc() { printf '%s' "$1" | tr '\n' ' ' | cut -c1-${2:-140}; }
 printf '%s' "$input" | jq -r '.cwd // empty' > "$dir/$sid.cwd"
 qfile="$dir/$sid.queue"
 obj=$(get Objective); prog=$(get Progress); now=$(get Now)
+# A placeholder or command wrapper (e.g. /clear) is not a real Objective: treat it as unset so it gets replaced.
+case "$obj" in "-"|"<"*|"&lt;"*) obj="" ;; esac
 
 first_prompt() { # first real user message in the transcript (skips command/system wrappers)
-  [ -f "$tp" ] && jq -r 'select(.type=="user") | .message.content | if type=="string" then . else map(select(.type=="text")|.text)|join(" ") end' "$tp" 2>/dev/null | grep -v -e '^<' -e '^$' | head -1
+  [ -f "$tp" ] && jq -r 'select(.type=="user") | .message.content | if type=="string" then . else map(select(.type=="text")|.text)|join(" ") end' "$tp" 2>/dev/null | grep -v -e '^<' -e '^&lt;' -e '^$' | head -1
 }
 summarize() { # background Haiku call: rewrites Progress and Now
   (
