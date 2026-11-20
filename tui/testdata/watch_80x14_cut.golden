@@ -5,7 +5,7 @@ Inbox: 3 items
     2. check the CI flake on macOS and write down what the runner image does
        about the node deprecation
     +1 more
-15f1  claude-sitrep               working 1m    7 items                         
+  15f1  claude-sitrep               working 1m    7 items                       
     Objective: Sitrep: add a Go front-end that reads sitrep ls --json, with a   
                Watch tab and a Top tab, a status bar and a theme                
 +2 more

@@ -1,6 +1,7 @@
 Keys
 
-  tab, shift+tab, arrows, 1, 2   switch tab
+  up, down, j, k, home, end      move the selection (the ▸ marker)
+  tab, shift+tab, left, right    switch tab (also 1 and 2)
   a                              show or hide ended sessions
   s                              cycle the Top sort: activity, state, dir, queue
   r                              refresh now
@@ -18,7 +19,6 @@ Colours
   purple       the session changed in the last minute
 
 Any key closes this list.
-
 
 
 

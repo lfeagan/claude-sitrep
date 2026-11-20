@@ -34,7 +34,42 @@ type viewOpts struct {
 	Width, Height int
 	ShowEnded     bool
 	Sort          int
+	Sel           string // the id of the selected session, "" for none
 	Theme         Theme
+}
+
+// visibleIDs lists the ids in the order a tab draws them, so selection moves the way the eye does.
+func visibleIDs(s Snapshot, tab int, showEnded bool, by int) []string {
+	list, _ := shown(s, showEnded)
+	if tab == tabTop {
+		list = sorted(list, by)
+	}
+	ids := make([]string, len(list))
+	for i, x := range list {
+		ids[i] = x.ID
+	}
+	return ids
+}
+
+// gutter is the two columns before a row: a marker on the selected session. A narrow screen has none.
+func gutter(id string, o viewOpts) string {
+	switch {
+	case o.Width < 20:
+		return ""
+	case id != "" && id == o.Sel:
+		return "▸ "
+	}
+	return "  "
+}
+
+// indexOf finds the block of the selected session, or -1.
+func indexOf(list []Session, id string) int {
+	for i, x := range list {
+		if id != "" && x.ID == id {
+			return i
+		}
+	}
+	return -1
 }
 
 // stateRank orders sessions for the state sort: the ones that need the user come first.
@@ -216,7 +251,7 @@ func watchBody(s Snapshot, o viewOpts) []string {
 	}
 	var blocks [][]string
 	for _, x := range list {
-		row := fmt.Sprintf("%-4s  %s  %s  %s", x.Short, padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
+		row := gutter(x.ID, o) + fmt.Sprintf("%-4s  %s  %s  %s", x.Short, padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
 		block := []string{ansi.Truncate(row, o.Width, "…")}
 		block = append(block, field("Objective:", x.Objective, o.Width, 3)...)
 		block = append(block, field("Progress:", x.Progress, o.Width, 3)...)
@@ -224,11 +259,13 @@ func watchBody(s Snapshot, o viewOpts) []string {
 		block = append(block, queueLines("Queue:", x.Queue, o.Width, 2, 4+11)...)
 		blocks = append(blocks, mark(block, x, o))
 	}
-	return fitBlocks(head, blocks, ended, s.Hidden.StrandedItems, o)
+	return fitBlocks(head, blocks, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
 }
 
-// fitBlocks drops whole sessions that do not fit the height, and adds the footers.
-func fitBlocks(head []string, blocks [][]string, ended, stranded int, o viewOpts) []string {
+// fitBlocks fits whole sessions to the height and adds the footers. When they do not all
+// fit it scrolls by block, so that the selected one (sel, or -1) stays on the screen, and
+// says how many are above and below.
+func fitBlocks(head []string, blocks [][]string, sel, ended, stranded int, o viewOpts) []string {
 	foot := 0
 	if ended > 0 {
 		foot++
@@ -244,11 +281,32 @@ func fitBlocks(head []string, blocks [][]string, ended, stranded int, o viewOpts
 	if o.Height > 0 && total+foot > o.Height {
 		limit = o.Height - 1 - foot // leave a line for "+N more"
 	}
+	first := 0
+	if limit > 0 && sel > 0 { // scroll, so that the whole selected block is on screen
+		avail := limit - len(head)
+		for first < sel {
+			h := 0
+			for _, b := range blocks[first : sel+1] {
+				h += len(b)
+			}
+			above := 0
+			if first > 0 {
+				above = 1
+			}
+			if h+above <= avail {
+				break
+			}
+			first++
+		}
+	}
 	out := append([]string{}, head...)
-	count := 0
-	for _, b := range blocks {
+	if first > 0 {
+		out = append(out, fmt.Sprintf("+%d above", first))
+	}
+	count := first
+	for _, b := range blocks[first:] {
 		if limit > 0 && len(out)+len(b) > limit {
-			if count == 0 { // never show nothing: the first session is clipped to the room there is
+			if count == first { // never show nothing: the first block shown is clipped to the room there is
 				out = append(out, b[:min(len(b), max(limit-len(out), 1))]...)
 				count++
 			}
@@ -325,18 +383,18 @@ func topBody(s Snapshot, o viewOpts) []string {
 		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
 	dw = min(dw, max((o.Width-20)/3, 6)) // a narrow screen gets a narrow directory column
-	head = append(head, o.Theme.Label.Render(fmt.Sprintf("%-4s  %s  %s  %-5s  %s", "ID", padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW   sort: "+sortNames[o.Sort])))
+	head = append(head, o.Theme.Label.Render(gutter("", o)+fmt.Sprintf("%-4s  %s  %s  %-5s  %s", "ID", padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW   sort: "+sortNames[o.Sort])))
 	var blocks [][]string
 	for _, x := range list {
 		text := x.Now
 		if text == "" {
 			text = x.Objective
 		}
-		prefix := fmt.Sprintf("%-4s  %s  %s  %-5d  ", x.Short, padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count)
+		prefix := gutter(x.ID, o) + fmt.Sprintf("%-4s  %s  %s  %-5d  ", x.Short, padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count)
 		line := prefix + ansi.Truncate(text, max(o.Width-ansi.StringWidth(prefix), 1), "…")
 		blocks = append(blocks, mark([]string{line}, x, o))
 	}
-	return fitBlocks(head, blocks, ended, s.Hidden.StrandedItems, o)
+	return fitBlocks(head, blocks, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
 }
 
 func tabBar(active, width int, th Theme) []string {
@@ -377,7 +435,8 @@ func helpScreen(width, height int, th Theme) string {
 	lines := []string{
 		"Keys",
 		"",
-		"  tab, shift+tab, arrows, 1, 2   switch tab",
+		"  up, down, j, k, home, end      move the selection (the \u25b8 marker)",
+		"  tab, shift+tab, left, right    switch tab (also 1 and 2)",
 		"  a                              show or hide ended sessions",
 		"  s                              cycle the Top sort: activity, state, dir, queue",
 		"  r                              refresh now",

@@ -30,6 +30,7 @@ type model struct {
 	height    int
 	tab       int
 	showEnded bool
+	selID     string // the selected session, by id, so a refresh or a re-sort does not move it
 	sortBy    int
 	help      bool
 	isDark    bool
@@ -53,6 +54,43 @@ func (m model) tickCmd() tea.Cmd {
 	return tea.Tick(m.interval, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
+// visible is the ids on the current tab, in drawing order.
+func (m model) visible() []string { return visibleIDs(m.snap, m.tab, m.showEnded, m.sortBy) }
+
+// fixSel keeps the selection on a session that is still shown, else on the first one.
+func (m *model) fixSel() {
+	ids := m.visible()
+	for _, id := range ids {
+		if id == m.selID {
+			return
+		}
+	}
+	m.selID = ""
+	if len(ids) > 0 {
+		m.selID = ids[0]
+	}
+}
+
+func (m *model) moveSel(d int) {
+	ids := m.visible()
+	for i, id := range ids {
+		if id == m.selID {
+			m.selID = ids[min(max(i+d, 0), len(ids)-1)]
+			return
+		}
+	}
+	m.fixSel()
+}
+
+func (m *model) moveSelTo(i int) { // 0 for the first, -1 for the last
+	if ids := m.visible(); len(ids) > 0 {
+		m.selID = ids[0]
+		if i < 0 {
+			m.selID = ids[len(ids)-1]
+		}
+	}
+}
+
 func (m model) Init() tea.Cmd {
 	return tea.Batch(m.fetchCmd(), m.tickCmd(), tea.RequestBackgroundColor)
 }
@@ -70,6 +108,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.snap, m.haveSnap, m.err, m.lastOK = msg.snap, true, nil, m.now()
+		m.fixSel()
 	case tickMsg:
 		cmds := []tea.Cmd{m.tickCmd()}
 		if !m.fetching { // never overlap two calls; a slow one just skips ticks
@@ -96,8 +135,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tab = tabWatch
 		case "2":
 			m.tab = tabTop
+		case "up", "k":
+			m.moveSel(-1)
+		case "down", "j":
+			m.moveSel(1)
+		case "home":
+			m.moveSelTo(0)
+		case "end":
+			m.moveSelTo(-1)
 		case "a":
 			m.showEnded = !m.showEnded
+			m.fixSel()
 		case "s":
 			if m.tab == tabTop { // only the Top view has a sort
 				m.sortBy = (m.sortBy + 1) % sortCount
@@ -110,6 +158,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.fetchCmd()
 			}
 		}
+		m.fixSel() // a tab switch, a sort or the ended toggle may change what is shown
 	}
 	return m, nil
 }
@@ -132,7 +181,7 @@ func (m model) View() tea.View {
 	case m.help:
 		body = helpScreen(m.width, m.height, theme)
 	case m.haveSnap || m.err != nil:
-		body = render(m.snap, m.tab, m.errText(), viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Theme: theme})
+		body = render(m.snap, m.tab, m.errText(), viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Theme: theme})
 	}
 	v := tea.NewView(body)
 	v.AltScreen = true

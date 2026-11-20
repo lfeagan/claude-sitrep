@@ -23,6 +23,14 @@ func key(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	case "?":
 		return tea.KeyPressMsg{Code: '?', Text: "?"}
+	case "up":
+		return tea.KeyPressMsg{Code: tea.KeyUp}
+	case "down":
+		return tea.KeyPressMsg{Code: tea.KeyDown}
+	case "home":
+		return tea.KeyPressMsg{Code: tea.KeyHome}
+	case "end":
+		return tea.KeyPressMsg{Code: tea.KeyEnd}
 	}
 	return tea.KeyPressMsg{Code: rune(s[0]), Text: s}
 }
@@ -269,5 +277,108 @@ func TestQuestionMarkOpensAndAnyKeyCloses(t *testing.T) {
 	m, _ = press(t, m, "q")
 	if m.help {
 		t.Errorf("q closes the key list")
+	}
+}
+
+func loaded(t *testing.T, tab int) model {
+	t.Helper()
+	m := newModel("x", time.Second, tab)
+	next, _ := m.Update(snapMsg{snap: loadFixture(t)})
+	return next.(model)
+}
+
+func TestSelectionStartsOnTheFirstSession(t *testing.T) {
+	m := loaded(t, tabWatch)
+	if m.selID != m.snap.Sessions[0].ID {
+		t.Errorf("the first session is selected: %q", m.selID)
+	}
+}
+
+func TestSelectionKeys(t *testing.T) {
+	m := loaded(t, tabWatch)
+	first, second, third := m.snap.Sessions[0].ID, m.snap.Sessions[1].ID, m.snap.Sessions[2].ID
+	for _, k := range []string{"down", "j"} {
+		m = loaded(t, tabWatch)
+		m, _ = press(t, m, k)
+		if m.selID != second {
+			t.Errorf("%s moves down: %q", k, m.selID)
+		}
+	}
+	m, _ = press(t, m, "down")
+	m, _ = press(t, m, "down")
+	if m.selID != third {
+		t.Errorf("selection stops at the last session, not wrapping: %q", m.selID)
+	}
+	for _, k := range []string{"up", "k"} {
+		m2, _ := press(t, m, k)
+		if m2.selID != second {
+			t.Errorf("%s moves up: %q", k, m2.selID)
+		}
+	}
+	m, _ = press(t, m, "home")
+	if m.selID != first {
+		t.Errorf("home selects the first")
+	}
+	m, _ = press(t, m, "up")
+	if m.selID != first {
+		t.Errorf("selection stops at the first")
+	}
+	m, _ = press(t, m, "end")
+	if m.selID != third {
+		t.Errorf("end selects the last visible: %q", m.selID)
+	}
+}
+
+func TestSelectionFollowsTheSessionNotTheRow(t *testing.T) {
+	m := loaded(t, tabTop)
+	m, _ = press(t, m, "down")
+	want := m.selID
+	m, _ = press(t, m, "s") // a new sort changes the rows, not the selection
+	if m.selID != want {
+		t.Errorf("a re-sort must not move the selection: %q != %q", m.selID, want)
+	}
+	// a refresh in which the sessions come in another order
+	snap := loadFixture(t)
+	snap.Sessions[0], snap.Sessions[2] = snap.Sessions[2], snap.Sessions[0]
+	next, _ := m.Update(snapMsg{snap: snap})
+	if next.(model).selID != want {
+		t.Errorf("a refresh must not move the selection")
+	}
+}
+
+func TestSelectionFallsBackWhenTheSessionLeaves(t *testing.T) {
+	m := loaded(t, tabWatch)
+	m, _ = press(t, m, "down")
+	snap := loadFixture(t)
+	snap.Sessions = append(snap.Sessions[:1], snap.Sessions[2:]...) // the selected one is gone
+	next, _ := m.Update(snapMsg{snap: snap})
+	if got := next.(model).selID; got != snap.Sessions[0].ID {
+		t.Errorf("a vanished session selects the first: %q", got)
+	}
+	empty, _ := m.Update(snapMsg{snap: Snapshot{Version: 1}})
+	if empty.(model).selID != "" {
+		t.Errorf("nothing to select")
+	}
+}
+
+func TestEndedToggleKeepsOrMovesTheSelection(t *testing.T) {
+	m := loaded(t, tabWatch)
+	m, _ = press(t, m, "a")
+	m, _ = press(t, m, "end") // the ended session, now shown
+	if m.selID != m.snap.Sessions[3].ID {
+		t.Fatalf("the ended session is selectable once shown: %q", m.selID)
+	}
+	m, _ = press(t, m, "a") // hidden again: the selection cannot stay on it
+	if m.selID != m.snap.Sessions[0].ID {
+		t.Errorf("hiding the selected session selects the first: %q", m.selID)
+	}
+}
+
+func TestSelectionKeysIgnoredInTheKeyList(t *testing.T) {
+	m := loaded(t, tabWatch)
+	m, _ = press(t, m, "?")
+	m, _ = press(t, m, "j")
+	if m.help || m.selID != m.snap.Sessions[0].ID {
+		t.Errorf("a key that closes the list must not also move the selection")
 	}
 }

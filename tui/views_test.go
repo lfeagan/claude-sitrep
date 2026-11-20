@@ -357,3 +357,69 @@ func TestHelpScreen(t *testing.T) {
 		}
 	}
 }
+
+func TestVisibleIDsFollowTheTab(t *testing.T) {
+	s := loadFixture(t)
+	if got := strings.Join(visibleIDs(s, tabWatch, false, sortState), " "); !strings.HasPrefix(got, "15f1") {
+		t.Errorf("Watch ignores the sort and keeps activity order: %s", got)
+	}
+	if got := visibleIDs(s, tabTop, false, sortState); len(got) != 3 || !strings.HasPrefix(got[0], "b1fb") {
+		t.Errorf("Top follows the sort: %v", got)
+	}
+	if got := visibleIDs(s, tabWatch, true, sortActivity); len(got) != 4 {
+		t.Errorf("ended sessions appear when asked for: %v", got)
+	}
+}
+
+func TestSelectionMarker(t *testing.T) {
+	s := loadFixture(t)
+	o := opts(80, 40)
+	o.Sel = s.Sessions[2].ID
+	for _, tab := range []int{tabWatch, tabTop} {
+		out := render(s, tab, "", o)
+		if strings.Count(out, "▸ ") != 1 {
+			t.Fatalf("tab %d: exactly one marker:\n%s", tab, out)
+		}
+		for _, l := range strings.Split(out, "\n") {
+			if strings.HasPrefix(l, "▸ ") && !strings.Contains(l, "b1fb") {
+				t.Errorf("tab %d: the marker is on the wrong row: %q", tab, l)
+			}
+		}
+	}
+	o.Sel = ""
+	if strings.Contains(render(s, tabWatch, "", o), "▸") {
+		t.Errorf("no selection, no marker")
+	}
+	o.Sel, o.Width = s.Sessions[2].ID, 19
+	if strings.Contains(render(s, tabTop, "", o), "▸") {
+		t.Errorf("a narrow screen has no gutter")
+	}
+	golden(t, "watch_80x40_sel", render(s, tabWatch, "", viewOpts{Width: 80, Height: 40, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
+	golden(t, "top_80x12_sel", render(s, tabTop, "", viewOpts{Width: 80, Height: 12, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
+}
+
+func TestScrollingKeepsTheSelectionOnScreen(t *testing.T) {
+	s := loadFixture(t)
+	for _, tab := range []int{tabWatch, tabTop} {
+		minH := 10 // below this the chrome, the footers and one block cannot all fit
+		if tab == tabTop {
+			minH = 7
+		}
+		for _, sess := range s.Sessions[:3] {
+			for h := minH; h <= 30; h++ {
+				o := viewOpts{Width: 80, Height: h, Sel: sess.ID, Theme: plainTheme()}
+				out := render(s, tab, "", o)
+				if !strings.Contains(out, "▸ "+sess.Short) {
+					t.Errorf("tab %d height %d: the selected session %s is not on screen:\n%s", tab, h, sess.Short, out)
+				}
+			}
+		}
+	}
+	// the last session, in a short Watch frame: blocks above are scrolled off and counted
+	o := viewOpts{Width: 80, Height: 15, Sel: s.Sessions[2].ID, Theme: plainTheme()}
+	out := render(s, tabWatch, "", o)
+	if !strings.Contains(out, "+2 above") && !strings.Contains(out, "+1 above") {
+		t.Errorf("scrolled-off blocks are counted:\n%s", out)
+	}
+	golden(t, "watch_80x15_scrolled", out)
+}
