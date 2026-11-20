@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hook for UserPromptSubmit and Stop. Maintains ~/.claude/session-notes/<session_id>.txt
+# Hook for SessionStart, UserPromptSubmit and Stop. Maintains ~/.claude/session-notes/<session_id>.txt
 # (three lines: Objective / Progress / Now). Haiku summarizer runs in the background on Stop.
 [ -n "$CLAUDE_NOTES_RUNNING" ] && exit 0   # recursion guard: the summarizer's own claude -p fires hooks
 input=$(cat)
@@ -20,24 +20,10 @@ printf '%s' "$input" | jq -r '.cwd // empty' > "$dir/$sid.cwd"
 qfile="$dir/$sid.queue"
 obj=$(get Objective); prog=$(get Progress); now=$(get Now)
 
-if [ "$event" = "UserPromptSubmit" ]; then
-  prompt=$(printf '%s' "$input" | jq -r '.prompt // empty')
-  case "$prompt" in
-    "+ "*) # queue instead of sending to Claude
-      item=${prompt#+ }; printf '%s\n' "$item" >> "$qfile"
-      [ -f "$f" ] || write "-" "-" "-"
-      jq -n --arg r "Queued ($(grep -c . "$qfile")): $item" '{decision:"block",reason:$r}'; exit 0 ;;
-  esac
-  [ -z "$obj" ] && obj=$(trunc "$prompt" 160)
-  write "$obj" "${prog:--}" "$(trunc "$prompt" 140)"
-  exit 0
-fi
-
-if [ "$event" = "Stop" ] && [ -f "$tp" ]; then
-  # debounce: skip if summarized in the last 45s
-  stamp="$dir/.$sid.stamp"
-  if [ -f "$stamp" ] && [ $(( $(date +%s) - $(stat -f %m "$stamp") )) -lt 45 ]; then exit 0; fi
-  touch "$stamp"
+first_prompt() { # first real user message in the transcript (skips command/system wrappers)
+  [ -f "$tp" ] && jq -r 'select(.type=="user") | .message.content | if type=="string" then . else map(select(.type=="text")|.text)|join(" ") end' "$tp" 2>/dev/null | grep -v -e '^<' -e '^$' | head -1
+}
+summarize() { # background Haiku call: rewrites Progress and Now
   (
     export CLAUDE_NOTES_RUNNING=1
     ctx=$(tail -n 40 "$tp" | jq -r 'select(.type=="user" or .type=="assistant") | "\(.type): " + ((.message.content | if type=="string" then . else map(select(.type=="text") | .text) | join(" ") end) // "")' 2>/dev/null | cut -c1-600 | tail -c 6000)
@@ -47,5 +33,37 @@ if [ "$event" = "Stop" ] && [ -f "$tp" ]; then
     n=$(printf '%s' "$out" | sed -n 's/^Now: *//p' | head -1)
     [ -n "$p" ] && [ -n "$n" ] && write "$obj" "$(trunc "$p" 140)" "$(trunc "$n" 140)"
   ) >/dev/null 2>&1 &
+}
+
+if [ "$event" = "UserPromptSubmit" ]; then
+  prompt=$(printf '%s' "$input" | jq -r '.prompt // empty')
+  case "$prompt" in
+    "+ "*) # queue instead of sending to Claude
+      item=${prompt#+ }; printf '%s\n' "$item" >> "$qfile"
+      [ -f "$f" ] || write "-" "-" "-"
+      jq -n --arg r "Queued ($(grep -c . "$qfile")): $item" '{decision:"block",reason:$r}'; exit 0 ;;
+  esac
+  [ -z "$obj" ] && obj=$(trunc "$(first_prompt)" 160)
+  [ -z "$obj" ] && obj=$(trunc "$prompt" 160)
+  write "$obj" "${prog:--}" "$(trunc "$prompt" 140)"
+  exit 0
+fi
+
+if [ "$event" = "SessionStart" ]; then
+  # Resumed or continued sessions already have history: seed the notes from the transcript.
+  if [ -z "$obj" ] && [ -f "$tp" ]; then
+    obj=$(trunc "$(first_prompt)" 160)
+    write "${obj:--}" "-" "(resumed -- summarizing)"
+    [ -n "$obj" ] && summarize
+  fi
+  exit 0
+fi
+
+if [ "$event" = "Stop" ] && [ -f "$tp" ]; then
+  # debounce: skip if summarized in the last 45s
+  stamp="$dir/.$sid.stamp"
+  if [ -f "$stamp" ] && [ $(( $(date +%s) - $(stat -f %m "$stamp") )) -lt 45 ]; then exit 0; fi
+  touch "$stamp"
+  summarize
 fi
 exit 0

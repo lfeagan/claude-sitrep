@@ -13,13 +13,13 @@ Queue (2) [a1b2]  next: update README
 
 The four lines work as follows:
 
-1. Objective is set once from the first prompt of the session and then kept.
+1. Objective is set once from the first prompt of the session and then kept. A resumed session is seeded from its transcript at start, so it does not wait for a new prompt.
 2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
 3. Queue shows the item count, the first four characters of the session id (used to address the session from `q`) and the next item.
 
 ## Install
 
-Requires `jq` and the `claude` CLI. Run `./install.sh`. It backs up `~/.claude/settings.json`, adds `UserPromptSubmit` and `Stop` hooks, and points the status line at `statusline/statusline.sh`. Any existing status line, such as Claude HUD, is saved to `~/.claude/sitrep.conf` as `SITREP_HUD_CMD` and runs first, so its output stays above the sitrep block. `./uninstall.sh` reverses all of this.
+Requires `jq` and the `claude` CLI. Run `./install.sh`. It backs up `~/.claude/settings.json`, adds `SessionStart`, `UserPromptSubmit` and `Stop` hooks, and points the status line at `statusline/statusline.sh`. Any existing status line, such as Claude HUD, is saved to `~/.claude/sitrep.conf` as `SITREP_HUD_CMD` and runs first, so its output stays above the sitrep block. `./uninstall.sh` reverses all of this.
 
 ## The Queue
 

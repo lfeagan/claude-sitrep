@@ -12,6 +12,7 @@ case "$old" in *claude-sitrep*|"") ;; *) printf 'SITREP_HUD_CMD=%q\n' "$old" > "
 hook="bash $R/hooks/notes-hook.sh"
 jq --arg sl "bash $R/statusline/statusline.sh" --arg h "$hook" '
   .statusLine={type:"command",command:$sl}
+  | .hooks.SessionStart=((.hooks.SessionStart // [])|map(select(.hooks[0].command|contains("notes-hook")|not)))+[{hooks:[{type:"command",command:$h}]}]
   | .hooks.UserPromptSubmit=((.hooks.UserPromptSubmit // [])|map(select(.hooks[0].command|contains("notes-hook")|not)))+[{hooks:[{type:"command",command:$h}]}]
   | .hooks.Stop=((.hooks.Stop // [])|map(select(.hooks[0].command|contains("notes-hook")|not)))+[{hooks:[{type:"command",command:$h}]}]' "$S" > "$S.tmp" && mv "$S.tmp" "$S"
 ln -sf "$R/bin/q" "$BIN_DIR/q"
