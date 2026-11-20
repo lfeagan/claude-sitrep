@@ -126,7 +126,7 @@ func TestJump(t *testing.T) {
 		"tmux list-panes": "%2 60 /dev/ttys002 $1 @4\n%9 5 /dev/ttys009 $1 @5\n",
 		"ps -A":           "50 1 -zsh\n60 50 -zsh\n70 60 claude\n",
 	}}
-	msg, err := jump(context.Background(), sess, true, f.run)
+	msg, err := jump(context.Background(), sess, jumpEnv{Tmux: true}, f.run)
 	if err != nil || msg != "jumped to abcd" {
 		t.Fatalf("a jump: %q %v", msg, err)
 	}
@@ -137,26 +137,26 @@ func TestJump(t *testing.T) {
 		t.Errorf("exactly one jump call: %d", n)
 	}
 
-	if _, err := jump(context.Background(), sess, false, f.run); err == nil || !strings.Contains(err.Error(), "not in tmux") {
+	if _, err := jump(context.Background(), sess, jumpEnv{}, f.run); err == nil || !strings.Contains(err.Error(), "not in tmux or cmux") {
 		t.Errorf("outside tmux: %v", err)
 	}
-	if _, err := jump(context.Background(), Session{Short: "x"}, true, f.run); err == nil || !strings.Contains(err.Error(), "process") {
+	if _, err := jump(context.Background(), Session{Short: "x"}, jumpEnv{Tmux: true}, f.run); err == nil || !strings.Contains(err.Error(), "process") {
 		t.Errorf("no pid: %v", err)
 	}
 	other := &fake{answer: map[string]string{"tmux list-panes": "%9 5 /dev/ttys009 $1 @5\n", "ps -A": "50 1 a\n60 50 b\n70 60 c\n", "ps -o tty=": "ttys002\n"}}
-	if _, err := jump(context.Background(), Session{ID: "abcdef0123456789", Short: "abcd", PID: pidOf(70)}, true, other.run); err == nil || !strings.Contains(err.Error(), "not in a tmux pane") || !strings.Contains(err.Error(), "claude attach abcdef01") {
+	if _, err := jump(context.Background(), Session{ID: "abcdef0123456789", Short: "abcd", PID: pidOf(70)}, jumpEnv{Tmux: true}, other.run); err == nil || !strings.Contains(err.Error(), "not in a pane") || !strings.Contains(err.Error(), "claude attach abcdef01") {
 		t.Errorf("no match says how to open a background session: %v", err)
 	}
 	if strings.Contains(strings.Join(other.calls, "\n"), "select-window") {
 		t.Errorf("no match, no jump")
 	}
 	viaTTY := &fake{answer: map[string]string{"tmux list-panes": "%9 5 /dev/ttys002 $1 @5\n", "ps -A": "70 1 claude\n", "ps -o tty=": "ttys002\n"}}
-	if msg, err := jump(context.Background(), sess, true, viaTTY.run); err != nil || msg == "" {
+	if msg, err := jump(context.Background(), sess, jumpEnv{Tmux: true}, viaTTY.run); err != nil || msg == "" {
 		t.Errorf("the tty fallback finds the pane: %q %v", msg, err)
 	}
 	for _, c := range []string{"tmux list-panes", "ps -A", "tmux select-window"} {
 		bad := &fake{answer: f.answer, fail: map[string]error{c: errors.New("boom")}}
-		if _, err := jump(context.Background(), sess, true, bad.run); err == nil || !strings.Contains(err.Error(), "boom") {
+		if _, err := jump(context.Background(), sess, jumpEnv{Tmux: true}, bad.run); err == nil || !strings.Contains(err.Error(), "boom") {
 			t.Errorf("a failing %q is reported: %v", c, err)
 		}
 	}
@@ -174,7 +174,7 @@ func TestJumpWithFakeCommands(t *testing.T) {
 	write("tmux", fmt.Sprintf(`echo "tmux $*" >> %q; case "$1" in list-panes) echo "%%7 60 /dev/ttys005 \$2 @3";; esac`, log))
 	write("ps", `echo "50 1 -zsh"; echo "60 50 -zsh"; echo "70 60 claude"`)
 	t.Setenv("PATH", dir+":/usr/bin:/bin")
-	msg, err := jump(context.Background(), Session{Short: "abcd", PID: pidOf(70)}, true, realRunner)
+	msg, err := jump(context.Background(), Session{Short: "abcd", PID: pidOf(70)}, jumpEnv{Tmux: true}, realRunner)
 	if err != nil || msg != "jumped to abcd" {
 		t.Fatalf("%q %v", msg, err)
 	}
@@ -270,7 +270,7 @@ func TestJumpFindsTheClientOfABackgroundSession(t *testing.T) {
 		// the session's own process hangs off a daemon; the client sits under the pane's shell
 		"ps -A": "69844 1 claude daemon run\n69851 69844 claude bg-pty-host\n69856 69851 claude bg-spare\n19568 1 -zsh\n70018 19568 claude attach 93a01840\n",
 	}}
-	msg, err := jump(context.Background(), sess, true, f.run)
+	msg, err := jump(context.Background(), sess, jumpEnv{Tmux: true}, f.run)
 	if err != nil || msg != "jumped to 93a0" {
 		t.Fatalf("a background session is found through its client: %q %v", msg, err)
 	}
@@ -281,7 +281,7 @@ func TestJumpFindsTheClientOfABackgroundSession(t *testing.T) {
 		"tmux list-panes": "%4 19568 /dev/ttys003 $1 @2\n%5 19570 /dev/ttys004 $1 @3\n",
 		"ps -A":           "69856 69851 claude bg-spare\n19568 1 -zsh\n19570 1 -zsh\n70018 19568 claude attach 93a01840\n70019 19570 claude attach 93a01840\n",
 	}}
-	if _, err := jump(context.Background(), sess, true, two.run); err == nil || !strings.Contains(err.Error(), "several terminals") {
+	if _, err := jump(context.Background(), sess, jumpEnv{Tmux: true}, two.run); err == nil || !strings.Contains(err.Error(), "several terminals") {
 		t.Errorf("two clients are ambiguous, so no guess: %v", err)
 	}
 }

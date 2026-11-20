@@ -181,33 +181,71 @@ func realRunner(ctx context.Context, name string, args ...string) (string, error
 	return out.buf.String(), nil
 }
 
-// jump finds the pane that runs s and selects it. It returns a short message for the status bar.
-func jump(ctx context.Context, s Session, inTmux bool, run runner) (string, error) {
-	if !inTmux {
-		return "", errors.New("not in tmux: run the dashboard inside tmux to jump")
+// jumpEnv says which multiplexers the dashboard itself runs inside.
+type jumpEnv struct{ Tmux, Cmux bool }
+
+func currentEnv() jumpEnv {
+	return jumpEnv{Tmux: os.Getenv("TMUX") != "", Cmux: os.Getenv("CMUX_SURFACE_ID") != "" || os.Getenv("CMUX_WORKSPACE_ID") != ""}
+}
+
+// jump brings the terminal that shows s to the front, through tmux or cmux, whichever the
+// dashboard runs inside; tmux is tried first, then cmux. It returns a short message for the
+// status bar, and never guesses.
+func jump(ctx context.Context, s Session, env jumpEnv, run runner) (string, error) {
+	if !env.Tmux && !env.Cmux {
+		return "", errors.New("not in tmux or cmux: run the dashboard inside one to jump")
 	}
 	if s.PID == nil {
 		return "", errors.New("sitrep does not know this session's process")
 	}
 	ctx, cancel := context.WithTimeout(ctx, jumpTimeout)
 	defer cancel()
-	listing, err := run(ctx, "tmux", "list-panes", "-a", "-F", listPanesFormat)
-	if err != nil {
-		return "", err
-	}
-	panes := parsePanes(listing)
 	snapshot, err := run(ctx, "ps", "-A", "-o", "pid=,ppid=,command=")
 	if err != nil {
 		return "", err
 	}
 	procs := parseProcs(snapshot)
 	parents := parentMap(procs)
-	p, ok := findPane(panes, ancestors(int(*s.PID), parents))
-	if !ok { // a background session has no terminal above it; the client attached to it does
-		if clients := attachClients(procs, s.ID); len(clients) == 1 {
-			p, ok = findPane(panes, ancestors(clients[0], parents))
-		} else if len(clients) > 1 {
-			return "", errors.New("several terminals are attached to this session")
+	chains := [][]int{ancestors(int(*s.PID), parents)}
+	// a background session has no terminal above it; the client attached to it does
+	switch clients := attachClients(procs, s.ID); {
+	case len(clients) == 1:
+		chains = append(chains, ancestors(clients[0], parents))
+	case len(clients) > 1:
+		return "", errors.New("several terminals are attached to this session")
+	}
+	if env.Tmux {
+		if ok, err := jumpTmux(ctx, s, chains, run); err != nil {
+			return "", err
+		} else if ok {
+			return "jumped to " + s.Short, nil
+		}
+	}
+	if env.Cmux {
+		if ok, err := jumpCmux(ctx, chains, run); err != nil {
+			return "", err
+		} else if ok {
+			return "jumped to " + s.Short, nil
+		}
+	}
+	hint := ""
+	if len(s.ID) >= 8 {
+		hint = "; if it runs in the background, open it with: claude attach " + s.ID[:8]
+	}
+	return "", errors.New("not in a pane here" + hint)
+}
+
+// jumpTmux selects the tmux pane that holds one of the chains. ok is false when none does.
+func jumpTmux(ctx context.Context, s Session, chains [][]int, run runner) (ok bool, err error) {
+	listing, err := run(ctx, "tmux", "list-panes", "-a", "-F", listPanesFormat)
+	if err != nil {
+		return false, err
+	}
+	panes := parsePanes(listing)
+	var p pane
+	for _, chain := range chains {
+		if p, ok = findPane(panes, chain); ok {
+			break
 		}
 	}
 	if !ok {
@@ -216,16 +254,8 @@ func jump(ctx context.Context, s Session, inTmux bool, run runner) (string, erro
 		}
 	}
 	if !ok {
-		hint := ""
-		if len(s.ID) >= 8 {
-			hint = "; if it runs in the background, open it with: claude attach " + s.ID[:8]
-		}
-		return "", errors.New("not in a tmux pane here" + hint)
+		return false, nil
 	}
-	if _, err := run(ctx, "tmux", jumpArgs(p)...); err != nil {
-		return "", err
-	}
-	return "jumped to " + s.Short, nil
+	_, err = run(ctx, "tmux", jumpArgs(p)...)
+	return err == nil, err
 }
-
-func inTmux() bool { return os.Getenv("TMUX") != "" }

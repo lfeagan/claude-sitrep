@@ -1,0 +1,10 @@
+6.6	436636768	4	total	total		
+6.6	436636768	4	window	window:1000000000	total	
+6.6	362579288	1	process	19549	window:1000000000	cmux
+0.0	74057480	3	workspace	workspace:1000000000	window:1000000000	Lances-MacBook-Pro-2:~ Overland Park, Kansas, US: ☀️  +20°C
+0.0	74057480	3	pane	pane:1000000000	workspace:1000000000	
+0.0	69879152	2	surface	surface:1000000000	pane:1000000000	Q command and session-notes naming
+0.0	4260248	1	process	19568	surface:1000000000	bash
+0.0	65618904	1	process	70018	19568	claude
+0.0	4178328	1	surface	surface:1000000001	pane:1000000000	Lances-MacBook-Pro-2:~ Overland Park, Kansas, US: ☀️  +20°C
+0.0	4178328	1	process	86181	surface:1000000001	bash

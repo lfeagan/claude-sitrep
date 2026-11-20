@@ -76,9 +76,9 @@ func (m *model) jumpCmd() tea.Cmd {
 		return nil
 	}
 	m.acting = true
-	sess, run, tmux := *x, m.run, inTmux()
+	sess, run, env := *x, m.run, currentEnv()
 	return func() tea.Msg {
-		text, err := jump(context.Background(), sess, tmux, run)
+		text, err := jump(context.Background(), sess, env, run)
 		return jumpMsg{text: text, err: err}
 	}
 }
