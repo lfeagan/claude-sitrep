@@ -335,6 +335,11 @@ check "install moves old notes" test -f "$H14/.claude/sitrep/abcd0001.txt" -a ! 
 check "install moves the old config into the notes folder" test -f "$H14/.claude/sitrep/sitrep.conf" -a ! -e "$H14/.claude/sitrep.conf"
 instc "$H14" "$R" uninstall.sh >/dev/null
 check "uninstall removes the alias" test ! -e "$H14/bin/q" -a ! -L "$H14/bin/q"
+H17="$T/home17"; fresh "$H17" '{}'; mkdir -p "$H17/.claude/session-notes" "$H17/.claude/sitrep"
+echo old > "$H17/.claude/session-notes/abcd0001.txt"; echo old > "$H17/.claude/session-notes/ijkl0003.txt"; echo new > "$H17/.claude/sitrep/abcd0001.txt"
+instc "$H17" "$R" install.sh >/dev/null 2>&1
+check "install merges old notes into an existing folder" test -f "$H17/.claude/sitrep/ijkl0003.txt" -a ! -e "$H17/.claude/session-notes/ijkl0003.txt"
+eq "merge never overwrites newer notes" new "$(cat "$H17/.claude/sitrep/abcd0001.txt")"
 H15="$T/home15"; fresh "$H15" '{}'; mkdir -p "$H15/.claude/session-notes"; echo x > "$H15/.claude/session-notes/other.dat"
 instc "$H15" "$R" install.sh >/dev/null 2>&1
 check "install leaves a notes folder with foreign files alone" test -f "$H15/.claude/session-notes/other.dat"

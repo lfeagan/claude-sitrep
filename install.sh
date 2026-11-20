@@ -28,8 +28,10 @@ jq -L "$R/lib" --arg sl "bash $slp $tag" --arg h "bash $hp" --arg hp "$hp" '
 cat "$tmp" > "$S"   # write through, so a symlinked settings.json stays a symlink
 # Earlier versions kept notes in ~/.claude/session-notes and the config in ~/.claude/sitrep.conf; move them only if every file there is ours.
 od="$HOME/.claude/session-notes"
-if [ -d "$od" ] && [ ! -e "$ND" ] && [ -z "$(find "$od" -mindepth 1 ! \( -name '*.txt' -o -name '*.queue' -o -name '*.cwd' \) 2>/dev/null)" ]; then
-  mv "$od" "$ND" && echo "Moved notes from $od to $ND."
+if [ -d "$od" ] && [ -z "$(find "$od" -mindepth 1 ! \( -name '*.txt' -o -name '*.queue' -o -name '*.cwd' -o -name '.*.prompt' -o -name '.*.stamp' -o -name '.*.pending' \) 2>/dev/null)" ]; then
+  mkdir -p "$ND"   # a running hook may have created it already, so merge and never overwrite
+  for x in "$od"/* "$od"/.[!.]*; do [ -f "$x" ] && mv -n "$x" "$ND/"; done
+  rmdir "$od" 2>/dev/null && echo "Moved notes from $od to $ND."
 fi
 mkdir -p "$ND"; chmod 700 "$ND"; chmod 600 "$ND"/* 2>/dev/null || true
 [ -e "$HOME/.claude/sitrep.conf" ] && [ ! -e "$CONF" ] && mv "$HOME/.claude/sitrep.conf" "$CONF"
