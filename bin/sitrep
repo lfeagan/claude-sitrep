@@ -117,25 +117,25 @@ local_domain() { # how Claude Code names this machine's pid space; empty when it
   if [ "$(uname)" = Darwin ]; then echo darwin
   else local id ns; id=$(cat /etc/machine-id 2>/dev/null); ns=$(readlink /proc/self/ns/pid 2>/dev/null); [ -n "$id" ] && [ -n "$ns" ] && echo "darwin:$id:$ns"; fi
 }
-live_ids() { # session ids with a live process, from Claude Code's registry (~/.claude/sessions/<pid>.json); fails when nothing live can be read
+live_ids() { # "id pid" for each session with a live process, from Claude Code's registry (~/.claude/sessions/<pid>.json); the pid is - when it is in another pid space. Fails when nothing live can be read
   local d="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions" ldom pid sid pstart dom st want f have=0 any=0
   for f in "$d"/*.json; do [ -f "$f" ] && { have=1; break; }; done; [ "$have" = 1 ] || return 1
   ldom=$(local_domain)
   while IFS=$'\t' read -r pid sid pstart dom; do   # the files are untrusted input: check what is used
     [[ $pid =~ ^[0-9]+$ ]] && [[ $sid =~ ^[A-Za-z0-9_-]+$ ]] || continue
-    if [ -n "$dom" ] && [ -n "$ldom" ] && [ "$dom" != "$ldom" ]; then echo "$sid"; any=1; continue; fi   # another pid space: cannot judge, count as alive
+    if [ -n "$dom" ] && [ -n "$ldom" ] && [ "$dom" != "$ldom" ]; then echo "$sid -"; any=1; continue; fi   # another pid space: cannot judge, count as alive, and the pid means nothing here
     kill -0 "$pid" 2>/dev/null || continue
     st=$(LC_ALL=C TZ=UTC ps -o lstart= -p "$pid" 2>/dev/null | tr -s ' '); st=${st# }; st=${st% }
     want=$(printf '%s' "$pstart" | tr -s ' '); want=${want# }; want=${want% }
     if [ -n "$st" ] && [ -n "$want" ] && [ "$st" != "$want" ]; then continue; fi   # the pid was reused by another process
-    echo "$sid"; any=1
+    echo "$sid $pid"; any=1
   done < <(jq -r '[.pid, .sessionId, .procStart, (.pidDomain // "")] | map(tostring) | join("\t")' "$d"/*.json 2>/dev/null)
   [ "$any" = 1 ]
 }
 deadp() { # id changed: is the session over? Needs $reg (1 when the registry could be read), $live and $now.
   local w; w=$(sword "$1")
   if [ "$reg" = 1 ]; then
-    case $'\n'"$live"$'\n' in *$'\n'"$1"$'\n'*) return 1 ;; esac   # a live process has this id, whatever the state file says
+    case $'\n'"$live" in *$'\n'"$1 "*) return 1 ;; esac   # a live process has this id, whatever the state file says
     [ "$w" = ended ] || [ $(( now - $2 )) -gt 120 ]   # not registered: over once it said so, or after two quiet minutes (the registry lags a start and a /clear)
   else [ "$w" = ended ]; fi
 }
@@ -174,13 +174,15 @@ gather() { # all: collect the sessions active in the last day, newest first, for
 }
 
 json_frame() { # all cap: one JSON document for the running sessions (all: finished ones too); cap limits each queue's items, -1 for none
-  local all=$1 cap=$2 now live reg=0 ended=0 strand=0 isend=() ages=() sts=() ids=() full=() dirs=() ts=() i k sid w run state quiet idle needs pin hl hlsec q meta="" sep="" args=() out
+  local all=$1 cap=$2 now live reg=0 ended=0 strand=0 isend=() ages=() sts=() ids=() full=() dirs=() ts=() i k sid w run state quiet idle needs pin hl hlsec q rest pid meta="" sep="" args=() out
   gather "$all"
   hlsec=$(hl_seconds)
   for i in "${!full[@]}"; do
     sid=${full[$i]}; [[ $sid =~ ^[A-Za-z0-9_-]+$ ]] || continue   # ids come from file names; anything else is not ours
     w=$(sword "$sid"); run=true; [ "${isend[$i]}" = 1 ] && run=false
     state=$w; if [ "$run" = false ]; then state=ended; elif [ "$w" = ended ]; then state=running; fi   # alive in the registry, so a stale ended is not true
+    pid=null   # the live process, when the registry names one here; the first, if a resume left several
+    if [ "$run" = true ]; then case $'\n'"$live" in *$'\n'"$sid "*) rest=${live#*"$sid "}; rest=${rest%%$'\n'*}; [[ $rest =~ ^[0-9]+$ ]] && pid=$rest ;; esac; fi
     quiet=null; idle=false; needs=false
     [ "$run" = true ] && [ "$w" = waiting ] && needs=true   # Claude has stopped and the turn is the user's, until the next prompt
     if [ "$w" = working ] && [ "$run" = true ]; then q=$(tquiet "$sid" "$now"); [ -n "$q" ] && quiet=$q; fi
@@ -188,7 +190,7 @@ json_frame() { # all cap: one JSON document for the running sessions (all: finis
     pin=false; [ -e "$dir/.$sid.pinned" ] && pin=true
     hl=false; [ "$run" = true ] && [ "$hlsec" -gt 0 ] && [ "${ages[$i]}" -le "$hlsec" ] && hl=true
     [[ ${sts[$i]} =~ ^[a-z?]+(\ [0-9\<]+[mhd]?)?$ ]] || sts[i]=-   # the label is built from known words; only such a label goes into the JSON
-    meta+="$sep{\"i\":$i,\"id\":\"$sid\",\"short\":\"${sid:0:4}\",\"running\":$run,\"state\":\"$state\",\"state_label\":\"${sts[$i]}\",\"age\":${ages[$i]},\"state_changed\":$(( now - ages[i] )),\"quiet_secs\":$quiet,\"idle\":$idle,\"needs_input\":$needs,\"pinned\":$pin,\"highlight\":$hl}"; sep=","
+    meta+="$sep{\"i\":$i,\"id\":\"$sid\",\"short\":\"${sid:0:4}\",\"running\":$run,\"state\":\"$state\",\"state_label\":\"${sts[$i]}\",\"age\":${ages[$i]},\"state_changed\":$(( now - ages[i] )),\"quiet_secs\":$quiet,\"idle\":$idle,\"needs_input\":$needs,\"pid\":$pid,\"pinned\":$pin,\"highlight\":$hl}"; sep=","
     for k in t:txt c:cwd q:queue; do   # a file that is missing or unreadable reads as empty, so one bad file does not blank the listing
       if [ -f "$dir/$sid.${k#*:}" ] && [ -r "$dir/$sid.${k#*:}" ]; then args+=(--rawfile "${k%%:*}$i" "$dir/$sid.${k#*:}"); else args+=(--rawfile "${k%%:*}$i" /dev/null); fi
     done
@@ -390,13 +392,17 @@ Let the summarizer rewrite a session's Objective again.
 EOF
     ;;
     prune) cat <<'EOF'
-usage: sitrep prune [-y] [--dry-run]
+usage: sitrep prune [-y | -k | --dry-run]
 
 Mark each session that is no longer running as ended. For a session that still holds
 queue items, ask whether to move them to the inbox.
 
   -y          answer yes to every question
+  -k, --keep  mark the sessions ended, leave every queue where it is, and ask nothing;
+              for a program with no one to answer
   --dry-run   say what would happen, and change nothing
+
+The three options exclude one another.
 
 It reads Claude Code's live-session registry and changes nothing if it cannot. It never
 touches a running session or one under two minutes old, and never deletes a queue.
@@ -490,8 +496,9 @@ case "$cmd" in
         if [ "$once" = 1 ]; then
           termsize; frame=$(render_frame 1 "$rows" "$cols" "$items" "$all" "$wrapn"); printf '%s\n' "${frame:-No running sessions.}"
         else watch_loop "${1:-2}"; fi ;;
-  prune) yes=0; dry=0
-        for a in "$@"; do case "$a" in -y|--yes) yes=1 ;; --dry-run) dry=1 ;; *) die "usage: sitrep prune [-y] [--dry-run]" ;; esac; done
+  prune) yes=0; dry=0; keep=0; asked=0
+        for a in "$@"; do case "$a" in -y|--yes) yes=1 ;; --dry-run) dry=1 ;; -k|--keep) keep=1 ;; *) die "usage: sitrep prune [-y | -k | --dry-run]" ;; esac; done
+        [ $(( yes + dry + keep )) -le 1 ] || die "usage: sitrep prune [-y | -k | --dry-run]"
         live=$(live_ids); [ -n "$live" ] || die "cannot read the live-session registry in ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions; nothing changed"
         reg=1; now=$(date +%s); marked=0; moved=0; tty=0; { : </dev/tty; } 2>/dev/null && tty=1
         for t in "$dir"/*.txt; do
@@ -504,14 +511,15 @@ case "$cmd" in
             marked=$(( marked + 1 ))
           fi
           [ "$n" -gt 0 ] || continue
-          if [ "$dry" = 1 ]; then echo "would ask: move $n item(s) from ${sid:0:4} ($d) to the inbox"; continue; fi
+          if [ "$dry" = 1 ]; then echo "would ask: move $n item(s) from ${sid:0:4} ($d) to the inbox"; asked=$(( asked + n )); continue; fi
           ans=n
-          if [ "$yes" = 1 ]; then ans=y
+          if [ "$keep" = 1 ]; then echo "kept $n item(s) on ${sid:0:4} ($d)"   # never asks, never moves: for a caller with no one to answer
+          elif [ "$yes" = 1 ]; then ans=y
           elif [ "$tty" = 1 ]; then printf 'Move %s item(s) from %s (%s) to the inbox? [y/N] ' "$n" "${sid:0:4}" "$d" >&2; read -r ans </dev/tty || ans=n
           else echo "$n item(s) left on ${sid:0:4} ($d): run prune in a terminal, or use -y" >&2; fi
           case "$ans" in y|Y|yes) for (( i = 0; i < n; i++ )); do bash "$0" move "$sid" inbox 1 >/dev/null || break; moved=$(( moved + 1 )); done ;; esac
         done
-        echo "$marked marked ended, $moved item(s) moved to the inbox" ;;
+        if [ "$dry" = 1 ]; then echo "would mark $marked ended, would ask about $asked item(s)"; else echo "$marked marked ended, $moved item(s) moved to the inbox"; fi ;;
   tui)  bin=$(tui_bin)
         [ -n "$bin" ] || die "sitrep-tui is not built; run 'make tui' in the claude-sitrep checkout (needs Go 1.26 or newer)"
         case $0 in /*) me=$0 ;; *) me=$PWD/$0 ;; esac   # an absolute path, so the dashboard never searches PATH for it

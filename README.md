@@ -17,6 +17,17 @@ The block works as follows:
 2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
 3. Queue shows how many items are waiting, the next item and the first four characters of the session id, which is how `sitrep` addresses the session (`sitrep add a1b2 ...`).
 
+## Why sitrep
+
+Most tools show what your sessions are doing. sitrep also holds what you plan to do next, per session, and uses plain files, shell and `jq`, so the status line renders instantly and there is no server to run.
+
+1. A status block and a per-session queue under each prompt, plus an inbox for work you have not yet matched to a session. `+ <text>` queues an item without sending anything to Claude.
+2. Objective, Progress and Now come from a short Haiku call after each turn. See Privacy And Safety for the cost cap and what is sent.
+3. Read-only dashboards (`sitrep watch`, and the optional `sitrep tui`) and a stable JSON format (`sitrep ls --json`) for your own tools.
+4. Limits: Claude Code only, one machine, no cost tracking, and it cannot answer a session's approval prompts.
+
+`docs/COMPARISON.md` compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
+
 ## Install
 
 Requires `jq`, `perl` and the `claude` CLI. Run `./install.sh`, which does the following:
@@ -83,12 +94,12 @@ Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the envi
 
 ## Pruning
 
-`sitrep prune [-y] [--dry-run]` tidies sessions that are gone. It works as follows:
+`sitrep prune [-y | -k | --dry-run]` tidies sessions that are gone. It works as follows:
 
 1. It reads the live-session registry, and changes nothing if it cannot.
 2. It marks each session that is not running as `ended`.
 3. For a session that still holds queue items, it asks `Move N item(s) from <id> (<directory>) to the inbox? [y/N]`. `-y` answers yes for all. Without a terminal and without `-y` the items stay where they are, and it says so.
-4. `--dry-run` prints what it would do and changes nothing.
+4. `--dry-run` prints what it would do and changes nothing, and `-k` or `--keep` marks the sessions ended and leaves every queue alone without asking, for a program that has no one to answer. The three options exclude one another.
 
 It never touches a running session or one under two minutes old, and it never deletes a queue file.
 
@@ -141,6 +152,7 @@ Each session has these fields:
 | `state_label`, `age` | The text `watch` shows, such as `working 1m` or `idle? 25m`, and the seconds since the state changed. |
 | `state_changed` | When the state changed, in epoch seconds. |
 | `idle`, `quiet_secs` | `idle` is true for a working session whose transcript has been quiet for ten minutes. `quiet_secs` is that quiet time, and null unless the session is working. |
+| `pid` | The live process of the session, from the registry, or null when it is not known here (another pid space). If a resume left several, the first. A hint only: it can be stale by the time it is used. |
 | `needs_input` | True for a running session in the `waiting` state: Claude has stopped, and the next move is the user's. It stays true until the user sends a prompt. |
 | `pinned`, `highlight` | Whether the Objective is pinned, and whether the session changed within `highlight_seconds`. |
 | `objective`, `progress`, `now` | The three lines of the status block. |

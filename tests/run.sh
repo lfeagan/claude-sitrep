@@ -509,6 +509,21 @@ eq "the inbox has the item" "orphaned task" "$(cat "$STATE/inbox.queue")"
 eq "the dead session's queue is empty" 0 "$(grep -c . "$STATE/dea00002.queue")"
 check "the stranded line is gone" hasnt "$(bounded sitrep ls)" "stranded"
 eq "the state file is owner-only" 600 "$(mode "$STATE/.dea00002.state")"
+check "the dry-run summary says what would happen" has "$(sitrep prune --dry-run)" "would mark "
+check "the dry-run summary does not claim anything was done" hasnt "$(sitrep prune --dry-run | tail -1)" "moved"
+mk kep00009 kept 500; st kep00009 waiting 500; sitrep add kep00009 'kept one' >/dev/null
+check "the dry-run counts the items it would ask about" has "$(sitrep prune --dry-run | tail -1)" "would ask about 1 item(s)"
+inbox_before=$(grep -c . "$STATE/inbox.queue" 2>/dev/null)
+out=$(bounded sitrep prune --keep </dev/null)
+check "prune --keep marks the session ended" has "$out" "marked kep0 (kept) ended"
+check "prune --keep says what it kept" has "$out" "kept 1 item(s) on kep0"
+eq "prune --keep leaves the queue alone" "kept one" "$(cat "$STATE/kep00009.queue")"
+eq "prune --keep moves nothing to the inbox" "$inbox_before" "$(grep -c . "$STATE/inbox.queue" 2>/dev/null)"
+eq "and the session is ended" ended "$(sword kep00009)"
+eq "--keep and -y exclude one another" 1 "$(rc sitrep prune --keep -y)"
+eq "--keep and --dry-run exclude one another" 1 "$(rc sitrep prune --keep --dry-run)"
+eq "-y and --dry-run exclude one another" 1 "$(rc sitrep prune -y --dry-run)"
+check "help prune describes --keep" has "$(sitrep help prune)" "--keep"
 rm -f "$HOME/.claude/sessions"/*.json
 st dea00002 waiting 500
 eq "prune refuses when the registry cannot be read" 1 "$(rc sitrep prune)"
@@ -620,8 +635,20 @@ check "the document has the documented shape" bash -c "sitrep ls --json -a | jq 
     and (.pinned|type==\"boolean\") and (.highlight|type==\"boolean\") and (.dir|type==\"string\") and (.cwd|type==\"string\")
     and (.objective|type==\"string\") and (.progress|type==\"string\") and (.now|type==\"string\")
     and (.queue.count|type==\"number\") and (.queue.items|type==\"array\"))' >/dev/null"
+mk jsn00006 foreign 20; st jsn00006 waiting 20
+reg jsn00006 4242424 "Mon Jan  1 00:00:00 2001" "linux:other:ns"
+fn=$(sed -n '/^local_domain()/,/^}/p;/^live_ids()/,/^}/p' "$R/bin/sitrep")
+lines=$(bash -c "$fn; live_ids" 2>&1)
+check "live_ids prints an id and a pid on each line" bash -c "printf '%s\n' '$lines' | grep -Eq '^[A-Za-z0-9_-]+ ([0-9]+|-)\$'"
+eq "every line has that shape" 0 "$(printf '%s\n' "$lines" | grep -Evc '^[A-Za-z0-9_-]+ ([0-9]+|-)$')"
+check "a live local session has its pid" has "$lines" "jsn00001 $jp1"
+check "an entry from another pid space has none" has "$lines" "jsn00006 -"
+eq "the JSON gives a live session's pid" "$jp1" "$(j | jq '.sessions[] | select(.id == "jsn00001") | .pid')"
+eq "the pid is a number" number "$(j | jq -r '.sessions[] | select(.id == "jsn00001") | .pid | type')"
+eq "a session in another pid space has a null pid, and still runs" "null true" "$(j | jq -r '.sessions[] | select(.id == "jsn00006") | "\(.pid) \(.running)"')"
+eq "a finished session has no pid" null "$(j -a | jq '.sessions[] | select(.id == "jsn00002") | .pid')"
 eq "the registry is read" ok "$(j | jq -r .registry)"
-eq "running sessions are listed by default" "jsn00001 jsn00003 jsn00004" "$(j | jq -r '[.sessions[].id] | sort | join(" ")')"
+eq "running sessions are listed by default" "jsn00001 jsn00003 jsn00004 jsn00006" "$(j | jq -r '[.sessions[].id] | sort | join(" ")')"
 eq "finished sessions are counted, not listed" 1 "$(j | jq .hidden.ended)"
 check "-a lists the finished one too" has "$(j -a | jq -r '[.sessions[].id] | join(" ")')" "jsn00002"
 eq "a finished session is not running" false "$(j -a | jq '.sessions[] | select(.id == "jsn00002") | .running')"
