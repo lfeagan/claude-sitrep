@@ -144,31 +144,42 @@ termsize() { # sets rows and cols: LINES/COLUMNS, then the terminal, then 24x100
   [ "$cols" -ge 10 ] 2>/dev/null || cols=100
 }
 
-render_frame() { # verbose rows cols items all wraplines highlight-seconds: the Inbox, then a table of running sessions (all: finished ones too). rows 0 means no height limit.
-  # With verbose and items above 0 each queue is listed (at most items entries) and the header shows the count alone.
-  local v=$1 rows=$2 cols=$3 items=$4 all=$5 wrapn=${6:-3} hl=${7:-0} itemn strand=0 live reg=0 ages=() quiet=() list=0 expr l sw=5 st key ended=0 sts=() ids=() dirs=() qs=() ts=() w=9 now m t sid cwd d q i avail blk nlc
-  local foot full=() head=() blocks=() bn=() out=() used shown=0 cap total=0
+gather() { # all: collect the sessions active in the last day, newest first, for render_frame
+  # Bash scoping lets it fill the caller's locals: now live reg ended strand ids full dirs sts ages isend ts.
+  # A finished session is counted in ended (and its queue items in strand), and listed only when all is 1.
+  local all=$1 m t sid cwd st key
   now=$(date +%s)
   live=$(live_ids); [ -n "$live" ] && reg=1   # one registry read per frame
-  { [ "$v" = 1 ] && [ "$items" -gt 0 ]; } && list=1
-  expr='s/^Objective: /    Objective: /p;s/^Now: */    Now:       /p'
-  [ "$v" = 1 ] && expr='s/^Objective: /    Objective: /p;s/^Progress: */    Progress:  /p;s/^Now: */    Now:       /p'
   while read -r m t; do
     [ $(( now - m )) -lt 86400 ] || continue   # active in the last day
     sid=$(basename "$t" .txt)
     if deadp "$sid" "$m"; then
       if [ "$all" != 1 ]; then ended=$(( ended + 1 )); strand=$(( strand + $(count "$sid") )); continue; fi
-      st="ended $(agetxt $(( now - m )))"; quiet+=(1)
-    else quiet+=(0); st=$(stext "$sid" "$m" "$now"); case "$st" in ended*) st="running ${st#ended }" ;; esac   # alive in the registry, so a stale ended is not true
+      st="ended $(agetxt $(( now - m )))"; isend+=(1)
+    else isend+=(0); st=$(stext "$sid" "$m" "$now"); case "$st" in ended*) st="running ${st#ended }" ;; esac   # alive in the registry, so a stale ended is not true
     fi
-    ages+=($(( now - m ))); sts+=("$st"); [ ${#st} -gt "$sw" ] && sw=${#st}
-    cwd=$(cwd_of "$sid"); d=$(basename "${cwd:-?}")
-    if [ "$list" = 1 ]; then q=$(qsum "$sid" count); else q=$(qsum "$sid"); fi
-    ids+=("${sid:0:4}"); full+=("$sid"); dirs+=("$d"); qs+=("$q"); ts+=("$t"); [ ${#d} -gt "$w" ] && w=${#d}   # w: width of the DIRECTORY column
+    ages+=($(( now - m ))); sts+=("$st")
+    cwd=$(cwd_of "$sid")
+    ids+=("${sid:0:4}"); full+=("$sid"); dirs+=("$(basename "${cwd:-?}")"); ts+=("$t")
   done < <(for t in "$dir"/*.txt; do   # newest first, by when the state last changed (else when the notes did)
     [ -f "$t" ] || continue; key=${t##*/}; key="$dir/.${key%.txt}.state"; [ -f "$key" ] || key=$t
     echo "$(mtime "$key") $t"
   done | sort -rn)
+}
+
+render_frame() { # verbose rows cols items all wraplines highlight-seconds: the Inbox, then a table of running sessions (all: finished ones too). rows 0 means no height limit.
+  # With verbose and items above 0 each queue is listed (at most items entries) and the header shows the count alone.
+  local v=$1 rows=$2 cols=$3 items=$4 all=$5 wrapn=${6:-3} hl=${7:-0} itemn strand=0 live reg=0 isend=() ages=() list=0 expr l sw=5 st ended=0 sts=() ids=() dirs=() qs=() ts=() w=9 now d i avail blk nlc
+  local foot full=() head=() blocks=() bn=() out=() used shown=0 cap total=0
+  gather "$all"
+  { [ "$v" = 1 ] && [ "$items" -gt 0 ]; } && list=1
+  expr='s/^Objective: /    Objective: /p;s/^Now: */    Now:       /p'
+  [ "$v" = 1 ] && expr='s/^Objective: /    Objective: /p;s/^Progress: */    Progress:  /p;s/^Now: */    Now:       /p'
+  for i in "${!full[@]}"; do   # what depends on the view: column widths, and the queue text
+    st=${sts[$i]}; [ ${#st} -gt "$sw" ] && sw=${#st}
+    d=${dirs[$i]}; [ ${#d} -gt "$w" ] && w=${#d}   # w: width of the DIRECTORY column
+    if [ "$list" = 1 ]; then qs+=("$(qsum "${full[$i]}" count)"); else qs+=("$(qsum "${full[$i]}")"); fi
+  done
   if [ "$(count inbox)" -gt 0 ]; then
     if [ "$list" = 1 ]; then
       head+=("$(printf 'Inbox: %s' "$(qsum inbox count)" | fit "$cols")")
@@ -183,7 +194,7 @@ render_frame() { # verbose rows cols items all wraplines highlight-seconds: the 
           [ "$list" = 1 ] && qlist "${full[$i]}" "$items" "    Queue:     " "               ")
     itemn=2; [ "$wrapn" -lt 2 ] && itemn=1   # queue items get fewer lines than the fields
     [ "$rows" -gt 0 ] && blk=$(printf '%s' "$blk" | tr '\t' ' ' | wrap "$cols" "$wrapn" "$itemn")   # a tab can span 8 columns
-    if [ "$hl" -gt 0 ] && [ "${ages[$i]}" -le "$hl" ] && [ "${quiet[$i]}" = 0 ]; then blk=$(printf '%s\n' "$blk" | sed $'s/^/\001/'); fi   # \001 marks a line for the highlight; watch_loop draws it
+    if [ "$hl" -gt 0 ] && [ "${ages[$i]}" -le "$hl" ] && [ "${isend[$i]}" = 0 ]; then blk=$(printf '%s\n' "$blk" | sed $'s/^/\001/'); fi   # \001 marks a line for the highlight; watch_loop draws it
     nlc=${blk//[!$'\n']/}; blocks+=("$blk"); bn+=($(( ${#nlc} + 1 ))); total=$(( total + ${#nlc} + 1 ))
   done
   used=${#head[@]}; cap=0; foot=0; [ "$ended" -gt 0 ] && foot=1; [ "$strand" -gt 0 ] && foot=$(( foot + 1 ))   # foot: the ended lines always get their own rows
