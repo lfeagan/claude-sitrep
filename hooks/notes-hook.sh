@@ -24,7 +24,7 @@ mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 # format (Cf, incl. bidi) characters, and cut to $1 characters.
 sane() { N=${1:-140} perl -CSD -0777 -pe 's/[\n\t\p{Zl}\p{Zp}]/ /g; s/[\p{Cc}\p{Cf}]//g; $_=substr($_,0,$ENV{N})' 2>/dev/null; }
 trunc() { printf '%s' "$1" | sane "${2:-140}"; }
-get() { [ -f "$f" ] && sed -n "s/^$1: //p" "$f" | head -1; }
+get() { [ -f "$f" ] && sed -n "s/^$1: *//p" "$f" | head -1; }   # label plus all padding
 write() { # objective progress now
   local t; t=$(mktemp "$dir/.w.XXXXXX") || return 1
   if printf 'Objective: %s\nProgress:  %s\nNow:       %s\n' "$1" "$2" "$3" > "$t"; then mv "$t" "$f"; else rm -f "$t"; return 1; fi
@@ -76,7 +76,7 @@ if [ "$event" = "UserPromptSubmit" ]; then
       text=${prompt#+ }
       if short "$text"; then
         item=$(trunc "$text" 200)
-        if printf '%s\n' "$item" >> "$qfile"; then
+        if [ -n "$item" ] && printf '%s\n' "$item" >> "$qfile"; then
           [ -f "$f" ] || write "-" "-" "-"
           jq -n --arg r "Queued ($(grep -c . "$qfile")): $item" '{decision:"block",reason:$r}'; exit 0
         fi
@@ -99,10 +99,21 @@ if [ "$event" = "SessionStart" ]; then
 fi
 
 if [ "$event" = "Stop" ] && [ -f "$tp" ]; then
-  # debounce: skip if summarized in the last 45s
-  stamp="$dir/.$sid.stamp"
+  # Debounce: at most one summary per window. A Stop inside the window schedules one deferred run for the
+  # end of the window, so a quick follow-up turn is still summarized and never left stale.
+  window=${SITREP_DEBOUNCE:-45}
+  stamp="$dir/.$sid.stamp"; pending="$dir/.$sid.pending"
   last=$(mtime "$stamp")
-  if [ -n "$last" ] && [ $(( $(date +%s) - last )) -lt 45 ]; then exit 0; fi
+  if [ -n "$last" ] && [ $(( $(date +%s) - last )) -lt "$window" ]; then
+    [ -e "$pending" ] && exit 0
+    : > "$pending"
+    wait_s=$(( window - ($(date +%s) - last) ))
+    (
+      sleep "$wait_s"; rm -f "$pending"
+      obj=$(get Objective); touch "$stamp"; summarize
+    ) >/dev/null 2>&1 &
+    exit 0
+  fi
   touch "$stamp"
   summarize
 fi

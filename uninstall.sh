@@ -21,5 +21,6 @@ jq --arg up "$up" --arg slp "$slp" --arg hp "$hp" '
     then (if $up == "" then del(.statusLine) else .statusLine.command = $up end)
     else . end' "$S" > "$tmp"
 cat "$tmp" > "$S"
+rm -f "$HOME/.claude/sitrep.conf"   # consumed above; a stale upstream would otherwise outlive us
 [ "$(readlink "$BIN_DIR/q" 2>/dev/null)" = "$R/bin/q" ] && rm -f "$BIN_DIR/q"
 echo "Uninstalled. Notes in ~/.claude/session-notes are left in place."

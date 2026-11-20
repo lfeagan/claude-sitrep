@@ -3,7 +3,6 @@
 umask 077
 dir="$HOME/.claude/session-notes"
 die() { echo "q: $*" >&2; exit 1; }
-# Text from users and sessions is untrusted terminal input: flatten whitespace, drop control characters.
 # Text is untrusted terminal input: drop control (Cc, incl. C1) and format (Cf, incl. bidi) characters.
 clean() { perl -CSD -0777 -pe 's/[\n\t\p{Zl}\p{Zp}]/ /g; s/[\p{Cc}\p{Cf}]//g; s/ +$//; $_=substr($_,0,200)' 2>/dev/null; }   # for text being stored: one flat line
 strip() { perl -CSD -pe 's/(?!\n|\t)[\p{Cc}\p{Cf}]//g' 2>/dev/null; }                                                   # for text being shown: keeps line breaks
@@ -19,7 +18,7 @@ resolve() { # prefix -> full session id
   echo "${m[0]}"
 }
 qf() { echo "$dir/$1.queue"; }
-count() { [ -f "$(qf "$1")" ] && grep -c . "$(qf "$1")" || echo 0; }
+count() { local n; n=$(grep -c . "$(qf "$1")" 2>/dev/null); echo "${n:-0}"; }
 dropline() { # file n: delete line n
   local t; t=$(tmpfile) || return 1
   if sed "${2}d" "$1" > "$t"; then mv "$t" "$1"; else rm -f "$t"; return 1; fi
@@ -41,10 +40,13 @@ case "$cmd" in
       done
     fi ;;
   add)  [ $# -ge 2 ] || die "usage: q add <session> <text>"
-        sid=$(resolve "$1") || exit 1; shift; printf '%s\n' "$(printf '%s' "$*" | clean)" >> "$(qf "$sid")"; echo "queued on ${sid:0:4} (now $(count "$sid"))" ;;
+        sid=$(resolve "$1") || exit 1; shift; item=$(printf '%s' "$*" | clean)
+        [ -n "${item//[[:space:]]/}" ] || die "nothing to queue"
+        printf '%s\n' "$item" >> "$(qf "$sid")"; echo "queued on ${sid:0:4} (now $(count "$sid"))" ;;
   done) [ $# -ge 1 ] || die "usage: q done <session> [item=1]"
         sid=$(resolve "$1") || exit 1; n=${2:-1}; isint "$n" || die "item must be a number"
         f=$(qf "$sid"); [ -s "$f" ] || die "queue empty"
+        [ -n "$(sed -n "${n}p" "$f")" ] || die "no item $n on ${sid:0:4}"
         sed -n "${n}p" "$f" | strip; dropline "$f" "$n" ;;
   goal) [ $# -ge 2 ] || die "usage: q goal <session> <text>"
         sid=$(resolve "$1") || exit 1; shift; f="$dir/$sid.txt"

@@ -7,7 +7,10 @@ input=$(cat)
 conf="$HOME/.claude/sitrep.conf"
 # shellcheck source=/dev/null
 [ -f "$conf" ] && . "$conf"
-[ -n "$SITREP_HUD_CMD" ] && printf '%s' "$input" | sh -c "$SITREP_HUD_CMD"
+if [ -n "$SITREP_HUD_CMD" ]; then
+  up=$(printf '%s' "$input" | sh -c "$SITREP_HUD_CMD")   # the substitution drops trailing newlines; we add exactly one
+  [ -n "$up" ] && printf '%s\n' "$up"
+fi
 sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
 dir="$HOME/.claude/session-notes"; f="$dir/$sid.txt"
 case "$sid" in *[!A-Za-z0-9_-]*) sid="" ;; esac

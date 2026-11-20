@@ -123,6 +123,26 @@ out=$(ev sess0020 UserPromptSubmit "+ important" | hook 2>/dev/null)
 eq "unwritable queue passes the prompt through" "" "$out"
 rmdir "$NOTES/sess0020.queue" "$NOTES/sess0020.queue.d"
 
+
+# ---- review fixes: padding, blank items, deferred debounce
+reset
+for i in 1 2 3; do ev sess0040 UserPromptSubmit "p$i" | hook; done
+eq "label padding does not grow across prompts" "Progress:  -" "$(grep '^Progress:' "$NOTES/sess0040.txt")"
+out=$(ev sess0040 UserPromptSubmit "+ $(printf '\001\002')" | hook)
+eq "a + item that cleans to nothing passes through" "" "$out"
+check "no blank queue line was written" test ! -s "$NOTES/sess0040.queue"
+
+reset; rm -f "$STUB_CALLS" "$STUB_SLOW"; export SITREP_DEBOUNCE=2
+ev sess0041 UserPromptSubmit "first" | hook
+ev sess0041 Stop "" "$TP" | hook
+ev sess0041 Stop "" "$TP" | hook
+ev sess0041 Stop "" "$TP" | hook
+check "first Stop summarizes" waitfor sess0041 Progress "stub progress"
+eq "Stops inside the window are held, not run" 1 "$(calls)"
+sleep 3.5
+eq "one deferred summary runs at the end of the window" 2 "$(calls)"
+unset SITREP_DEBOUNCE
+
 # ---- hook: debounce, stale summaries, transcript location
 reset; rm -f "$STUB_CALLS" "$STUB_SLOW"
 ev sess0030 UserPromptSubmit "first" | hook
@@ -179,6 +199,11 @@ q goal abc "x" >/dev/null 2>&1
 printf 'Objective: only\n' > "$NOTES/abcd0001.txt"
 q goal abcd "replaced" >/dev/null
 eq "q goal works on an objective-only file" "replaced" "$(field abcd0001 Objective)"
+q add abcd one >/dev/null; q "done" abcd >/dev/null
+check "q ls prints no stray count for an emptied queue" bash -c '! q ls | grep -qx 0'
+eq "q add reports a zero count once" "queued on abcd (now 1)" "$(q add abcd two)"
+eq "q done past the end of the queue fails" 1 "$(q "done" abcd 9 >/dev/null 2>&1; echo $?)"
+eq "q add rejects text that cleans to nothing" 1 "$(q add abcd "$(printf '\001')" >/dev/null 2>&1; echo $?)"
 
 
 # ---- install / uninstall round trip, in a separate HOME
@@ -232,6 +257,25 @@ jq '.statusLine.command="echo hud-again"' "$H10/.claude/settings.json" > "$T/h10
 instc "$H10" "$R" install.sh >/dev/null 2>&1
 eq "re-install after an overwrite wraps the new command" hud-again "$(jq -nc '{session_id:"sx"}' | HOME="$H10" bash "$R/statusline/statusline.sh" | head -1)"
 check "sitrep block is back after the overwrite" has "$(jq -nc '{session_id:"sx"}' | HOME="$H10" bash "$R/statusline/statusline.sh")" "Queue (0)"
+
+# ---- review fixes: stale conf, loose match, failure ordering, newline after upstream
+H11="$T/home11"; fresh "$H11" '{}'; printf 'SITREP_HUD_CMD=%q\n' "echo stale" > "$H11/.claude/sitrep.conf"
+instc "$H11" "$R" install.sh >/dev/null
+out=$(jq -nc '{session_id:"sx"}' | HOME="$H11" bash "$R/statusline/statusline.sh")
+check "a stale upstream is cleared when there is no status line" hasnt "$out" "stale"
+H12="$T/home12"; fresh "$H12" '{"statusLine":{"type":"command","command":"/opt/other/statusline/statusline.sh"}}'
+instc "$H12" "$R" install.sh >/dev/null 2>&1
+check "a foreign statusline.sh is wrapped, not mistaken for ours" grep -q "other/statusline" "$H12/.claude/sitrep.conf"
+instc "$H12" "$R" uninstall.sh >/dev/null
+eq "uninstall restores the foreign status line" "/opt/other/statusline/statusline.sh" "$(jq -r .statusLine.command "$H12/.claude/settings.json")"
+check "uninstall removes the consumed upstream config" test ! -e "$H12/.claude/sitrep.conf"
+H13="$T/home13"; fresh "$H13" '{"hooks":5,"statusLine":{"type":"command","command":"echo hud"}}'
+out=$(instc "$H13" "$R" install.sh 2>&1)
+check "a failed merge writes no upstream config" test ! -e "$H13/.claude/sitrep.conf"
+check "a failed merge does not claim to wrap anything" hasnt "$out" "Wrapping"
+printf 'SITREP_HUD_CMD=%q\n' "printf hud" > "$HOME/.claude/sitrep.conf"
+eq "upstream without a trailing newline does not glue onto our block" "hud" "$(status sess0007 | head -1)"
+rm -f "$HOME/.claude/sitrep.conf"
 
 # paths with spaces
 H4="$T/home4"; fresh "$H4" '{}'
