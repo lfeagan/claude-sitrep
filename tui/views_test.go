@@ -336,7 +336,7 @@ func TestStatusBarHints(t *testing.T) {
 }
 
 func TestHelpScreen(t *testing.T) {
-	out := helpScreen(80, 30, plainTheme())
+	out := helpScreen(80, 30, false, plainTheme())
 	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Top sort", "refresh", "quit", "Watch", "Top ", "pink-red", "purple", "Any key closes"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the help should mention %q", want)
@@ -345,7 +345,7 @@ func TestHelpScreen(t *testing.T) {
 	golden(t, "help_80x30", out)
 	for w := 1; w <= 100; w += 7 {
 		for h := 1; h <= 40; h += 3 {
-			lines := strings.Split(helpScreen(w, h, plainTheme()), "\n")
+			lines := strings.Split(helpScreen(w, h, false, plainTheme()), "\n")
 			if len(lines) > h {
 				t.Errorf("help %dx%d has %d lines", w, h, len(lines))
 			}

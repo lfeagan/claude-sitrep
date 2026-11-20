@@ -25,6 +25,11 @@ type jumpMsg struct {
 
 const messageTTL = 5 * time.Second
 
+// say puts a message on the status bar for a few seconds.
+func (m *model) say(text string) {
+	m.msg, m.msgAt = text, m.now()
+}
+
 type model struct {
 	bin       string
 	interval  time.Duration
@@ -39,7 +44,10 @@ type model struct {
 	tab       int
 	showEnded bool
 	selID     string // the selected session, by id, so a refresh or a re-sort does not move it
-	run       runner // runs tmux and ps; tests replace it
+	run       runner // runs tmux, ps, cmux and sitrep; tests replace it
+	readOnly  bool   // no key changes any state
+	prune     int    // the phase of the prune screen
+	pruneText []string
 	acting    bool   // a jump is running, so another is ignored
 	quitJump  bool   // leave the dashboard after a good jump, for a popup
 	msg       string // the last thing an action said
@@ -67,6 +75,70 @@ func (m model) fetchCmd() tea.Cmd {
 
 func (m model) tickCmd() tea.Cmd {
 	return tea.Tick(m.interval, func(t time.Time) tea.Msg { return tickMsg(t) })
+}
+
+// pruneStart asks for a preview of what prune would do. It refuses when it could not work.
+func (m model) pruneStart() (tea.Model, tea.Cmd) {
+	switch {
+	case m.readOnly:
+		m.say("prune: the dashboard is read-only")
+	case m.haveSnap && m.snap.Registry != "ok":
+		m.say("prune: Claude Code's live-session registry cannot be read")
+	default:
+		m.prune, m.pruneText = pruneLoading, nil
+		run, bin := m.run, m.bin
+		return m, func() tea.Msg { return runPrune(bin, pruneArgsPreview, previewTimeout, false, run)() }
+	}
+	return m, nil
+}
+
+// pruneKey handles keys while the prune screen is open. Only y, n and cancelling do anything,
+// and nothing does anything while a command runs, so a held key cannot start a second prune.
+func (m model) pruneKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	if key == "ctrl+c" {
+		return m, tea.Quit
+	}
+	if m.prune != pruneConfirm {
+		return m, nil
+	}
+	run, bin := m.run, m.bin
+	switch key {
+	case "y":
+		m.prune = pruneBusy
+		return m, func() tea.Msg { return runPrune(bin, pruneArgsMove, pruneTimeout, true, run)() }
+	case "n":
+		m.prune = pruneBusy
+		return m, func() tea.Msg { return runPrune(bin, pruneArgsKeep, pruneTimeout, true, run)() }
+	case "esc", "q":
+		m.prune, m.pruneText = pruneNone, nil
+	}
+	return m, nil
+}
+
+// pruneResult takes the answer of a preview or of the real prune.
+func (m model) pruneResult(msg pruneMsg) (tea.Model, tea.Cmd) {
+	lines := pruneLines(msg.text)
+	switch {
+	case msg.err != nil:
+		m.prune, m.pruneText = pruneNone, nil
+		m.say("prune: " + msg.err.Error())
+	case !msg.real && nothingToPrune(lines):
+		m.prune, m.pruneText = pruneNone, nil
+		m.say("nothing to prune")
+	case !msg.real:
+		m.prune, m.pruneText = pruneConfirm, lines
+	default:
+		m.prune, m.pruneText = pruneNone, nil
+		if len(lines) > 0 {
+			m.say(lines[len(lines)-1])
+		}
+		if !m.fetching { // show the result without waiting for the next tick
+			m.fetching, m.started = true, m.started+1
+			return m, m.fetchCmd()
+		}
+	}
+	return m, nil
 }
 
 // jumpCmd starts a jump to the selected session's tmux pane, unless one is already running.
@@ -195,6 +267,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.snap, m.haveSnap, m.err, m.lastOK = msg.snap, true, nil, m.now()
 		m.fixSel()
+	case pruneMsg:
+		return m.pruneResult(msg)
 	case jumpMsg:
 		m.acting = false
 		m.msgAt = m.now()
@@ -214,6 +288,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 	case tea.KeyPressMsg:
+		if m.prune != pruneNone {
+			return m.pruneKey(msg)
+		}
 		if m.detail {
 			return m.detailKey(msg)
 		}
@@ -247,6 +324,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cmd := m.jumpCmd(); cmd != nil {
 				return m, cmd
 			}
+		case "p":
+			return m.pruneStart()
 		case "d", "space", " ":
 			if m.selected() != nil {
 				m.detail, m.scroll = true, 0
@@ -286,10 +365,12 @@ func (m model) View() tea.View {
 	theme := newTheme(m.isDark, m.snap.Settings.HighlightSGR)
 	body := "waiting for sitrep…"
 	switch {
+	case m.prune != pruneNone:
+		body = pruneScreen(m.pruneText, m.prune, m.width, m.height, theme)
 	case m.detail && m.selected() != nil:
 		body = detailScreen(*m.selected(), m.width, m.height, m.scroll, theme)
 	case m.help:
-		body = helpScreen(m.width, m.height, theme)
+		body = helpScreen(m.width, m.height, m.readOnly, theme)
 	case m.haveSnap || m.err != nil:
 		body = render(m.snap, m.tab, m.statusText(), viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Theme: theme})
 	}

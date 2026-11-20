@@ -434,7 +434,7 @@ func statusBar(s Snapshot, width int, errText string, th Theme) string {
 }
 
 // helpScreen is the key list: the keys, what the tabs show, and what the colours mean.
-func helpScreen(width, height int, th Theme) string {
+func helpScreen(width, height int, readOnly bool, th Theme) string {
 	lines := []string{
 		"Keys",
 		"",
@@ -444,6 +444,7 @@ func helpScreen(width, height int, th Theme) string {
 		"  tab, shift+tab, left, right    switch tab (also 1 and 2)",
 		"  a                              show or hide ended sessions",
 		"  s                              cycle the Top sort: activity, state, dir, queue",
+		"  p                              prune the sessions that are gone (asks first)",
 		"  r                              refresh now",
 		"  ?                              this list",
 		"  q, ctrl+c                      quit",
@@ -459,6 +460,15 @@ func helpScreen(width, height int, th Theme) string {
 		"  purple       the session changed in the last minute",
 		"",
 		"Any key closes this list.",
+	}
+	if readOnly { // the keys that change state are off, so they are not listed
+		kept := lines[:0]
+		for _, l := range lines {
+			if !strings.HasPrefix(l, "  p ") {
+				kept = append(kept, l)
+			}
+		}
+		lines = append(kept[:len(kept):len(kept)], "", "This dashboard is read-only.")
 	}
 	for i, l := range lines {
 		lines[i] = ansi.Truncate(l, max(width, 1), "…")

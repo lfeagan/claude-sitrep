@@ -1,0 +1,14 @@
+Prune the sessions that are gone
+
+  would mark dea0 (ddead) ended
+  would ask: move 3 item(s) from dea0 (ddead) to the inbox
+  would mark 1 ended, would ask about 3 item(s)
+
+  y   mark them ended, and move their queue items to the inbox
+  n   mark them ended, and leave the items where they are
+  esc cancel
+
+
+
+
+ y yes  n keep items  esc cancel                                                
