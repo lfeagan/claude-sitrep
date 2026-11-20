@@ -16,6 +16,7 @@ func main() {
 	tabName := flag.String("tab", "watch", "the tab to start on: watch or top")
 	interval := flag.Duration("interval", 3*time.Second, "how often to refresh")
 	once := flag.Bool("once", false, "print one frame as plain text and exit")
+	quitOnJump := flag.Bool("quit-on-jump", false, "leave the dashboard after a good jump (for a tmux popup)")
 	width := flag.Int("width", 100, "the frame width for --once")
 	flag.Parse()
 
@@ -45,7 +46,9 @@ func main() {
 		fmt.Println(render(snap, tab, "", viewOpts{Width: *width, Height: 0, ShowEnded: false, Theme: plainTheme()}))
 		return
 	}
-	if _, err := tea.NewProgram(newModel(bin, *interval, tab)).Run(); err != nil {
+	m := newModel(bin, *interval, tab)
+	m.quitJump = *quitOnJump
+	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "sitrep-tui:", err)
 		os.Exit(1)
 	}

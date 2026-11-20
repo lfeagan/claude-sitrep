@@ -17,6 +17,14 @@ type snapMsg struct {
 	err  error
 }
 
+// jumpMsg is the answer to a jump: text for the status bar, or an error.
+type jumpMsg struct {
+	text string
+	err  error
+}
+
+const messageTTL = 5 * time.Second
+
 type model struct {
 	bin       string
 	interval  time.Duration
@@ -31,8 +39,13 @@ type model struct {
 	tab       int
 	showEnded bool
 	selID     string // the selected session, by id, so a refresh or a re-sort does not move it
-	detail    bool   // the detail pane is open for the selected session
-	scroll    int    // the top line of the detail pane
+	run       runner // runs tmux and ps; tests replace it
+	acting    bool   // a jump is running, so another is ignored
+	quitJump  bool   // leave the dashboard after a good jump, for a popup
+	msg       string // the last thing an action said
+	msgAt     time.Time
+	detail    bool // the detail pane is open for the selected session
+	scroll    int  // the top line of the detail pane
 	sortBy    int
 	help      bool
 	isDark    bool
@@ -41,7 +54,7 @@ type model struct {
 
 func newModel(bin string, interval time.Duration, tab int) model {
 	// fetching starts true because Init sends the first fetch; Init has a value receiver, so it cannot set it
-	return model{bin: bin, interval: interval, tab: tab, width: 100, height: 30, isDark: true, now: time.Now, fetching: true, started: 1}
+	return model{bin: bin, interval: interval, tab: tab, width: 100, height: 30, isDark: true, now: time.Now, fetching: true, started: 1, run: realRunner}
 }
 
 func (m model) fetchCmd() tea.Cmd {
@@ -54,6 +67,29 @@ func (m model) fetchCmd() tea.Cmd {
 
 func (m model) tickCmd() tea.Cmd {
 	return tea.Tick(m.interval, func(t time.Time) tea.Msg { return tickMsg(t) })
+}
+
+// jumpCmd starts a jump to the selected session's tmux pane, unless one is already running.
+func (m *model) jumpCmd() tea.Cmd {
+	x := m.selected()
+	if x == nil || m.acting {
+		return nil
+	}
+	m.acting = true
+	sess, run, tmux := *x, m.run, inTmux()
+	return func() tea.Msg {
+		text, err := jump(context.Background(), sess, tmux, run)
+		return jumpMsg{text: text, err: err}
+	}
+}
+
+// statusText is what the status bar says instead of the counts: a fresh message from an
+// action, else the last refresh error.
+func (m model) statusText() string {
+	if m.msg != "" && m.now().Sub(m.msgAt) < messageTTL {
+		return m.msg
+	}
+	return m.errText()
 }
 
 // selected is the selected session, or nil.
@@ -81,6 +117,10 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "esc", "i", "backspace":
 		m.detail = false
+	case "enter":
+		if cmd := m.jumpCmd(); cmd != nil {
+			return m, cmd
+		}
 	case "up", "k":
 		m.moveSel(-1)
 		m.scroll = 0
@@ -155,6 +195,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.snap, m.haveSnap, m.err, m.lastOK = msg.snap, true, nil, m.now()
 		m.fixSel()
+	case jumpMsg:
+		m.acting = false
+		m.msgAt = m.now()
+		if msg.err != nil {
+			m.msg = "jump: " + msg.err.Error()
+			return m, nil
+		}
+		m.msg = msg.text
+		if m.quitJump {
+			return m, tea.Quit
+		}
 	case tickMsg:
 		cmds := []tea.Cmd{m.tickCmd()}
 		if !m.fetching { // never overlap two calls; a slow one just skips ticks
@@ -192,6 +243,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveSelTo(0)
 		case "end":
 			m.moveSelTo(-1)
+		case "enter":
+			if cmd := m.jumpCmd(); cmd != nil {
+				return m, cmd
+			}
 		case "i", "space", " ":
 			if m.selected() != nil {
 				m.detail, m.scroll = true, 0
@@ -236,7 +291,7 @@ func (m model) View() tea.View {
 	case m.help:
 		body = helpScreen(m.width, m.height, theme)
 	case m.haveSnap || m.err != nil:
-		body = render(m.snap, m.tab, m.errText(), viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Theme: theme})
+		body = render(m.snap, m.tab, m.statusText(), viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Theme: theme})
 	}
 	v := tea.NewView(body)
 	v.AltScreen = true

@@ -1,0 +1,231 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// Jumping to a session means finding the tmux pane that runs it. The session's process id
+// comes from sitrep; tmux says which process started each pane, and the pane's shell is an
+// ancestor of the session's process.
+
+const (
+	jumpTimeout = 3 * time.Second
+	maxWalk     = 64 // parents followed from a process, as a guard against a loop
+)
+
+// pane is one tmux pane, by tmux's own ids, which are safe to pass back whatever the names are.
+type pane struct {
+	ID, SessionID, WindowID string
+	PID                     int
+	TTY                     string
+}
+
+var (
+	paneRe   = regexp.MustCompile(`^%[0-9]+$`)
+	windowRe = regexp.MustCompile(`^@[0-9]+$`)
+	sessRe   = regexp.MustCompile(`^\$[0-9]+$`)
+)
+
+// listPanesFormat asks tmux for ids only, never for names or indexes.
+const listPanesFormat = "#{pane_id} #{pane_pid} #{pane_tty} #{session_id} #{window_id}"
+
+func parsePanes(out string) []pane {
+	var panes []pane
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.Fields(line)
+		if len(f) != 5 {
+			continue
+		}
+		pid, err := strconv.Atoi(f[1])
+		if err != nil || pid <= 0 || !paneRe.MatchString(f[0]) || !sessRe.MatchString(f[3]) || !windowRe.MatchString(f[4]) {
+			continue
+		}
+		panes = append(panes, pane{ID: f[0], PID: pid, TTY: f[2], SessionID: f[3], WindowID: f[4]})
+	}
+	return panes
+}
+
+// proc is one line of `ps -A -o pid=,ppid=,command=`.
+type proc struct {
+	PID, PPID int
+	Args      []string
+}
+
+func parseProcs(out string) []proc {
+	var procs []proc
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.Fields(line)
+		if len(f) < 2 {
+			continue
+		}
+		pid, err1 := strconv.Atoi(f[0])
+		ppid, err2 := strconv.Atoi(f[1])
+		if err1 == nil && err2 == nil && pid > 0 {
+			procs = append(procs, proc{PID: pid, PPID: ppid, Args: f[2:]})
+		}
+	}
+	return procs
+}
+
+// parentMap maps each process to its parent.
+func parentMap(procs []proc) map[int]int {
+	parents := make(map[int]int, len(procs))
+	for _, p := range procs {
+		parents[p.PID] = p.PPID
+	}
+	return parents
+}
+
+// attachClients finds the terminal processes `claude attach <prefix>` that show the
+// session, for a session that runs in the background with no terminal of its own. The
+// argument is a prefix of the session id; a client counts only if it names this session.
+func attachClients(procs []proc, sessionID string) []int {
+	var pids []int
+	for _, p := range procs {
+		if len(p.Args) >= 3 && filepath.Base(p.Args[0]) == "claude" && p.Args[1] == "attach" {
+			if prefix := p.Args[2]; len(prefix) >= 6 && strings.HasPrefix(sessionID, prefix) {
+				pids = append(pids, p.PID)
+			}
+		}
+	}
+	return pids
+}
+
+// ancestors lists pid and then each parent in turn, stopping at process 1, a loop, or maxWalk.
+func ancestors(pid int, parents map[int]int) []int {
+	chain := []int{}
+	seen := map[int]bool{}
+	for len(chain) < maxWalk && pid > 1 && !seen[pid] {
+		chain = append(chain, pid)
+		seen[pid] = true
+		next, ok := parents[pid]
+		if !ok {
+			break
+		}
+		pid = next
+	}
+	return chain
+}
+
+// findPane returns the pane whose first process is the closest ancestor of the session.
+func findPane(panes []pane, chain []int) (pane, bool) {
+	for _, pid := range chain {
+		for _, p := range panes {
+			if p.PID == pid {
+				return p, true
+			}
+		}
+	}
+	return pane{}, false
+}
+
+// normTTY makes the spellings of a terminal comparable: ttys003, pts/3 and /dev/ttys003.
+func normTTY(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "?" || s == "??" || s == "-" {
+		return ""
+	}
+	return "/dev/" + strings.TrimPrefix(s, "/dev/")
+}
+
+// paneByTTY is the fallback when the process walk fails: the one pane on the session's
+// terminal. More than one, or none, is no answer.
+func paneByTTY(panes []pane, tty string) (pane, bool) {
+	tty = normTTY(tty)
+	var found []pane
+	for _, p := range panes {
+		if tty != "" && normTTY(p.TTY) == tty {
+			found = append(found, p)
+		}
+	}
+	if len(found) == 1 {
+		return found[0], true
+	}
+	return pane{}, false
+}
+
+// jumpArgs is the one tmux call: select the window, then the pane, then switch the client, in
+// that order so the client lands on the right pane. ";" is tmux's own separator.
+func jumpArgs(p pane) []string {
+	return []string{"select-window", "-t", p.WindowID, ";", "select-pane", "-t", p.ID, ";", "switch-client", "-t", p.SessionID}
+}
+
+// runner runs a command and returns its output; tests replace it.
+type runner func(ctx context.Context, name string, args ...string) (string, error)
+
+func realRunner(ctx context.Context, name string, args ...string) (string, error) {
+	path, err := exec.LookPath(name) // never the current directory
+	if err != nil {
+		return "", fmt.Errorf("%s is not installed", name)
+	}
+	cmd := exec.CommandContext(ctx, path, args...)
+	out, errs := &limitedBuffer{max: 1 << 20}, &keepFirst{max: 512}
+	cmd.Stdout, cmd.Stderr = out, errs
+	cmd.WaitDelay = time.Second
+	confine(cmd)
+	if err := cmd.Run(); err != nil {
+		if msg := strings.TrimSpace(clean(firstLine(errs.buf.String()))); msg != "" {
+			return "", fmt.Errorf("%s: %s", name, msg)
+		}
+		return "", fmt.Errorf("%s failed", name)
+	}
+	return out.buf.String(), nil
+}
+
+// jump finds the pane that runs s and selects it. It returns a short message for the status bar.
+func jump(ctx context.Context, s Session, inTmux bool, run runner) (string, error) {
+	if !inTmux {
+		return "", errors.New("not in tmux: run the dashboard inside tmux to jump")
+	}
+	if s.PID == nil {
+		return "", errors.New("sitrep does not know this session's process")
+	}
+	ctx, cancel := context.WithTimeout(ctx, jumpTimeout)
+	defer cancel()
+	listing, err := run(ctx, "tmux", "list-panes", "-a", "-F", listPanesFormat)
+	if err != nil {
+		return "", err
+	}
+	panes := parsePanes(listing)
+	snapshot, err := run(ctx, "ps", "-A", "-o", "pid=,ppid=,command=")
+	if err != nil {
+		return "", err
+	}
+	procs := parseProcs(snapshot)
+	parents := parentMap(procs)
+	p, ok := findPane(panes, ancestors(int(*s.PID), parents))
+	if !ok { // a background session has no terminal above it; the client attached to it does
+		if clients := attachClients(procs, s.ID); len(clients) == 1 {
+			p, ok = findPane(panes, ancestors(clients[0], parents))
+		} else if len(clients) > 1 {
+			return "", errors.New("several terminals are attached to this session")
+		}
+	}
+	if !ok {
+		if tty, err := run(ctx, "ps", "-o", "tty=", "-p", strconv.FormatInt(*s.PID, 10)); err == nil {
+			p, ok = paneByTTY(panes, tty)
+		}
+	}
+	if !ok {
+		hint := ""
+		if len(s.ID) >= 8 {
+			hint = "; if it runs in the background, open it with: claude attach " + s.ID[:8]
+		}
+		return "", errors.New("not in a tmux pane here" + hint)
+	}
+	if _, err := run(ctx, "tmux", jumpArgs(p)...); err != nil {
+		return "", err
+	}
+	return "jumped to " + s.Short, nil
+}
+
+func inTmux() bool { return os.Getenv("TMUX") != "" }
