@@ -33,9 +33,9 @@ Claude HUD is optional. With no existing status line, only the sitrep block is s
 
 ## The Queue
 
-`sitrep` addresses a session by any unique prefix of its id, as shown in the status line and in `sitrep ls`.
+`sitrep` addresses a session by any unique prefix of its id, as shown in the status line and in `sitrep ls`. `sitrep help` lists the commands, and `sitrep help <command>` or `sitrep <command> --help` shows the details of one.
 
-1. `sitrep ls` lists sessions active in the last day with its queue (item count and next item), Objective and Now, and `sitrep ls <id>` lists one queue.
+1. `sitrep ls` lists running sessions with their queue (item count and next item), Objective and Now, and `sitrep ls <id>` lists one queue. `-a` adds ended sessions.
 2. `sitrep add <id> <text>` appends an item.
 3. `sitrep pin <id> <text>` pins that session's Objective, and `sitrep unpin <id>` lets the summarizer rewrite it again.
 4. `sitrep rm <id> [n]` removes item `n` (default 1) and prints it.
@@ -55,15 +55,42 @@ The text forms apply only to a single line of at most 200 characters, and `+take
 
 ## The Dashboard
 
-`sitrep watch [-n items] [seconds]` shows every active session at once, in the same shape as the status line, and is meant for a spare tmux pane. It is read-only. It redraws every N seconds (default 2) and straight away when a state file or the pane size changes. Press `q` or Ctrl-C to leave.
+`sitrep watch [options] [seconds]` shows every running session at once, in the same shape as the status line, and is meant for a spare tmux pane. It is read-only. It redraws every N seconds (default 2), and straight away when a state file, the set of live sessions or the pane size changes. Press `q` or Ctrl-C to leave.
 
-`watch` and `ls` show running sessions by default. A finished session is hidden, and a line at the end says how many (`+2 ended (--all)`). `--all` or `-a` shows them, with state `ended`. A session appears for a day after its last activity. Each shows its id, directory, state and queue, then Objective, Progress and Now, newest first by when its state last changed, and an `Inbox:` line sits on top when the inbox holds anything. Lines are cut to the pane width, and when the sessions do not fit, whole sessions are dropped and the last line says `+N more`.
+A session is running when a live process has its id in Claude Code's session registry (`~/.claude/sessions`), and `watch` and `ls` list only those. A session that is not registered but is under two minutes old stays listed, as the registry lags a start and a `/clear`. A session that has gone, or has said it ended, is hidden. The last lines of the frame say how many are hidden (`+2 ended (--all)`) and how many queue items they still hold (`3 items stranded in ended sessions (sitrep prune)`). `--all` or `-a` lists them with state `ended`. When the registry cannot be read, `watch` falls back to the hook states below, and a session counts as over once it has said `ended`.
 
-The state comes from the hooks: `working` from the moment a prompt goes to Claude, `waiting` when Claude has stopped and it is your turn, and `ended` when the session exits. The number after it is how long ago that changed. Claude Code fires no hook when you interrupt a turn, so a `working` session whose transcript has been quiet for ten minutes shows as `idle?` with how long it has been quiet. A session that is killed, or whose terminal is closed, may never fire `SessionEnd`. It then stays `waiting` until a day has passed, and the age on the row shows how stale it is. A session with no state file, such as one that started before you upgraded, shows `-` and counts as running.
+Each session shows its id, directory, state and queue, then Objective, Progress and Now, newest first by when its state last changed. An `Inbox:` line sits on top when the inbox holds anything. The state comes from the hooks:
 
-When the output is not a terminal, or `TERM` is unset or `dumb`, `sitrep watch` prints one frame and exits, as `sitrep watch --once` does. `sitrep ls -v` prints the same frame as `ls` with a Progress line added.
+1. `working` from the moment a prompt goes to Claude.
+2. `waiting` when Claude has stopped and it is your turn.
+3. `ended` when the session exits.
 
-Both list each session's queue, and the inbox's, under the session, at most 5 items each, followed by `+N more` when there are more. `-n <items>` changes the limit for one run, and `-n 0` returns to the compact form, with the count and the next item in the header. To change the default, set `SITREP_QUEUE_ITEMS=<items>` in `~/.claude/sitrep/sitrep.conf` or in the environment. `sitrep.conf` is read for that one line and not run by `sitrep`, and the installers replace or remove only their own `SITREP_HUD_CMD` line in it.
+The number after the state is how long ago it changed. Claude Code fires no hook when you interrupt a turn, so a `working` session whose transcript has been quiet for ten minutes shows as `idle?` with how long it has been quiet. A session whose terminal is closed or that is killed never fires `SessionEnd`, but its process is gone, so the registry hides it after two quiet minutes. A session with no state file, such as one that started before you upgraded, shows `-`.
+
+Objective, Progress, Now and queue items wrap at the pane width with a hanging indent. The width is measured in display columns, so a wide character takes two. A field takes at most 3 lines and a queue item at most 2, and `…` ends the last line when text is cut. `--wrap <lines>` sets the field limit, and queue items then get 2 lines, or 1 when the limit is 1. When the sessions do not fit the pane height, whole sessions are dropped and the last line says `+N more`.
+
+Both `watch` and `ls -v` list each session's queue, and the inbox's, under the session, at most 5 items each, then `+N more` if the queue is longer. `-n <items>` changes the limit for one run, and `-n 0` returns to the compact form, with the count and the next item in the header. `sitrep ls -v` prints the same frame as `ls` with a Progress line added and no wrapping.
+
+In a terminal, a session whose state changed in the last 60 seconds has a background colour on all its lines. `--highlight <seconds>` changes the window, and `0` turns it off. A pipe, `--once` and `NO_COLOR` never get colour. When the output is not a terminal, or `TERM` is unset or `dumb`, `sitrep watch` prints one frame and exits, as `sitrep watch --once` does.
+
+Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the environment wins:
+
+1. `SITREP_QUEUE_ITEMS=<items>` is the queue list limit (default 5).
+2. `SITREP_HIGHLIGHT_SECONDS=<seconds>` is the highlight window (default 60).
+3. `SITREP_HIGHLIGHT_SGR=<codes>` is the highlight colour as terminal SGR codes (default `48;5;238`, a dark grey). Only digits and semicolons are accepted.
+
+`sitrep` reads `sitrep.conf` for these lines and does not run it, and the installers replace or remove only their own `SITREP_HUD_CMD` line in it.
+
+## Pruning
+
+`sitrep prune [-y] [--dry-run]` tidies sessions that are gone. It works as follows:
+
+1. It reads the live-session registry, and changes nothing if it cannot.
+2. It marks each session that is not running as `ended`.
+3. For a session that still holds queue items, it asks `Move N item(s) from <id> (<directory>) to the inbox? [y/N]`. `-y` answers yes for all. Without a terminal and without `-y` the items stay where they are, and it says so.
+4. `--dry-run` prints what it would do and changes nothing.
+
+It never touches a running session or one under two minutes old, and it never deletes a queue file.
 
 ## How It Works
 

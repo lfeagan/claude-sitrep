@@ -230,7 +230,135 @@ watch_loop() { # seconds (with $items, $all, $wrapn and $hl set): redraw every N
   done
 }
 
+help_all() {
+  cat <<'EOF'
+usage: sitrep <command> [args]
+
+  ls [id]                    list running sessions, or one queue
+  add <id> <text>            append an item to a queue
+  rm <id> [n]                remove an item and print it
+  top <id> <n>               move an item to the front of a queue
+  reorder <id> <from> <to>   move an item to another position
+  move <from> <to> [n]       hand an item to another queue
+  pin <id> <text>            fix a session's Objective
+  unpin <id>                 let the summarizer rewrite the Objective
+  prune                      clear out sessions that are gone
+  watch                      live dashboard of running sessions
+  help [command]             this list, or the details of one command
+
+An <id> is a unique prefix of a session id, or "inbox".
+Add --help to any command for its details.
+EOF
+}
+
+help_for() { # command: print its details; fails for an unknown command
+  case "$1" in
+    ls) cat <<'EOF'
+usage: sitrep ls [-a] [-v] [-n items] [id]
+
+List running sessions with their state, queue, Objective and Now. With an id, list
+that queue instead; an id of inbox lists the inbox.
+
+  -a, --all   include ended sessions
+  -v          add the Progress line, and list each queue
+  -n items    how many items each queue lists; implies -v, and 0 gives the count and
+              the next item only
+
+The default for -n is 5, or SITREP_QUEUE_ITEMS from the environment or sitrep.conf.
+EOF
+    ;;
+    add) cat <<'EOF'
+usage: sitrep add <id> <text>
+
+Append an item to a queue. The text is one line of at most 200 characters, and longer
+text is cut. Quote text that holds shell characters such as ( ) ; or &.
+
+  sitrep add 15f1 'fix the flaky test (CI)'
+  sitrep add inbox 'look at the nightly job'
+EOF
+    ;;
+    rm) cat <<'EOF'
+usage: sitrep rm <id> [n]
+
+Remove item n (default 1) from a queue and print it. It refuses when the queue
+changed after it was read, so it never removes a different item.
+EOF
+    ;;
+    top) cat <<'EOF'
+usage: sitrep top <id> <n>
+
+Move item n to the front of a queue, so that it is the next item.
+EOF
+    ;;
+    reorder) cat <<'EOF'
+usage: sitrep reorder <id> <from> <to>
+
+Move the item at position from to position to. The other items keep their order.
+EOF
+    ;;
+    move) cat <<'EOF'
+usage: sitrep move <from> <to> [n]
+
+Hand item n (default 1) from one queue to another. Either side may be inbox. The item
+is added to the destination before it leaves the source, so a failure can leave a
+duplicate but never lose it.
+EOF
+    ;;
+    pin) cat <<'EOF'
+usage: sitrep pin <id> <text>
+
+Set a session's Objective and stop the summarizer from changing it. Inside a session,
+a prompt that starts with "+pin " does the same. See unpin.
+EOF
+    ;;
+    unpin) cat <<'EOF'
+usage: sitrep unpin <id>
+
+Let the summarizer rewrite a session's Objective again.
+EOF
+    ;;
+    prune) cat <<'EOF'
+usage: sitrep prune [-y] [--dry-run]
+
+Mark each session that is no longer running as ended. For a session that still holds
+queue items, ask whether to move them to the inbox.
+
+  -y          answer yes to every question
+  --dry-run   say what would happen, and change nothing
+
+It reads Claude Code's live-session registry and changes nothing if it cannot. It never
+touches a running session or one under two minutes old, and never deletes a queue.
+EOF
+    ;;
+    watch) cat <<'EOF'
+usage: sitrep watch [--once] [-a] [-n items] [--wrap lines] [--highlight seconds] [seconds]
+
+A live view of every running session, for a spare terminal pane. It redraws every N
+seconds (default 2) and at once when a state file or the pane size changes. Press q or
+Ctrl-C to leave. Without a terminal it prints one frame and exits.
+
+  --once              print one frame and exit
+  -a, --all           include ended sessions
+  -n items            how many items each queue lists (default 5; 0 for the next item only)
+  --wrap lines        lines a field may take (default 3); queue items get 2, or 1 if this is 1
+  --highlight seconds colour sessions active in the last N seconds (default 60; 0 for none)
+
+Settings, in the environment or sitrep.conf: SITREP_QUEUE_ITEMS, SITREP_HIGHLIGHT_SECONDS
+and SITREP_HIGHLIGHT_SGR. NO_COLOR turns the highlight off.
+EOF
+    ;;
+    help) cat <<'EOF'
+usage: sitrep help [command]
+
+List the commands, or show the details of one. `sitrep <command> --help` shows the same.
+EOF
+    ;;
+    *) return 1 ;;
+  esac
+}
+
 cmd=${1:-ls}; [ $# -gt 0 ] && shift
+case "$1" in -h|--help) case "$cmd" in help|-h|--help) ;; *) help_for "$cmd" || die "unknown command '$cmd'; run 'sitrep help'"; exit 0 ;; esac ;; esac
 case "$cmd" in
   ls)
     v=0; items=""; all=0
@@ -292,6 +420,11 @@ case "$cmd" in
           case "$ans" in y|Y|yes) for (( i = 0; i < n; i++ )); do bash "$0" move "$sid" inbox 1 >/dev/null || break; moved=$(( moved + 1 )); done ;; esac
         done
         echo "$marked marked ended, $moved item(s) moved to the inbox" ;;
+  help|-h|--help) case "$1" in
+          "") help_all ;;
+          -h|--help) help_for help ;;
+          *) help_for "$1" || die "no help for '$1'; run 'sitrep help'" ;;
+        esac ;;
   add)  [ $# -ge 2 ] || die "usage: sitrep add <id> <text>"
         sid=$(resolve "$1") || exit 1; shift; item=$(printf '%s' "$*" | clean)
         [ -n "${item//[[:space:]]/}" ] || die "nothing to queue"
@@ -327,5 +460,5 @@ case "$cmd" in
         printf '%s\n' "$item" >> "$(qf "$to")" || { rm -f "$t"; die "could not queue on $(label "$to")"; }
         mv "$t" "$f" || { rm -f "$t"; die "could not update $(label "$from")"; }
         echo "moved to $(label "$to"): $(printf '%s' "$item" | strip)" ;;
-  *) die "usage: sitrep [ls [-a] [-v] [-n items] [id]] | prune [-y] [--dry-run] | watch [--once] [-a] [-n items] [--wrap lines] [--highlight seconds] [seconds] | add <id> <text> | pin <id> <text> | unpin <id> | rm <id> [n] | top <id> <n> | reorder <id> <from> <to> | move <from> <to> [n]" ;;
+  *) die "unknown command '$cmd'; run 'sitrep help'" ;;
 esac

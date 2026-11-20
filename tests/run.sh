@@ -572,6 +572,33 @@ eq "--highlight needs a number" 1 "$(rc sitrep watch --once --highlight x)"
 eq "--highlight needs a value" 1 "$(rc sitrep watch --once --highlight)"
 rm -rf "$STATE"; mkdir -p "$STATE"
 
+# ---- help
+eq "sitrep help exits 0" 0 "$(rc sitrep help)"
+eq "-h is help too" "$(sitrep help)" "$(sitrep -h)"
+eq "--help is help too" "$(sitrep help)" "$(sitrep --help)"
+check "help starts with the usage line" has "$(sitrep help | head -1)" "usage: sitrep <command>"
+eq "the command list is short" 1 "$([ "$(sitrep help | wc -l)" -le 18 ] && echo 1)"
+eq "no line of the list is wider than 90 columns" 0 "$(sitrep help | awk 'length > 90' | wc -l | tr -d ' ')"
+eq "help prints to stdout and nothing to stderr" "" "$(sitrep help 2>&1 >/dev/null)"
+for c in ls add rm top reorder move pin unpin prune watch help; do
+  check "the list has a line for $c" has "$(sitrep help)" "  $c"
+  check "help $c starts with its usage line" has "$(sitrep help "$c" | head -1)" "usage: sitrep $c"
+  eq "$c --help is the same as help $c" "$(sitrep help "$c")" "$(bounded sitrep "$c" --help)"
+  eq "$c -h is the same as help $c" "$(sitrep help "$c")" "$(bounded sitrep "$c" -h)"
+  eq "help $c exits 0" 0 "$(rc sitrep help "$c")"
+  eq "no line of help $c is wider than 100 columns" 0 "$(sitrep help "$c" | awk 'length > 100' | wc -l | tr -d ' ')"
+done
+rm -rf "$STATE"; mkdir -p "$STATE"; mk hlp00001 hlp 500; st hlp00001 waiting 500
+eq "prune --help does not prune" waiting "$(bounded sitrep prune --help >/dev/null; sword hlp00001)"
+eq "watch --help prints and exits" 0 "$(rc bounded sitrep watch --help)"
+rm -rf "$STATE"; mkdir -p "$STATE"
+eq "an unknown command fails" 1 "$(rc sitrep bogus)"
+check "an unknown command names itself and points at help" has "$(sitrep bogus 2>&1)" "unknown command 'bogus'; run 'sitrep help'"
+eq "an unknown command prints nothing on stdout" "" "$(sitrep bogus 2>/dev/null)"
+eq "--help on an unknown command fails" 1 "$(rc sitrep bogus --help)"
+eq "help of an unknown command fails" 1 "$(rc sitrep help bogus)"
+check "help of an unknown command says so" has "$(sitrep help bogus 2>&1)" "no help for 'bogus'"
+
 # ---- reorder
 printf 'Objective: r\n' > "$STATE/rord0001.txt"; rm -f "$STATE/rord0001.queue"
 for w in one two three four; do sitrep add rord "$w" >/dev/null; done
