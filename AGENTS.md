@@ -8,11 +8,13 @@ After editing any shell script, run `make lint` and `make test`, which CI also r
 
 ## Invariants
 
-1. Text from prompts, transcripts and models is untrusted terminal input. Strip control characters before storing it and before printing it.
-2. Notes are owner-only: `umask 077` in every script that writes them.
-3. A session id becomes part of a file name, so reject anything outside `[A-Za-z0-9_-]`.
-4. Hooks must never fail a user's prompt: exit 0 on any error other than an intended block.
-5. Scripts run on macOS and Linux, so avoid `stat -f` and `sed -i ''` without a fallback.
+1. Text from prompts, transcripts and models is untrusted terminal input. Strip control (Cc, including C1) and format (Cf) characters before storing it and before printing it. Filtering only ASCII bytes is not enough.
+2. Notes are owner-only: `umask 077` in every script that writes them, and a unique `mktemp` name for every temporary file.
+3. A session id becomes part of a file name, so reject anything outside `[A-Za-z0-9_-]`. Read transcripts only from regular files under the Claude projects directory.
+4. Hooks must never fail or swallow a user's prompt: exit 0 on any error, and block only after the action the user asked for has succeeded.
+5. The installers touch only what they own. Match our hook by its exact path, merge into `statusLine` and never replace it, write through a symlinked `settings.json`, and leave a `q` that is not ours alone.
+6. `stat` differs between BSD and GNU. Try `stat -c` first, then `stat -f`, because `stat -f` succeeds with the wrong output on Linux.
+7. The summarizer runs isolated (empty working directory, no tools, no MCP, no settings, time limit), and a summary that arrives after a newer prompt is dropped.
 
 ## Commit Messages
 

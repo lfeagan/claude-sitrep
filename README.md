@@ -19,7 +19,7 @@ The four lines work as follows:
 
 ## Install
 
-Requires `jq` and the `claude` CLI. Run `./install.sh`. It backs up `~/.claude/settings.json`, adds `SessionStart`, `UserPromptSubmit` and `Stop` hooks, and points the status line at `statusline/statusline.sh`. Any existing status line, such as Claude HUD, is saved to `~/.claude/sitrep.conf` as `SITREP_HUD_CMD` and runs first, so its output stays above the sitrep block. `./uninstall.sh` reverses all of this.
+Requires `jq`, `perl` and the `claude` CLI. Run `./install.sh`. It backs up `~/.claude/settings.json`, adds `SessionStart`, `UserPromptSubmit` and `Stop` hooks, and points the status line at `statusline/statusline.sh`. Any existing status line, such as Claude HUD, is saved to `~/.claude/sitrep.conf` as `SITREP_HUD_CMD` and runs first, so its output stays above the sitrep block. `./uninstall.sh` reverses all of this.
 
 ## The Queue
 
@@ -32,7 +32,7 @@ Requires `jq` and the `claude` CLI. Run `./install.sh`. It backs up `~/.claude/s
 
 5. `q goal <session> <text>` pins that session's Objective.
 
-Inside a session, a prompt starting with `+ ` queues the rest of the line, and one starting with `+goal ` pins the Objective. Neither is sent to Claude.
+Inside a session, a prompt starting with `+ ` queues the rest of the line, and one starting with `+goal ` pins the Objective. Neither is sent to Claude. Both apply only to a single line of at most 200 characters; anything longer or multi-line goes to Claude as written, so a pasted list never gets swallowed.
 
 ## How It Works
 
@@ -40,7 +40,9 @@ State lives in `~/.claude/session-notes/<session_id>.{txt,queue,cwd}`, so the st
 
 ## Privacy And Safety
 
-Prompt text is stored in `~/.claude/session-notes`, which is owner-only (`700`, files `600`). Prompt and model text is treated as untrusted terminal input, so control characters such as escape sequences are removed before it is stored and again before it is printed. The summarizer sends the tail of the transcript to Haiku through `claude -p`, the same service the session itself uses.
+Prompt text is stored in `~/.claude/session-notes`, which is owner-only (`700`, files `600`). Prompt and model text is treated as untrusted terminal input, so control characters (escape sequences and the C1 range) and format characters (such as bidi overrides) are removed before it is stored and again before it is printed. The summarizer sends the tail of the transcript to Haiku through `claude -p`, the same service the session itself uses. It runs from an empty temporary directory with no tools, no MCP servers, no settings and a 60 second limit, and only reads transcripts that live under `~/.claude/projects`.
+
+`~/.claude/sitrep.conf` is sourced and run on every render, so keep it owner-only, as the installer does.
 
 ## Development
 

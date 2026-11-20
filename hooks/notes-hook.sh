@@ -1,26 +1,36 @@
 #!/bin/bash
 # Hook for SessionStart, UserPromptSubmit and Stop. Maintains ~/.claude/session-notes/<session_id>.txt
-# (three lines: Objective / Progress / Now). Haiku summarizer runs in the background on Stop.
+# (three lines: Objective / Progress / Now). A Haiku summarizer runs in the background on Stop.
 [ -n "$CLAUDE_NOTES_RUNNING" ] && exit 0   # recursion guard: the summarizer's own claude -p fires hooks
 umask 077   # notes hold prompt text: owner-only
 input=$(cat)
-sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
+sid=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
 [ -z "$sid" ] && exit 0
 case "$sid" in *[!A-Za-z0-9_-]*) exit 0 ;; esac   # the id becomes part of a file name
 event=$(printf '%s' "$input" | jq -r '.hook_event_name // empty')
 tp=$(printf '%s' "$input" | jq -r '.transcript_path // empty')
+# Only read transcripts that are regular files under the Claude projects directory.
+cfg=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
+case "$tp" in
+  */../*) tp="" ;;
+  "$cfg/projects/"*) { [ -f "$tp" ] && [ ! -L "$tp" ]; } || tp="" ;;
+  *) tp="" ;;
+esac
 dir="$HOME/.claude/session-notes"; mkdir -p "$dir"; chmod 700 "$dir"
 f="$dir/$sid.txt"
 
+mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
+# Prompt and model text is untrusted terminal input. Flatten to one line, drop control (Cc, incl. C1) and
+# format (Cf, incl. bidi) characters, and cut to $1 characters.
+sane() { N=${1:-140} perl -CSD -0777 -pe 's/[\n\t\p{Zl}\p{Zp}]/ /g; s/[\p{Cc}\p{Cf}]//g; $_=substr($_,0,$ENV{N})' 2>/dev/null; }
+trunc() { printf '%s' "$1" | sane "${2:-140}"; }
 get() { [ -f "$f" ] && sed -n "s/^$1: //p" "$f" | head -1; }
 write() { # objective progress now
-  printf 'Objective: %s\nProgress:  %s\nNow:       %s\n' "$1" "$2" "$3" > "$f.tmp" && mv "$f.tmp" "$f"
+  local t; t=$(mktemp "$dir/.w.XXXXXX") || return 1
+  if printf 'Objective: %s\nProgress:  %s\nNow:       %s\n' "$1" "$2" "$3" > "$t"; then mv "$t" "$f"; else rm -f "$t"; return 1; fi
 }
-# Prompt and model text is untrusted terminal input: flatten whitespace and drop control characters (ESC etc.).
-trunc() { printf '%s' "$1" | tr '\n\t' '  ' | LC_ALL=C tr -d '\000-\037\177' | cut -c1-"${2:-140}"; }
-mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1"; }
 
-printf '%s' "$input" | jq -r '.cwd // empty' > "$dir/$sid.cwd"
+printf '%s' "$input" | jq -r '.cwd // empty' | sane 300 > "$dir/$sid.cwd"
 qfile="$dir/$sid.queue"
 obj=$(get Objective); prog=$(get Progress); now=$(get Now)
 # A placeholder or command wrapper (e.g. /clear) is not a real Objective: treat it as unset so it gets replaced.
@@ -30,28 +40,47 @@ first_prompt() { # first real user message in the transcript; skips whole messag
   [ -f "$tp" ] && jq -r 'select(.type=="user") | .message.content | if type=="string" then . else map(select(.type=="text")|.text)|join(" ") end | select(test("^\\s*(<|&lt;)")|not) | select(test("\\S"))' "$tp" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e '/^$/d' | head -1
 }
 summarize() { # background Haiku call: rewrites Progress and Now
+  local since; since=$(cat "$dir/.$sid.prompt" 2>/dev/null)
   (
     export CLAUDE_NOTES_RUNNING=1
+    work=$(mktemp -d) && cd "$work" || exit 0   # neutral cwd: no project CLAUDE.md, settings or MCP servers
+    trap 'rm -rf "$work"' EXIT
     ctx=$(tail -n 40 "$tp" | jq -r 'select(.type=="user" or .type=="assistant") | "\(.type): " + ((.message.content | if type=="string" then . else map(select(.type=="text") | .text) | join(" ") end) // "")' 2>/dev/null | cut -c1-600 | tail -c 6000)
     out=$(printf 'Objective so far: %s\n\nRecent transcript:\n%s\n\nReply with exactly two lines and nothing else:\nProgress: <what has been accomplished so far, max 120 chars>\nNow: <what is happening or awaiting the user right now, max 120 chars>' "$obj" "$ctx" \
-      | claude -p --model haiku --no-session-persistence --disable-slash-commands --tools "" --max-budget-usd 0.05 2>/dev/null)
+      | perl -e 'alarm shift; exec @ARGV' 60 claude -p --model haiku --no-session-persistence --disable-slash-commands --tools "" \
+          --strict-mcp-config --mcp-config '{"mcpServers":{}}' --setting-sources "" --max-budget-usd 0.05 2>/dev/null)
     p=$(printf '%s' "$out" | sed -n 's/^Progress: *//p' | head -1)
     n=$(printf '%s' "$out" | sed -n 's/^Now: *//p' | head -1)
-    [ -n "$p" ] && [ -n "$n" ] && write "$(get Objective)" "$(trunc "$p" 140)" "$(trunc "$n" 140)"
+    [ -n "$p" ] && [ -n "$n" ] || exit 0
+    # A prompt submitted while we were summarizing makes this summary stale: drop it, the next Stop redoes it.
+    [ "$(cat "$dir/.$sid.prompt" 2>/dev/null)" = "$since" ] || exit 0
+    write "$(get Objective)" "$(trunc "$p" 140)" "$(trunc "$n" 140)"
   ) >/dev/null 2>&1 &
 }
 
 if [ "$event" = "UserPromptSubmit" ]; then
   prompt=$(printf '%s' "$input" | jq -r '.prompt // empty')
+  echo $(( $(cat "$dir/.$sid.prompt" 2>/dev/null || echo 0) + 1 )) > "$dir/.$sid.prompt"   # prompt counter, for the stale-summary check
+  # +goal and + are handled here only for a short single line. Anything else goes to Claude untouched.
+  short() { [[ $1 != *$'\n'* ]] && [ ${#1} -le 200 ] && [ -n "${1//[[:space:]]/}" ]; }
   case "$prompt" in
     "+goal "*) # pin the objective; the summarizer never overwrites it
-      obj=$(trunc "${prompt#+goal }" 160)
-      write "$obj" "${prog:--}" "${now:--}"
-      jq -n --arg r "Objective pinned: $obj" '{decision:"block",reason:$r}'; exit 0 ;;
+      text=${prompt#+goal }
+      if short "$text"; then
+        g=$(trunc "$text" 200)
+        if write "$g" "${prog:--}" "${now:--}"; then
+          jq -n --arg r "Objective pinned: $g" '{decision:"block",reason:$r}'; exit 0
+        fi
+      fi ;;
     "+ "*) # queue instead of sending to Claude
-      item=$(trunc "${prompt#+ }" 200); printf '%s\n' "$item" >> "$qfile"
-      [ -f "$f" ] || write "-" "-" "-"
-      jq -n --arg r "Queued ($(grep -c . "$qfile")): $item" '{decision:"block",reason:$r}'; exit 0 ;;
+      text=${prompt#+ }
+      if short "$text"; then
+        item=$(trunc "$text" 200)
+        if printf '%s\n' "$item" >> "$qfile"; then
+          [ -f "$f" ] || write "-" "-" "-"
+          jq -n --arg r "Queued ($(grep -c . "$qfile")): $item" '{decision:"block",reason:$r}'; exit 0
+        fi
+      fi ;;
   esac
   [ -z "$obj" ] && obj=$(trunc "$(first_prompt)" 160)
   [ -z "$obj" ] && obj=$(trunc "$prompt" 160)
@@ -72,7 +101,8 @@ fi
 if [ "$event" = "Stop" ] && [ -f "$tp" ]; then
   # debounce: skip if summarized in the last 45s
   stamp="$dir/.$sid.stamp"
-  if [ -f "$stamp" ] && [ $(( $(date +%s) - $(mtime "$stamp") )) -lt 45 ]; then exit 0; fi
+  last=$(mtime "$stamp")
+  if [ -n "$last" ] && [ $(( $(date +%s) - last )) -lt 45 ]; then exit 0; fi
   touch "$stamp"
   summarize
 fi
