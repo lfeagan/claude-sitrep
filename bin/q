@@ -1,0 +1,40 @@
+#!/bin/bash
+# q: per-session work queues for Claude Code sessions. Sessions are addressed by a unique id prefix (shown in the status line and `q ls`).
+dir="$HOME/.claude/session-notes"
+die() { echo "q: $*" >&2; exit 1; }
+
+resolve() { # prefix -> full session id
+  local m=() f
+  for f in "$dir"/"$1"*.txt; do [ -f "$f" ] && m+=("$(basename "$f" .txt)"); done
+  [ ${#m[@]} -eq 1 ] || die "session '$1' ${#m[@]:+matches ${#m[@]}}; run 'q ls'"
+  echo "${m[0]}"
+}
+qf() { echo "$dir/$1.queue"; }
+count() { [ -f "$(qf "$1")" ] && grep -c . "$(qf "$1")" || echo 0; }
+
+cmd=${1:-ls}; shift
+case "$cmd" in
+  ls)
+    if [ -n "$1" ]; then
+      sid=$(resolve "$1"); f=$(qf "$sid"); echo "Session ${sid:0:4}  $(cat "$dir/$sid.cwd" 2>/dev/null)"
+      sed -n 's/^Objective: /  Objective: /p' "$dir/$sid.txt"
+      [ -s "$f" ] && nl -w2 -s'. ' "$f" || echo "  (queue empty)"
+    else
+      for t in $(ls -t "$dir"/*.txt 2>/dev/null); do
+        [ -n "$(find "$t" -mtime -1 2>/dev/null)" ] || continue
+        sid=$(basename "$t" .txt); cwd=$(cat "$dir/$sid.cwd" 2>/dev/null)
+        printf '%s  %s  queue:%s\n' "${sid:0:4}" "$(basename "${cwd:-?}")" "$(count "$sid")"
+        sed -n 's/^Objective: /    Objective: /p;s/^Now: */    Now:       /p' "$t"
+      done
+    fi ;;
+  add)  [ $# -ge 2 ] || die "usage: q add <session> <text>"
+        sid=$(resolve "$1"); shift; echo "$*" >> "$(qf "$sid")"; echo "queued on ${sid:0:4} (now $(count "$sid"))" ;;
+  done) [ $# -ge 1 ] || die "usage: q done <session> [item=1]"
+        sid=$(resolve "$1"); n=${2:-1}; f=$(qf "$sid"); [ -s "$f" ] || die "queue empty"
+        sed -n "${n}p" "$f"; sed -i '' "${n}d" "$f" ;;
+  move) [ $# -ge 2 ] || die "usage: q move <from> <to> [item=1]"
+        from=$(resolve "$1"); to=$(resolve "$2"); n=${3:-1}; f=$(qf "$from")
+        item=$(sed -n "${n}p" "$f"); [ -n "$item" ] || die "no item $n on ${from:0:4}"
+        echo "$item" >> "$(qf "$to")"; sed -i '' "${n}d" "$f"; echo "moved to ${to:0:4}: $item" ;;
+  *) die "usage: q [ls [session]] | add <session> <text> | done <session> [n] | move <from> <to> [n]" ;;
+esac

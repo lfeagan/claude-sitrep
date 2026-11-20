@@ -1,0 +1,41 @@
+# claude-sitrep
+
+A situation report for each Claude Code session, plus a small per-session work queue. When several sessions run at once in separate terminals, the status line under each prompt says what the session is for, how far along it is, what it is doing right now and what is queued next.
+
+## What You See
+
+```
+Objective: Build a three-line status block for my sessions
+Progress:  Wrote the wrapper and hooks; summarizer tested against a fake transcript.
+Now:       Waiting on a repo name.
+Queue (2) [a1b2]  next: update README
+```
+
+The four lines work as follows:
+
+1. Objective is set once from the first prompt of the session and then kept.
+2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
+3. Queue shows the item count, the first four characters of the session id (used to address the session from `q`) and the next item.
+
+## Install
+
+Requires `jq` and the `claude` CLI. Run `./install.sh`. It backs up `~/.claude/settings.json`, adds `UserPromptSubmit` and `Stop` hooks, and points the status line at `statusline/statusline.sh`. Any existing status line, such as Claude HUD, is saved to `~/.claude/sitrep.conf` as `SITREP_HUD_CMD` and runs first, so its output stays above the sitrep block. `./uninstall.sh` reverses all of this.
+
+## The Queue
+
+`q` addresses a session by any unique prefix of its id, as shown in the status line and in `q ls`.
+
+1. `q ls` lists recent sessions with Objective, Now and queue length, and `q ls <session>` lists one queue.
+2. `q add <session> <text>` appends an item.
+3. `q done <session> [n]` removes item `n` (default 1) and prints it.
+4. `q move <from> <to> [n]` hands an item to another session.
+
+Inside a session, a prompt starting with `+ ` queues the rest of the line and is not sent to Claude.
+
+## How It Works
+
+State lives in `~/.claude/session-notes/<session_id>.{txt,queue,cwd}`, so the status line only reads files and renders instantly. The Haiku call runs in the background on `Stop`, is skipped if the last update was under 45 seconds ago, is capped at $0.05 per call, and sets `CLAUDE_NOTES_RUNNING` so its own hooks do not recurse.
+
+## Status
+
+The queue does not feed work to Claude automatically. Whether a `Stop` hook should hand over the next item is TBD, as an unattended session that keeps itself busy is also a runaway session. Nothing is pushed to the cmux sidebar yet.
