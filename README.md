@@ -52,3 +52,7 @@ Prompt text is stored in `~/.claude/session-notes`, which is owner-only (`700`, 
 ## Status
 
 The queue does not feed work to Claude automatically. Whether a `Stop` hook should hand over the next item is TBD, as an unattended session that keeps itself busy is also a runaway session. Pushing the same text to the cmux sidebar has not been built; the notes are plain files, so a script can read them.
+
+## License
+
+MIT. See `LICENSE`.
