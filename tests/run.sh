@@ -455,6 +455,123 @@ eq "a resume sets waiting" waiting "$(sword cmp00001)"
 rm -rf "$STATE"; mkdir -p "$STATE"
 eq "with nothing running, watch says so" "No running sessions." "$(LINES=10 COLUMNS=60 bounded sitrep watch --once)"
 
+# ---- live registry: which sessions are running, and prune
+rm -rf "$STATE"; mkdir -p "$STATE" "$HOME/.claude/sessions"; rm -f "$HOME/.claude/sessions"/*.json
+sleep 300 & p1=$!; sleep 300 & p2=$!; sleep 300 & p3=$!; sleep 300 & p4=$!; sleep 0 & pd=$!; wait "$pd"
+lstart() { LC_ALL=C TZ=UTC ps -o lstart= -p "$1" | tr -s ' ' | sed 's/^ //; s/ $//'; }
+reg() { # id pid procStart [pidDomain]
+  jq -nc --arg s "$1" --argjson p "$2" --arg t "$3" --arg d "${4:-}" '{pid:$p,sessionId:$s,procStart:$t,kind:"interactive",entrypoint:"cli"} + (if $d == "" then {} else {pidDomain:$d} end)' > "$HOME/.claude/sessions/$2.json"
+}
+st() { printf '%s\n' "$2" > "$STATE/.$1.state"; age "$3" "$STATE/.$1.state"; }   # id word seconds-ago
+mk liv00001 dalive 500; st liv00001 waiting 500
+mk dea00002 ddead 500;  st dea00002 waiting 500
+mk new00003 dfresh 30;  st new00003 waiting 30
+mk end00004 dstate 30;  st end00004 ended 30
+mk rev00005 drevive 500; st rev00005 ended 500
+mk frn00006 dforeign 500; st frn00006 waiting 500
+mk reu00007 dreuse 500; st reu00007 waiting 500
+reg liv00001 "$p1" "$(lstart "$p1")"
+reg rev00005 "$p2" "$(lstart "$p2")"
+reg frn00006 "$pd" "Mon Jan  1 00:00:00 2001" "linux:other:ns"
+reg reu00007 "$p3" "Mon Jan  1 00:00:00 2001"
+reg '../x' "$p4" "$(lstart "$p4")"   # a bad id from the registry is ignored
+out=$(bounded sitrep ls)
+check "a session with a live process is listed" has "$out" "dalive"
+check "a session that is not registered and quiet is hidden" hasnt "$out" "ddead"
+check "a new unregistered session gets two minutes of grace" has "$out" "dfresh"
+check "a session that said ended is hidden" hasnt "$out" "dstate"
+check "the registry wins over a stale ended state" has "$out" "drevive"
+check "a live session with a stale ended state reads running" has "$out" "running"
+check "a registry entry from another pid space counts as alive" has "$out" "dforeign"
+check "a reused pid does not keep a session alive" hasnt "$out" "dreuse"
+check "the hidden sessions are counted" has "$out" "+3 ended (--all)"
+check "--all shows a dead session as ended" has "$(bounded sitrep ls --all)" "ended"
+check "--all lists the hidden session" has "$(bounded sitrep ls --all)" "ddead"
+check "watch follows the same rule" hasnt "$(LINES=60 COLUMNS=90 bounded sitrep watch --once)" "ddead"
+sitrep add dea 'orphaned task' >/dev/null; sitrep add liv 'keep me' >/dev/null
+check "items stranded in a dead session are flagged" has "$(bounded sitrep ls)" "1 items stranded in ended sessions (sitrep prune)"
+check "the stranded line keeps its row in a tight pane" has "$(LINES=6 COLUMNS=90 bounded sitrep watch --once)" "stranded"
+before=$(cat "$STATE/dea00002.queue")
+out=$(sitrep prune --dry-run)
+check "--dry-run says what it would mark" has "$out" "would mark dea0 (ddead) ended"
+check "--dry-run says what it would ask" has "$out" "would ask: move 1 item(s) from dea0"
+eq "--dry-run changes nothing" "waiting" "$(sword dea00002)"
+out=$(sitrep prune 2>&1 </dev/null)
+check "prune without a terminal or -y leaves the items" has "$out" "left on dea0"
+eq "that prune still marked the session ended" ended "$(sword dea00002)"
+eq "that prune left the queue alone" "$before" "$(cat "$STATE/dea00002.queue")"
+eq "prune never touches a session with a live process" waiting "$(sword liv00001)"
+eq "prune never touches a session inside the grace period" waiting "$(sword new00003)"
+eq "prune never touches a live session's queue" "keep me" "$(cat "$STATE/liv00001.queue")"
+out=$(sitrep prune -y)
+check "prune -y moves the items to the inbox" has "$out" "1 item(s) moved to the inbox"
+eq "the inbox has the item" "orphaned task" "$(cat "$STATE/inbox.queue")"
+eq "the dead session's queue is empty" 0 "$(grep -c . "$STATE/dea00002.queue")"
+check "the stranded line is gone" hasnt "$(bounded sitrep ls)" "stranded"
+eq "the state file is owner-only" 600 "$(mode "$STATE/.dea00002.state")"
+rm -f "$HOME/.claude/sessions"/*.json
+st dea00002 waiting 500
+eq "prune refuses when the registry cannot be read" 1 "$(rc sitrep prune)"
+check "without a registry the listing falls back to the hook states" has "$(bounded sitrep ls)" "ddead"
+check "the fallback still hides a session that said ended" hasnt "$(bounded sitrep ls)" "dstate"
+kill "$p1" "$p2" "$p3" "$p4" 2>/dev/null; wait "$p1" "$p2" "$p3" "$p4" 2>/dev/null
+rm -f "$STATE/inbox.queue"; rm -rf "$STATE"; mkdir -p "$STATE"
+
+# ---- wrapping in watch
+mkwide() { printf 'Objective: %s\nProgress:  %s\nNow:       %s\n' "$2" "$3" "$4" > "$STATE/$1.txt"; printf '/x/wrap\n' > "$STATE/$1.cwd"; }
+mkwide wrp00001 "short objective" "$(printf 'alpha beta gamma delta %.0s' 1 2 3 4 5 6 7 8)" "now text"
+out=$(LINES=60 COLUMNS=40 bounded sitrep watch --once)
+check "a long field wraps onto more lines" has "$out" "               alpha"
+eq "a wrapped line is indented under the text" 0 "$(printf '%s\n' "$out" | grep -c '^ \{1,14\}[a-z]')"
+eq "no line is wider than the pane" 0 "$(printf '%s\n' "$out" | perl -CSD -ne 'chomp; print "x\n" if length > 40' | wc -l | tr -d ' ')"
+eq "a field is cut to three lines, with an ellipsis" 4 "$(printf '%s\n' "$out" | sed -n '/Progress:/,/Now:/p' | wc -l | tr -d ' ')"
+check "the cut field ends in an ellipsis" has "$(printf '%s\n' "$out" | sed -n '/Progress:/,/Now:/p')" "…"
+out=$(LINES=60 COLUMNS=40 bounded sitrep watch --once --wrap 1)
+eq "--wrap 1 keeps one line per field" 3 "$(printf '%s\n' "$out" | sed -n '/Objective:/,/Now:/p' | wc -l | tr -d ' ')"
+eq "--wrap 0 is refused" 1 "$(rc sitrep watch --once --wrap 0)"
+eq "--wrap needs a number" 1 "$(rc sitrep watch --once --wrap x)"
+check "plain ls -v does not wrap" has "$(sitrep ls -v | grep Progress)" "gamma delta alpha"
+mkwide wrp00002 "$(printf '日本語のテキスト%.0s' 1 2 3 4)" "ok" "ok"
+out=$(LINES=60 COLUMNS=30 bounded sitrep watch --once)
+eq "wide characters count as two columns" 0 "$(printf '%s\n' "$out" | perl -CSD -ne 'chomp; $w = 0; $w += (/[\x{2E80}-\x{A4CF}]/ ? 2 : 1) for split //; print "x\n" if $w > 30' | wc -l | tr -d ' ')"
+mkwide wrp00003 "$(printf 'x%.0s' $(seq 1 120))" "ok" "ok"
+out=$(LINES=60 COLUMNS=40 bounded sitrep watch --once)
+eq "a word longer than the pane is broken" 0 "$(printf '%s\n' "$out" | perl -CSD -ne 'chomp; print "x\n" if length > 40' | wc -l | tr -d ' ')"
+rm -f "$STATE"/wrp*; printf 'Objective: q\nProgress:  p\nNow:       n\n' > "$STATE/qwr00001.txt"; printf '/x/qw\n' > "$STATE/qwr00001.cwd"
+sitrep add qwr "$(printf 'item words go on and on %.0s' 1 2 3 4 5 6)" >/dev/null
+out=$(LINES=60 COLUMNS=44 bounded sitrep watch --once)
+eq "a queue item wraps to at most two lines" 2 "$(printf '%s\n' "$out" | sed -n '/Queue:/,$p' | wc -l | tr -d ' ')"
+check "a queue item wraps with a hanging indent" has "$out" "                  "
+check "a cut queue item ends in an ellipsis" has "$out" "…"
+rm -rf "$STATE"; mkdir -p "$STATE"
+
+# ---- highlight recent activity in watch
+rm -rf "$STATE"; mkdir -p "$STATE"
+mk hot00001 hot 10; st hot00001 working 10
+mk cld00002 cold 500; st cld00002 waiting 500
+hlrun() { ( sleep 3; printf q ) | TERM=xterm bounded bash -c "$(declare -f pty); pty '$1 LINES=30 COLUMNS=60 sitrep watch $2 100; echo \"exit=\$?\"'" 2>&1; }
+if command -v script >/dev/null 2>&1; then
+  out=$(hlrun "" "")
+  eq "only the recently active session is highlighted, on each of its lines" 4 "$(printf '%s\n' "$out" | grep -cF $'\033[48;5;238m')"
+  check "the highlight fills the rest of the row and is reset" has "$out" $'\033[K\033[0m'
+  eq "--highlight 0 turns it off" 0 "$(hlrun "" "--highlight 0" | grep -cF $'\033[48;5;238m')"
+  eq "NO_COLOR turns it off" 0 "$(hlrun "NO_COLOR=1" "" | grep -cF $'\033[48;5;238m')"
+  eq "a wider window highlights the older session too" 8 "$(hlrun "" "--highlight 1000" | grep -cF $'\033[48;5;238m')"
+  printf 'SITREP_HIGHLIGHT_SGR=41\n' > "$STATE/sitrep.conf"
+  check "the colour comes from sitrep.conf" has "$(hlrun "" "")" $'\033[41m'
+  # shellcheck disable=SC2016  # the value must stay literal: it is the unsafe input under test
+  printf 'SITREP_HIGHLIGHT_SGR=1m;$(x)\n' > "$STATE/sitrep.conf"
+  eq "a bad colour setting falls back to the default" 4 "$(hlrun "" "" | grep -cF $'\033[48;5;238m')"
+  printf 'SITREP_HIGHLIGHT_SECONDS=1000\n' > "$STATE/sitrep.conf"
+  eq "the window comes from sitrep.conf" 8 "$(hlrun "" "" | grep -cF $'\033[48;5;238m')"
+  rm -f "$STATE/sitrep.conf"
+fi
+check "--once prints no escape codes" hasnt "$(LINES=30 COLUMNS=60 bounded sitrep watch --once)" $'\033'
+check "a pipe prints no escape codes" hasnt "$(LINES=30 COLUMNS=60 bounded sitrep watch)" $'\033'
+eq "--highlight needs a number" 1 "$(rc sitrep watch --once --highlight x)"
+eq "--highlight needs a value" 1 "$(rc sitrep watch --once --highlight)"
+rm -rf "$STATE"; mkdir -p "$STATE"
+
 # ---- reorder
 printf 'Objective: r\n' > "$STATE/rord0001.txt"; rm -f "$STATE/rord0001.queue"
 for w in one two three four; do sitrep add rord "$w" >/dev/null; done

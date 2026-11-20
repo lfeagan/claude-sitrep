@@ -6,6 +6,28 @@ die() { echo "sitrep: $*" >&2; exit 1; }
 # Text is untrusted terminal input: drop control (Cc, incl. C1) and format (Cf, incl. bidi) characters.
 clean() { perl -CSD -0777 -pe 's/[\n\t\p{Zl}\p{Zp}]/ /g; s/[\p{Cc}\p{Cf}]//g; s/ +$//; $_=substr($_,0,200)' 2>/dev/null; }   # for text being stored: one flat line
 fit() { N=$1 perl -CSD -pe 'chomp; $_ = (length > $ENV{N} ? substr($_, 0, $ENV{N} - 1) . "\x{2026}" : $_) . "\n"' 2>/dev/null; }   # cut to N characters with an ellipsis
+wrap() { # cols fieldlines itemlines: word-wrap Objective/Progress/Now and queue items with a hanging indent, cut anything else to cols
+  C=$1 F=$2 Q=$3 perl -CSD -e '
+    my ($C, $F, $Q) = @ENV{qw(C F Q)};
+    sub cw { $_[0] =~ /[\x{1100}-\x{115F}\x{2E80}-\x{A4CF}\x{AC00}-\x{D7A3}\x{F900}-\x{FAFF}\x{FE30}-\x{FE6F}\x{FF00}-\x{FF60}\x{FFE0}-\x{FFE6}\x{1F300}-\x{1FAFF}\x{20000}-\x{3FFFD}]/ ? 2 : 1 }   # wide characters take two columns
+    sub width { my $n = 0; $n += cw($_) for split //, $_[0]; $n }
+    sub cut { my ($s, $w) = @_; my ($o, $n) = ("", 0); for my $c (split //, $s) { my $k = cw($c); last if $n + $k > $w; $o .= $c; $n += $k } $o }
+    while (<STDIN>) {
+      chomp; my ($pre, $txt, $max);
+      if (/^(\s+(?:Objective:|Progress:|Now:)\s+)(.*)$/) { ($pre, $txt, $max) = ($1, $2, $F) }
+      elsif (/^(\s+(?:Queue:\s+)?\d+\.\s)(.*)$/) { ($pre, $txt, $max) = ($1, $2, $Q) }
+      else { print((width($_) > $C ? cut($_, $C - 1) . "\x{2026}" : $_), "\n"); next }
+      my $avail = $C - width($pre); $avail = 10 if $avail < 10;
+      my (@lines, $cur); $cur = "";
+      for my $wd (split " ", $txt) {
+        while (width($wd) > $avail) { push @lines, $cur if $cur ne ""; $cur = ""; my $part = cut($wd, $avail); push @lines, $part; $wd = substr($wd, length $part) }
+        if ($cur eq "") { $cur = $wd } elsif (width($cur) + 1 + width($wd) <= $avail) { $cur .= " $wd" } else { push @lines, $cur; $cur = $wd }
+      }
+      push @lines, $cur if $cur ne ""; @lines = ("") unless @lines;
+      if (@lines > $max) { my $rest = join " ", @lines[$max - 1 .. $#lines]; @lines = (@lines[0 .. $max - 2], (width($rest) > $avail ? cut($rest, $avail - 1) . "\x{2026}" : $rest)) }
+      print $pre, $lines[0], "\n"; print " " x width($pre), $_, "\n" for @lines[1 .. $#lines];
+    }' 2>/dev/null
+}
 strip() { perl -CSD -pe 's/(?!\n|\t)[\p{Cc}\p{Cf}]//g' 2>/dev/null; }                                                   # for text being shown: keeps line breaks
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 tmpfile() { mktemp "$dir/.sitrep.XXXXXX"; }
@@ -33,12 +55,14 @@ qlist() { # id max first-prefix other-prefix: the first max items, numbered, the
   local n; n=$(count "$1"); [ "$n" -gt 0 ] || return 0
   awk -v n="$2" -v p1="$3" -v p2="$4" -v t="$n" 'NR <= n { printf "%s%d. %s\n", (NR == 1 ? p1 : p2), NR, $0 } END { if (t > n) printf "%s+%d more\n", p2, t - n }' "$(qf "$1")" | strip
 }
-items_default() { # SITREP_QUEUE_ITEMS from the environment, then from sitrep.conf (read, not run), then 5
-  local n=${SITREP_QUEUE_ITEMS:-}
-  [ -n "$n" ] || n=$(sed -n 's/^SITREP_QUEUE_ITEMS=//p' "$dir/sitrep.conf" 2>/dev/null | head -n 1 | tr -d "'\"")
-  [[ $n =~ ^[0-9]+$ ]] || n=5
-  echo "$n"
+setting() { # NAME: from the environment, then from sitrep.conf (read, never run); empty when unset
+  local v=${!1:-}
+  [ -n "$v" ] || v=$(sed -n "s/^$1=//p" "$dir/sitrep.conf" 2>/dev/null | head -n 1 | tr -d "'\"")
+  echo "$v"
 }
+items_default() { local n; n=$(setting SITREP_QUEUE_ITEMS); [[ $n =~ ^[0-9]+$ ]] || n=5; echo "$n"; }
+hl_seconds() { local n; n=$(setting SITREP_HIGHLIGHT_SECONDS); [[ $n =~ ^[0-9]+$ ]] || n=60; echo "$n"; }
+hl_sgr() { local c re='^[0-9;]+$'; c=$(setting SITREP_HIGHLIGHT_SGR); [[ $c =~ $re ]] || c="48;5;238"; echo "$c"; }   # only digits and semicolons reach the terminal
 without() { # file n text: print a temp file holding the queue minus line n; fails if line n is no longer text
   local t; t=$(tmpfile) || return 1
   if E=$3 awk -v n="$2" '{ if (NR == n) { if ($0 != ENVIRON["E"]) bad = 1; else next } print } END { exit bad }' "$1" > "$t"; then echo "$t"; else rm -f "$t"; return 1; fi
@@ -83,6 +107,34 @@ stext() { # id changed now: "waiting 3m"; a working session whose transcript has
   c=$(agetxt $(( $3 - $2 ))); echo "$w $c"
 }
 
+local_domain() { # how Claude Code names this machine's pid space; empty when it cannot be worked out
+  if [ "$(uname)" = Darwin ]; then echo darwin
+  else local id ns; id=$(cat /etc/machine-id 2>/dev/null); ns=$(readlink /proc/self/ns/pid 2>/dev/null); [ -n "$id" ] && [ -n "$ns" ] && echo "darwin:$id:$ns"; fi
+}
+live_ids() { # session ids with a live process, from Claude Code's registry (~/.claude/sessions/<pid>.json); fails when nothing live can be read
+  local d="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions" ldom pid sid pstart dom st want f have=0 any=0
+  for f in "$d"/*.json; do [ -f "$f" ] && { have=1; break; }; done; [ "$have" = 1 ] || return 1
+  ldom=$(local_domain)
+  while IFS=$'\t' read -r pid sid pstart dom; do   # the files are untrusted input: check what is used
+    [[ $pid =~ ^[0-9]+$ ]] && [[ $sid =~ ^[A-Za-z0-9_-]+$ ]] || continue
+    if [ -n "$dom" ] && [ -n "$ldom" ] && [ "$dom" != "$ldom" ]; then echo "$sid"; any=1; continue; fi   # another pid space: cannot judge, count as alive
+    kill -0 "$pid" 2>/dev/null || continue
+    st=$(LC_ALL=C TZ=UTC ps -o lstart= -p "$pid" 2>/dev/null | tr -s ' '); st=${st# }; st=${st% }
+    want=$(printf '%s' "$pstart" | tr -s ' '); want=${want# }; want=${want% }
+    if [ -n "$st" ] && [ -n "$want" ] && [ "$st" != "$want" ]; then continue; fi   # the pid was reused by another process
+    echo "$sid"; any=1
+  done < <(jq -r '[.pid, .sessionId, .procStart, (.pidDomain // "")] | map(tostring) | join("\t")' "$d"/*.json 2>/dev/null)
+  [ "$any" = 1 ]
+}
+deadp() { # id changed: is the session over? Needs $reg (1 when the registry could be read), $live and $now.
+  local w; w=$(sword "$1")
+  if [ "$reg" = 1 ]; then
+    case $'\n'"$live"$'\n' in *$'\n'"$1"$'\n'*) return 1 ;; esac   # a live process has this id, whatever the state file says
+    [ "$w" = ended ] || [ $(( now - $2 )) -gt 120 ]   # not registered: over once it said so, or after two quiet minutes (the registry lags a start and a /clear)
+  else [ "$w" = ended ]; fi
+}
+setended() { local t; t=$(tmpfile) && printf 'ended\n' > "$t" && mv "$t" "$dir/.$1.state"; }
+
 termsize() { # sets rows and cols: LINES/COLUMNS, then the terminal, then 24x100 (a pipe or a bad value)
   rows=${LINES:-}; cols=${COLUMNS:-}
   if [ -t 1 ] && { [ -z "$rows" ] || [ -z "$cols" ]; }; then
@@ -92,19 +144,24 @@ termsize() { # sets rows and cols: LINES/COLUMNS, then the terminal, then 24x100
   [ "$cols" -ge 10 ] 2>/dev/null || cols=100
 }
 
-render_frame() { # verbose rows cols items all: the Inbox, then a table of running sessions (all: finished ones too). rows 0 means no height limit.
+render_frame() { # verbose rows cols items all wraplines highlight-seconds: the Inbox, then a table of running sessions (all: finished ones too). rows 0 means no height limit.
   # With verbose and items above 0 each queue is listed (at most items entries) and the header shows the count alone.
-  local v=$1 rows=$2 cols=$3 items=$4 all=$5 list=0 expr l sw=5 st key ended=0 sts=() ids=() dirs=() qs=() ts=() w=9 now m t sid cwd d q i avail blk nlc
+  local v=$1 rows=$2 cols=$3 items=$4 all=$5 wrapn=${6:-3} hl=${7:-0} itemn strand=0 live reg=0 ages=() quiet=() list=0 expr l sw=5 st key ended=0 sts=() ids=() dirs=() qs=() ts=() w=9 now m t sid cwd d q i avail blk nlc
   local foot full=() head=() blocks=() bn=() out=() used shown=0 cap total=0
   now=$(date +%s)
+  live=$(live_ids); [ -n "$live" ] && reg=1   # one registry read per frame
   { [ "$v" = 1 ] && [ "$items" -gt 0 ]; } && list=1
   expr='s/^Objective: /    Objective: /p;s/^Now: */    Now:       /p'
   [ "$v" = 1 ] && expr='s/^Objective: /    Objective: /p;s/^Progress: */    Progress:  /p;s/^Now: */    Now:       /p'
   while read -r m t; do
     [ $(( now - m )) -lt 86400 ] || continue   # active in the last day
     sid=$(basename "$t" .txt)
-    if [ "$all" != 1 ] && [ "$(sword "$sid")" = ended ]; then ended=$(( ended + 1 )); continue; fi
-    st=$(stext "$sid" "$m" "$now"); sts+=("$st"); [ ${#st} -gt "$sw" ] && sw=${#st}
+    if deadp "$sid" "$m"; then
+      if [ "$all" != 1 ]; then ended=$(( ended + 1 )); strand=$(( strand + $(count "$sid") )); continue; fi
+      st="ended $(agetxt $(( now - m )))"; quiet+=(1)
+    else quiet+=(0); st=$(stext "$sid" "$m" "$now"); case "$st" in ended*) st="running ${st#ended }" ;; esac   # alive in the registry, so a stale ended is not true
+    fi
+    ages+=($(( now - m ))); sts+=("$st"); [ ${#st} -gt "$sw" ] && sw=${#st}
     cwd=$(cwd_of "$sid"); d=$(basename "${cwd:-?}")
     if [ "$list" = 1 ]; then q=$(qsum "$sid" count); else q=$(qsum "$sid"); fi
     ids+=("${sid:0:4}"); full+=("$sid"); dirs+=("$d"); qs+=("$q"); ts+=("$t"); [ ${#d} -gt "$w" ] && w=${#d}   # w: width of the DIRECTORY column
@@ -124,10 +181,12 @@ render_frame() { # verbose rows cols items all: the Inbox, then a table of runni
     blk=$(printf '%-4s  %-*s  %-*s  %s\n' "${ids[$i]}" "$w" "${dirs[$i]}" "$sw" "${sts[$i]}" "$(printf '%s' "${qs[$i]}" | fit "$avail")"
           sed -n "$expr" "${ts[$i]}" | strip
           [ "$list" = 1 ] && qlist "${full[$i]}" "$items" "    Queue:     " "               ")
-    [ "$rows" -gt 0 ] && blk=$(printf '%s' "$blk" | tr '\t' ' ' | fit "$cols")   # a tab can span 8 columns
+    itemn=2; [ "$wrapn" -lt 2 ] && itemn=1   # queue items get fewer lines than the fields
+    [ "$rows" -gt 0 ] && blk=$(printf '%s' "$blk" | tr '\t' ' ' | wrap "$cols" "$wrapn" "$itemn")   # a tab can span 8 columns
+    if [ "$hl" -gt 0 ] && [ "${ages[$i]}" -le "$hl" ] && [ "${quiet[$i]}" = 0 ]; then blk=$(printf '%s\n' "$blk" | sed $'s/^/\001/'); fi   # \001 marks a line for the highlight; watch_loop draws it
     nlc=${blk//[!$'\n']/}; blocks+=("$blk"); bn+=($(( ${#nlc} + 1 ))); total=$(( total + ${#nlc} + 1 ))
   done
-  used=${#head[@]}; cap=0; foot=0; [ "$ended" -gt 0 ] && foot=1   # foot: the "+N ended" line always gets its own row
+  used=${#head[@]}; cap=0; foot=0; [ "$ended" -gt 0 ] && foot=1; [ "$strand" -gt 0 ] && foot=$(( foot + 1 ))   # foot: the ended lines always get their own rows
   if [ "$rows" -gt 0 ] && [ $(( used + total + foot )) -gt "$rows" ]; then cap=$(( rows - 1 - foot )); fi   # too tall: sessions leave room for "+N more" and the ended line
   out=("${head[@]}")
   for i in "${!blocks[@]}"; do
@@ -136,6 +195,7 @@ render_frame() { # verbose rows cols items all: the Inbox, then a table of runni
   done
   if [ "$shown" -lt ${#blocks[@]} ]; then out+=("+$(( ${#blocks[@]} - shown )) more"); fi
   if [ "$ended" -gt 0 ]; then out+=("+$ended ended (--all)"); fi
+  if [ "$strand" -gt 0 ]; then out+=("$strand items stranded in ended sessions (sitrep prune)"); fi
   [ ${#out[@]} -gt 0 ] || return 0
   printf '%s\n' "${out[@]}" | { if [ "$rows" -gt 0 ]; then head -n "$rows"; else cat; fi; }   # a tiny pane still gets at most rows lines
 }
@@ -146,10 +206,11 @@ sig() { # one stat over the state files: names, sizes and mtimes; a directory mt
   [ ${#files[@]} -gt 0 ] || return 0
   if stat -c %Y "${files[0]}" >/dev/null 2>&1; then stat -c '%Y %s %n' "${files[@]}" 2>/dev/null   # GNU first: BSD-style `stat -f` succeeds with other output on Linux
   else stat -f '%m %z %N' "${files[@]}" 2>/dev/null; fi
+  printf '%s\n' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/sessions/*.json   # a session starting or exiting adds or drops a file
 }
 
-watch_loop() { # seconds (with $items and $all set): redraw every N seconds, and at once when a state file or the terminal size changes
-  local interval=$1 last="" lastdraw=0 s now frame l key tty=0
+watch_loop() { # seconds (with $items, $all, $wrapn and $hl set): redraw every N seconds, and at once when a state file or the terminal size changes
+  local interval=$1 last="" lastdraw=0 s now frame l key tty=0 sgr; sgr=$(hl_sgr)
   { : </dev/tty; } 2>/dev/null && tty=1   # a readable terminal: wait on it, so a key wakes the loop
   [[ $interval =~ ^[1-9][0-9]*$ ]] || die "usage: sitrep watch [--once] [-a] [-n items] [seconds]"
   trap 'printf "\033[?7h\033[?25h"' EXIT; trap 'exit 130' INT TERM
@@ -157,8 +218,10 @@ watch_loop() { # seconds (with $items and $all set): redraw every N seconds, and
   while :; do
     termsize; now=$(date +%s); s="$(sig)|$rows|$cols"
     if [ "$s" != "$last" ] || [ $(( now - lastdraw )) -ge "$interval" ]; then
-      frame=$(render_frame 1 $(( rows - 1 )) "$cols" "$items" "$all"); [ -n "$frame" ] || frame="No running sessions."
-      printf '\033[H'; while IFS= read -r l; do printf '%s\033[K\n' "$l"; done <<<"$frame"; printf '\033[J'
+      frame=$(render_frame 1 $(( rows - 1 )) "$cols" "$items" "$all" "$wrapn" "$hl"); [ -n "$frame" ] || frame="No running sessions."
+      printf '\033[H'; while IFS= read -r l; do
+        if [[ $l == $'\001'* ]]; then printf '\033[%sm%s\033[K\033[0m\n' "$sgr" "${l#$'\001'}"; else printf '%s\033[K\n' "$l"; fi   # \033[K fills the rest of the row with the background
+      done <<<"$frame"; printf '\033[J'
       last=$s; lastdraw=$now
     fi
     if [ "$tty" = 1 ]; then
@@ -190,20 +253,45 @@ case "$cmd" in
     else
       termsize; render_frame "$v" 0 "$cols" "$items" "$all"
     fi ;;
-  watch) once=0; items=""; all=0
+  watch) once=0; items=""; all=0; wrapn=3; hl=""
         while :; do case "$1" in
           --once) once=1; shift ;;
+          --highlight) [ $# -ge 2 ] && [[ $2 =~ ^[0-9]+$ ]] || die "usage: sitrep watch [--once] [-a] [-n items] [--wrap lines] [--highlight seconds] [seconds]"; hl=$2; shift 2 ;;
+          --wrap) [ $# -ge 2 ] && [[ $2 =~ ^[1-9][0-9]*$ ]] || die "usage: sitrep watch [--once] [-a] [-n items] [--wrap lines] [--highlight seconds] [seconds]"; wrapn=$2; shift 2 ;;
           -a|--all) all=1; shift ;;
-          -n) [ $# -ge 2 ] || die "usage: sitrep watch [--once] [-a] [-n items] [seconds]"; items=$2; shift 2 ;;
+          -n) [ $# -ge 2 ] || die "usage: sitrep watch [--once] [-a] [-n items] [--wrap lines] [--highlight seconds] [seconds]"; items=$2; shift 2 ;;
           *) break ;;
         esac; done
         [ -n "$items" ] || items=$(items_default); [[ $items =~ ^[0-9]+$ ]] || die "items must be a number"
-        [ $# -le 1 ] || die "usage: sitrep watch [--once] [-a] [-n items] [seconds]"   # nothing may follow the interval
+        [ $# -le 1 ] || die "usage: sitrep watch [--once] [-a] [-n items] [--wrap lines] [--highlight seconds] [seconds]"   # nothing may follow the interval
+        [ -n "$hl" ] || hl=$(hl_seconds); [ -z "$NO_COLOR" ] || hl=0   # NO_COLOR turns the highlight off
         # a pipe or a terminal that cannot move the cursor gets one frame, never a loop of escape codes
         { [ -t 1 ] && [ -n "$TERM" ] && [ "$TERM" != dumb ]; } || once=1
         if [ "$once" = 1 ]; then
-          termsize; frame=$(render_frame 1 "$rows" "$cols" "$items" "$all"); printf '%s\n' "${frame:-No running sessions.}"
+          termsize; frame=$(render_frame 1 "$rows" "$cols" "$items" "$all" "$wrapn"); printf '%s\n' "${frame:-No running sessions.}"
         else watch_loop "${1:-2}"; fi ;;
+  prune) yes=0; dry=0
+        for a in "$@"; do case "$a" in -y|--yes) yes=1 ;; --dry-run) dry=1 ;; *) die "usage: sitrep prune [-y] [--dry-run]" ;; esac; done
+        live=$(live_ids); [ -n "$live" ] || die "cannot read the live-session registry in ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions; nothing changed"
+        reg=1; now=$(date +%s); marked=0; moved=0; tty=0; { : </dev/tty; } 2>/dev/null && tty=1
+        for t in "$dir"/*.txt; do
+          [ -f "$t" ] || continue; sid=${t##*/}; sid=${sid%.txt}
+          key="$dir/.$sid.state"; [ -f "$key" ] || key=$t; m=$(mtime "$key"); [ -n "$m" ] || continue
+          deadp "$sid" "$m" || continue   # a session that is alive, or too new to judge, is never touched
+          n=$(count "$sid"); cwd=$(cwd_of "$sid"); d=$(basename "${cwd:-?}")
+          if [ "$(sword "$sid")" != ended ]; then
+            if [ "$dry" = 1 ]; then echo "would mark ${sid:0:4} ($d) ended"; else setended "$sid" && echo "marked ${sid:0:4} ($d) ended"; fi
+            marked=$(( marked + 1 ))
+          fi
+          [ "$n" -gt 0 ] || continue
+          if [ "$dry" = 1 ]; then echo "would ask: move $n item(s) from ${sid:0:4} ($d) to the inbox"; continue; fi
+          ans=n
+          if [ "$yes" = 1 ]; then ans=y
+          elif [ "$tty" = 1 ]; then printf 'Move %s item(s) from %s (%s) to the inbox? [y/N] ' "$n" "${sid:0:4}" "$d" >&2; read -r ans </dev/tty || ans=n
+          else echo "$n item(s) left on ${sid:0:4} ($d): run prune in a terminal, or use -y" >&2; fi
+          case "$ans" in y|Y|yes) for (( i = 0; i < n; i++ )); do bash "$0" move "$sid" inbox 1 >/dev/null || break; moved=$(( moved + 1 )); done ;; esac
+        done
+        echo "$marked marked ended, $moved item(s) moved to the inbox" ;;
   add)  [ $# -ge 2 ] || die "usage: sitrep add <id> <text>"
         sid=$(resolve "$1") || exit 1; shift; item=$(printf '%s' "$*" | clean)
         [ -n "${item//[[:space:]]/}" ] || die "nothing to queue"
@@ -239,5 +327,5 @@ case "$cmd" in
         printf '%s\n' "$item" >> "$(qf "$to")" || { rm -f "$t"; die "could not queue on $(label "$to")"; }
         mv "$t" "$f" || { rm -f "$t"; die "could not update $(label "$from")"; }
         echo "moved to $(label "$to"): $(printf '%s' "$item" | strip)" ;;
-  *) die "usage: sitrep [ls [-a] [-v] [-n items] [id]] | watch [--once] [-a] [-n items] [seconds] | add <id> <text> | pin <id> <text> | unpin <id> | rm <id> [n] | top <id> <n> | reorder <id> <from> <to> | move <from> <to> [n]" ;;
+  *) die "usage: sitrep [ls [-a] [-v] [-n items] [id]] | prune [-y] [--dry-run] | watch [--once] [-a] [-n items] [--wrap lines] [--highlight seconds] [seconds] | add <id> <text> | pin <id> <text> | unpin <id> | rm <id> [n] | top <id> <n> | reorder <id> <from> <to> | move <from> <to> [n]" ;;
 esac
