@@ -61,12 +61,12 @@ check "path-like session ids are ignored" test ! -e "$HOME/.claude/evil.txt" -a 
 check "notes dir is owner-only" test "$(mode "$NOTES")" = 700
 check "notes file is owner-only" test "$(mode "$NOTES/sess0002.txt")" = 600
 
-# ---- hook: +goal and +
+# ---- hook: +pin and +
 reset
 ev sess0003 UserPromptSubmit "long first message" | hook
-out=$(ev sess0003 UserPromptSubmit "+goal Ship it" | hook)
-eq "+goal blocks the prompt" block "$(jq -r .decision <<<"$out")"
-eq "+goal pins the objective" "Ship it" "$(field sess0003 Objective)"
+out=$(ev sess0003 UserPromptSubmit "+pin Ship it" | hook)
+eq "+pin blocks the prompt" block "$(jq -r .decision <<<"$out")"
+eq "+pin pins the objective" "Ship it" "$(field sess0003 Objective)"
 ev sess0003 UserPromptSubmit "another prompt" | hook
 eq "pinned objective survives later prompts" "Ship it" "$(field sess0003 Objective)"
 out=$(ev sess0003 UserPromptSubmit "+ fix the thing" | hook)
@@ -95,7 +95,7 @@ rm -f "$STUB_SLOW"
 # ---- hook: summarizer never overwrites a pinned goal
 reset
 ev sess0006 UserPromptSubmit "first" | hook
-ev sess0006 UserPromptSubmit "+goal Pinned" | hook >/dev/null
+ev sess0006 UserPromptSubmit "+pin Pinned" | hook >/dev/null
 ev sess0006 Stop "" "$TP" | hook
 check "stop summary arrives" waitfor sess0006 Progress "stub progress"
 eq "pinned objective survives the summarizer" "Pinned" "$(field sess0006 Objective)"
@@ -106,10 +106,10 @@ check "stop summary arrives for an unpinned session" waitfor sess0007 Progress "
 eq "an unpinned objective is summarized" "stub objective" "$(field sess0007 Objective)"
 reset
 ev sess0009 UserPromptSubmit "first" | hook
-sitrep goal sess "Pinned by cli" >/dev/null
+sitrep pin sess "Pinned by cli" >/dev/null
 ev sess0009 Stop "" "$TP" | hook
-check "stop summary arrives after sitrep goal" waitfor sess0009 Progress "stub progress"
-eq "sitrep goal pins against the summarizer" "Pinned by cli" "$(field sess0009 Objective)"
+check "stop summary arrives after sitrep pin" waitfor sess0009 Progress "stub progress"
+eq "sitrep pin pins against the summarizer" "Pinned by cli" "$(field sess0009 Objective)"
 sitrep unpin sess >/dev/null; rm -f "$NOTES/.sess0009.stamp"
 ev sess0009 Stop "" "$TP" | hook
 check "sitrep unpin lets the summarizer rewrite the objective" waitfor sess0009 Objective "stub objective"
@@ -128,15 +128,15 @@ check "status line drops C1 and bidi at print time" hasnt "$out" $'\xc2\x9b'
 check "status line drops bidi at print time" hasnt "$out" $'\xe2\x80\xae'
 check "sitrep ls drops C1 at print time" hasnt "$(sitrep ls)" $'\xc2\x9b'
 
-# ---- hook: + and +goal never lose a prompt
+# ---- hook: + and +pin never lose a prompt
 reset
 ev sess0020 UserPromptSubmit "start" | hook
 out=$(ev sess0020 UserPromptSubmit "+ $(printf 'x%.0s' $(seq 1 300))" | hook)
 eq "long + prompt passes through" "" "$out"
 out=$(ev sess0020 UserPromptSubmit $'+ line one\nline two' | hook)
 eq "multi-line + prompt passes through" "" "$out"
-out=$(ev sess0020 UserPromptSubmit "+goal $(printf 'y%.0s' $(seq 1 300))" | hook)
-eq "long +goal prompt passes through" "" "$out"
+out=$(ev sess0020 UserPromptSubmit "+pin $(printf 'y%.0s' $(seq 1 300))" | hook)
+eq "long +pin prompt passes through" "" "$out"
 check "nothing was queued" test ! -s "$NOTES/sess0020.queue"
 mkdir "$NOTES/sess0020.queue.d"; rm -f "$NOTES/sess0020.queue"; mkdir "$NOTES/sess0020.queue"
 out=$(ev sess0020 UserPromptSubmit "+ important" | hook 2>/dev/null)
@@ -209,15 +209,15 @@ eq "sitrep done on an empty queue fails" 1 "$(rc sitrep "done" abc)"
 eq "ambiguous prefix fails" 1 "$(rc sitrep ls ab)"
 eq "non-numeric item is rejected" 1 "$(rc sitrep "done" abe '1d')"
 eq "path-like session is rejected" 1 "$(rc sitrep ls '../x')"
-sitrep goal abe "New goal" >/dev/null
-eq "sitrep goal pins the objective" "New goal" "$(field abef0002 Objective)"
+sitrep pin abe "New goal" >/dev/null
+eq "sitrep pin pins the objective" "New goal" "$(field abef0002 Objective)"
 sitrep add abe $'tab\there \033[31mred\xc2\x9b31m' >/dev/null
 check "sitrep add strips escapes" nobytes "$NOTES/abef0002.queue" $'\033'
 check "sitrep add strips C1 controls" nobytes "$NOTES/abef0002.queue" $'\xc2\x9b'
 check "sitrep ls lists sessions" has "$(sitrep ls)" "queue:"
 printf 'Objective: only\n' > "$NOTES/abcd0001.txt"
-sitrep goal abcd "replaced" >/dev/null
-eq "sitrep goal works on an objective-only file" "replaced" "$(field abcd0001 Objective)"
+sitrep pin abcd "replaced" >/dev/null
+eq "sitrep pin works on an objective-only file" "replaced" "$(field abcd0001 Objective)"
 sitrep add abcd one >/dev/null; sitrep "done" abcd >/dev/null
 check "sitrep ls prints no stray count for an emptied queue" bash -c '! sitrep ls | grep -qx 0'
 eq "sitrep add reports a zero count once" "queued on abcd (now 1)" "$(sitrep add abcd two)"

@@ -13,7 +13,7 @@ Queue: 2 queued, next: update README  (session a1b2)
 
 The block works as follows:
 
-1. Objective starts as the first prompt (a resumed session is seeded from its transcript), so the raw prompt shows until the first turn finishes. A short title written by the same Haiku call that writes Progress and Now then replaces it. A pinned Objective (`+goal` or `sitrep goal`) stays until you run `sitrep unpin`.
+1. Objective starts as the first prompt (a resumed session is seeded from its transcript), so the raw prompt shows until the first turn finishes. A short title written by the same Haiku call that writes Progress and Now then replaces it. A pinned Objective (`+pin` or `sitrep pin`) stays until you run `sitrep unpin`.
 2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
 3. Queue shows how many items are waiting, the next item and the first four characters of the session id, which is how `sitrep` addresses the session.
 
@@ -37,11 +37,11 @@ Claude HUD is optional. With no existing status line, only the sitrep block is s
 
 1. `sitrep ls` lists sessions active in the last day with Objective, Now and item count, and `sitrep ls <session>` lists one queue.
 2. `sitrep add <session> <text>` appends an item.
-3. `sitrep goal <session> <text>` pins that session's Objective, and `sitrep unpin <session>` lets the summarizer rewrite it again.
+3. `sitrep pin <session> <text>` pins that session's Objective, and `sitrep unpin <session>` lets the summarizer rewrite it again.
 4. `sitrep done <session> [n]` removes item `n` (default 1) and prints it.
 5. `sitrep move <from> <to> [n]` hands an item to another session.
 
-Inside a session, a prompt starting with `+ ` queues the rest of the line, and one starting with `+goal ` pins the Objective. Neither is sent to Claude. Both apply only to a single line of at most 200 characters; anything longer or multi-line goes to Claude as written, so a pasted list never gets swallowed.
+Inside a session, a prompt starting with `+ ` queues the rest of the line, and one starting with `+pin ` pins the Objective. Neither is sent to Claude. Both apply only to a single line of at most 200 characters; anything longer or multi-line goes to Claude as written, so a pasted list never gets swallowed.
 
 ## How It Works
 

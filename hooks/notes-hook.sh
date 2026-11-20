@@ -42,7 +42,7 @@ block() { jq -n --arg r "$1" '{decision:"block",reason:$r}'; }
 first_prompt() { # first real user message in the transcript; skips whole messages that are command/system wrappers (start with a tag)
   [ -f "$tp" ] && jq -r 'select(.type=="user") | .message.content | if type=="string" then . else map(select(.type=="text")|.text)|join(" ") end | select(test("^\\s*(<|&lt;)")|not) | select(test("\\S"))' "$tp" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e '/^$/d' | head -1
 }
-pinned() { [ -e "$dir/.$sid.pinned" ]; }   # set by +goal and `sitrep goal`: the summarizer then leaves Objective alone
+pinned() { [ -e "$dir/.$sid.pinned" ]; }   # set by +pin and `sitrep pin`: the summarizer then leaves Objective alone
 summarize() { # background Haiku call: rewrites Progress and Now, and Objective unless pinned
   local since=; { read -r since < "$dir/.$sid.prompt"; } 2>/dev/null
   (
@@ -68,10 +68,10 @@ if [ "$event" = "UserPromptSubmit" ]; then
   prompt=$(printf '%s' "$input" | jq -r '.prompt // empty')
   c=0; { read -r c < "$dir/.$sid.prompt"; } 2>/dev/null
   echo $(( ${c:-0} + 1 )) > "$dir/.$sid.prompt"   # prompt counter, for the stale-summary check
-  # +goal and + are handled here only for a short single line. Anything else goes to Claude untouched.
+  # +pin and + are handled here only for a short single line. Anything else goes to Claude untouched.
   case "$prompt" in
-    "+goal "*) # pin the objective; the summarizer never overwrites it
-      text=${prompt#+goal }
+    "+pin "*) # pin the objective; the summarizer never overwrites it
+      text=${prompt#+pin }
       if short "$text"; then
         g=$(trunc "$text" 200)
         if : > "$dir/.$sid.pinned" && write "$g" "${prog:--}" "${now:--}"; then

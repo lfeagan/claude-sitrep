@@ -49,7 +49,7 @@ case "$cmd" in
         f=$(qf "$sid"); [ -s "$f" ] || die "queue empty"
         item=$(sed -n "${n}p" "$f"); [ -n "$item" ] || die "no item $n on ${sid:0:4}"
         printf '%s\n' "$item" | strip; dropline "$f" "$n" ;;
-  goal) [ $# -ge 2 ] || die "usage: sitrep goal <session> <text>"
+  pin) [ $# -ge 2 ] || die "usage: sitrep pin <session> <text>"
         sid=$(resolve "$1") || exit 1; shift; f="$dir/$sid.txt"
         t=$(tmpfile) || exit 1
         { printf 'Objective: %s\n' "$(printf '%s' "$*" | clean)"; grep -v '^Objective:' "$f" || true; } > "$t"
@@ -63,5 +63,5 @@ case "$cmd" in
         from=$(resolve "$1") || exit 1; to=$(resolve "$2") || exit 1; n=${3:-1}; itemno "$n"
         f=$(qf "$from"); item=$(sed -n "${n}p" "$f" 2>/dev/null); [ -n "$item" ] || die "no item $n on ${from:0:4}"
         printf '%s\n' "$item" >> "$(qf "$to")"; dropline "$f" "$n"; echo "moved to ${to:0:4}: $item" ;;
-  *) die "usage: sitrep [ls [session]] | add <session> <text> | goal <session> <text> | unpin <session> | done <session> [n] | move <from> <to> [n]" ;;
+  *) die "usage: sitrep [ls [session]] | add <session> <text> | pin <session> <text> | unpin <session> | done <session> [n] | move <from> <to> [n]" ;;
 esac
