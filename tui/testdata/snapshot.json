@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "generated": 1795200000,
+  "registry": "ok",
+  "settings": {"queue_items": 5, "highlight_seconds": 60, "highlight_sgr": "48;5;238"},
+  "hidden": {"ended": 1, "stranded_items": 2},
+  "inbox": {"count": 3, "items": ["look at the nightly job", "check the CI flake on macOS and write down what the runner image does about the node deprecation"]},
+  "sessions": [
+    {"id": "15f1db8a-b44f-4a1b-a5ed-01e3652e3178", "short": "15f1", "dir": "claude-sitrep", "cwd": "/Users/x/claude-sitrep", "running": true, "state": "working", "state_label": "working 1m", "age": 61, "state_changed": 1795199939, "quiet_secs": 4, "idle": false, "pinned": true, "highlight": true,
+     "objective": "Sitrep: add a Go front-end that reads sitrep ls --json, with a Watch tab and a Top tab, a status bar and a theme",
+     "progress": "ls --json built and reviewed; Go module created; sanitizer, data layer and views written, tests next",
+     "now": "writing the golden tests for the views",
+     "queue": {"count": 7, "items": ["Decide whether to add a filter key", "Add a help overlay on ? that lists the keys and what each tab shows", "Write the README section for the Go dashboard"]}},
+    {"id": "2cd86176-96f8-415b-b892-f7de631c533f", "short": "2cd8", "dir": "savannah-dbagent-bench", "cwd": "/Users/x/savannah-dbagent-bench", "running": true, "state": "working", "state_label": "idle? 25m", "age": 1500, "state_changed": 1795198500, "quiet_secs": 1500, "idle": true, "pinned": false, "highlight": false,
+     "objective": "日本語の目的: データベースの性能を調べる",
+     "progress": "Cleaned up worktrees and merged branches; only main remains",
+     "now": "",
+     "queue": {"count": 0, "items": []}},
+    {"id": "b1fb2044-ad15-4a8d-bec9-400b49361e79", "short": "b1fb", "dir": "timescaledb-storage-policy", "cwd": "/Users/x/timescaledb", "running": true, "state": "waiting", "state_label": "waiting 3m", "age": 180, "state_changed": 1795199820, "quiet_secs": null, "idle": false, "pinned": false, "highlight": false,
+     "objective": "evil \u001b[31mred\u001b]0;title\u0007 ‮bidi  sep\tTab",
+     "progress": "p",
+     "now": "waiting for your call on the branch",
+     "queue": {"count": 1, "items": ["one"]}},
+    {"id": "3a6b0000-0000-4000-8000-000000000000", "short": "3a6b", "dir": "old", "cwd": "/Users/x/old", "running": false, "state": "ended", "state_label": "ended 8m", "age": 480, "state_changed": 1795199520, "quiet_secs": null, "idle": false, "pinned": false, "highlight": false,
+     "objective": "a finished session", "progress": "done", "now": "exited",
+     "queue": {"count": 2, "items": ["left over one", "left over two"]}}
+  ]
+}

@@ -1,0 +1,305 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/x/ansi"
+)
+
+// The views are pure: a snapshot and some options go in, lines of text come out.
+
+const (
+	tabWatch = iota
+	tabTop
+	tabCount
+)
+
+var tabNames = [tabCount]string{"Watch", "Top"}
+
+type viewOpts struct {
+	Width, Height int
+	ShowEnded     bool
+	Theme         Theme
+}
+
+func padRight(s string, w int) string {
+	if d := w - ansi.StringWidth(s); d > 0 {
+		return s + strings.Repeat(" ", d)
+	}
+	return s
+}
+
+// wrapText wraps to width and keeps at most maxLines, ending the last with an ellipsis.
+func wrapText(text string, width, maxLines int) []string {
+	width = max(width, 1)
+	if text == "" {
+		return []string{""}
+	}
+	lines := strings.Split(ansi.Wrap(text, width, ""), "\n")
+	if len(lines) <= maxLines {
+		return lines
+	}
+	rest := strings.Join(lines[maxLines-1:], " ")
+	return append(lines[:maxLines-1:maxLines-1], ansi.Truncate(rest, width, "…"))
+}
+
+// shown returns the sessions to list, and how many finished ones are left out.
+func shown(s Snapshot, showEnded bool) (list []Session, ended int) {
+	for _, x := range s.Sessions {
+		if !x.Running && !showEnded {
+			ended++
+			continue
+		}
+		list = append(list, x)
+	}
+	return list, ended + s.Hidden.Ended
+}
+
+func queueWord(n int) string {
+	switch n {
+	case 0:
+		return "empty"
+	case 1:
+		return "1 item"
+	}
+	return fmt.Sprintf("%d items", n)
+}
+
+// field lays out "    Label:   text" with a hanging indent, in at most maxLines lines.
+func field(label, text string, width, maxLines int) []string {
+	prefix := "    " + padRight(label, 11)
+	avail := max(width-ansi.StringWidth(prefix), 10)
+	lines := wrapText(text, avail, maxLines)
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		if i == 0 {
+			out[i] = prefix + l
+		} else {
+			out[i] = strings.Repeat(" ", ansi.StringWidth(prefix)) + l
+		}
+	}
+	return out
+}
+
+// queueLines lists numbered items, the first under label, each wrapped to maxLines. Items
+// sit under the label column, or at indent when there is no label.
+func queueLines(label string, q Queue, width, maxLines, indent int) []string {
+	var out []string
+	pad := strings.Repeat(" ", indent)
+	for i, it := range q.Items {
+		num := fmt.Sprintf("%d. ", i+1)
+		prefix := pad + num
+		if i == 0 && label != "" {
+			prefix = "    " + padRight(label, 11) + num
+		}
+		avail := max(width-ansi.StringWidth(prefix), 10)
+		for j, l := range wrapText(it, avail, maxLines) {
+			if j == 0 {
+				out = append(out, prefix+l)
+			} else {
+				out = append(out, strings.Repeat(" ", ansi.StringWidth(prefix))+l)
+			}
+		}
+	}
+	if more := q.Count - len(q.Items); more > 0 {
+		out = append(out, pad+fmt.Sprintf("+%d more", more))
+	}
+	return out
+}
+
+func highlight(lines []string, o viewOpts) []string {
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		// clip first: a style with a width wraps a line that is too wide, it does not cut it
+		out[i] = o.Theme.Hot.Width(o.Width).Render(ansi.Truncate(l, o.Width, "…"))
+	}
+	return out
+}
+
+// watchBody is today's multi-line view: a block per session.
+func watchBody(s Snapshot, o viewOpts) []string {
+	list, ended := shown(s, o.ShowEnded)
+	var head []string
+	if s.Inbox.Count > 0 {
+		head = append(head, "Inbox: "+queueWord(s.Inbox.Count))
+		head = append(head, queueLines("", s.Inbox, o.Width, 2, 4)...)
+	}
+	dw, sw := 9, 5
+	for _, x := range list {
+		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(x.StateLabel))
+	}
+	var blocks [][]string
+	for _, x := range list {
+		row := fmt.Sprintf("%-4s  %s  %s  %s", x.Short, padRight(x.Dir, dw), padRight(x.StateLabel, sw), queueWord(x.Queue.Count))
+		block := []string{ansi.Truncate(row, o.Width, "…")}
+		block = append(block, field("Objective:", x.Objective, o.Width, 3)...)
+		block = append(block, field("Progress:", x.Progress, o.Width, 3)...)
+		block = append(block, field("Now:", x.Now, o.Width, 3)...)
+		block = append(block, queueLines("Queue:", x.Queue, o.Width, 2, 4+11)...)
+		if x.Highlight && x.Running {
+			block = highlight(block, o)
+		}
+		blocks = append(blocks, block)
+	}
+	return fitBlocks(head, blocks, ended, s.Hidden.StrandedItems, o)
+}
+
+// fitBlocks drops whole sessions that do not fit the height, and adds the footers.
+func fitBlocks(head []string, blocks [][]string, ended, stranded int, o viewOpts) []string {
+	foot := 0
+	if ended > 0 {
+		foot++
+	}
+	if stranded > 0 {
+		foot++
+	}
+	total := len(head)
+	for _, b := range blocks {
+		total += len(b)
+	}
+	limit := 0 // 0 means everything fits
+	if o.Height > 0 && total+foot > o.Height {
+		limit = o.Height - 1 - foot // leave a line for "+N more"
+	}
+	out := append([]string{}, head...)
+	count := 0
+	for _, b := range blocks {
+		if limit > 0 && len(out)+len(b) > limit {
+			if count == 0 { // never show nothing: the first session is clipped to the room there is
+				out = append(out, b[:min(len(b), max(limit-len(out), 1))]...)
+				count++
+			}
+			break
+		}
+		out = append(out, b...)
+		count++
+	}
+	if count < len(blocks) {
+		out = append(out, fmt.Sprintf("+%d more", len(blocks)-count))
+	}
+	if ended > 0 {
+		out = append(out, fmt.Sprintf("+%d ended (a)", ended))
+	}
+	if stranded > 0 {
+		out = append(out, fmt.Sprintf("%d items stranded in ended sessions (sitrep prune)", stranded))
+	}
+	if o.Height > 0 && len(out) > o.Height {
+		out = out[:o.Height]
+	}
+	return out
+}
+
+// counts tallies the sessions for the summary line.
+func counts(s Snapshot) (running, working, waiting, idle, ended int) {
+	for _, x := range s.Sessions {
+		if !x.Running {
+			ended++
+			continue
+		}
+		running++
+		switch {
+		case x.Idle:
+			idle++
+		case x.State == "working":
+			working++
+		case x.State == "waiting":
+			waiting++
+		}
+	}
+	return running, working, waiting, idle, ended + s.Hidden.Ended
+}
+
+func summary(s Snapshot) string {
+	r, w, a, i, e := counts(s)
+	return fmt.Sprintf("%d running: %d working, %d waiting, %d idle?, %d ended", r, w, a, i, e)
+}
+
+// topBody is the one-line-per-session view.
+func topBody(s Snapshot, o viewOpts) []string {
+	list, ended := shown(s, o.ShowEnded)
+	head := []string{summary(s)}
+	if s.Inbox.Count > 0 {
+		head[0] += "   inbox " + queueWord(s.Inbox.Count)
+	}
+	dw, sw := 9, 5
+	for _, x := range list {
+		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(x.StateLabel))
+	}
+	dw = min(dw, max((o.Width-20)/3, 6)) // a narrow screen gets a narrow directory column
+	head = append(head, o.Theme.Label.Render(fmt.Sprintf("%-4s  %s  %s  %-5s  %s", "ID", padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW")))
+	var blocks [][]string
+	for _, x := range list {
+		text := x.Now
+		if text == "" {
+			text = x.Objective
+		}
+		prefix := fmt.Sprintf("%-4s  %s  %s  %-5d  ", x.Short, padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(x.StateLabel, sw), x.Queue.Count)
+		line := prefix + ansi.Truncate(text, max(o.Width-ansi.StringWidth(prefix), 1), "…")
+		block := []string{line}
+		if x.Highlight && x.Running {
+			block = highlight(block, o)
+		}
+		blocks = append(blocks, block)
+	}
+	return fitBlocks(head, blocks, ended, s.Hidden.StrandedItems, o)
+}
+
+func tabBar(active, width int, th Theme) []string {
+	var parts []string
+	for i, n := range tabNames {
+		switch {
+		case th.Plain && i == active:
+			parts = append(parts, "["+n+"] ")
+		case th.Plain:
+			parts = append(parts, " "+n+"  ")
+		case i == active:
+			parts = append(parts, th.TabActive.Render(n))
+		default:
+			parts = append(parts, th.Tab.Render(n))
+		}
+	}
+	return []string{ansi.Truncate(strings.Join(parts, ""), max(width, 1), ""), th.Rule.Render(strings.Repeat("─", max(width, 1)))}
+}
+
+// statusBar shows the counts on the left and the keys on the right. A failed refresh
+// replaces the counts with the error, so the last good data stays on screen.
+func statusBar(s Snapshot, width int, errText string, th Theme) string {
+	left := " " + summary(s)
+	if errText != "" {
+		left = " " + errText
+	}
+	right := "q quit  tab switch  a ended "
+	gap := width - ansi.StringWidth(left) - ansi.StringWidth(right)
+	if gap < 1 {
+		right, gap = "", width-ansi.StringWidth(left)
+	}
+	line := ansi.Truncate(left+strings.Repeat(" ", max(gap, 0))+right, width, "")
+	return th.Status.Width(width).Render(line)
+}
+
+// render lays out the whole screen: tabs on top, the body, the status bar at the bottom.
+func render(s Snapshot, tab int, errText string, o viewOpts) string {
+	bar := tabBar(tab, o.Width, o.Theme)
+	bodyOpts := o
+	if o.Height > 0 { // a height of 0 means no limit, as for --once
+		bodyOpts.Height = max(o.Height-len(bar)-1, 1)
+	}
+	var body []string
+	if tab == tabTop {
+		body = topBody(s, bodyOpts)
+	} else {
+		body = watchBody(s, bodyOpts)
+	}
+	for i, l := range body { // a last guard: nothing may be wider than the screen
+		body[i] = ansi.Truncate(l, max(o.Width, 1), "…")
+	}
+	for len(body) < bodyOpts.Height { // pad, so the status bar sits on the last row
+		body = append(body, "")
+	}
+	lines := append(append(bar, body...), statusBar(s, o.Width, errText, o.Theme))
+	if o.Height > 0 && len(lines) > o.Height { // a tiny screen: keep the status bar, drop from the top
+		lines = append(lines[:o.Height-1], lines[len(lines)-1])
+	}
+	return strings.Join(lines, "\n")
+}
