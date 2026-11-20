@@ -30,6 +30,14 @@ write() { # objective progress now
   if printf 'Objective: %s\nProgress:  %s\nNow:       %s\n' "$1" "$2" "$3" > "$t"; then mv "$t" "$f"; else rm -f "$t"; return 1; fi
 }
 
+# Session state, for `sitrep watch`: working, waiting or ended. The file's mtime is when it changed.
+setstate() {
+  local t; t=$(mktemp "$dir/.sitrep.XXXXXX") || return 0
+  if { printf '%s\n' "$1" > "$t" && mv "$t" "$dir/.$sid.state"; } 2>/dev/null; then :; else rm -f "$t"; fi
+  return 0   # a hook never fails
+}
+[ "$event" = "SessionEnd" ] && { setstate ended; exit 0; }
+
 printf '%s' "$input" | jq -r '.cwd // empty' | sane 300 > "$dir/$sid.cwd"
 qfile="$dir/$sid.queue"
 obj=$(get Objective); prog=$(get Progress); now=$(get Now)
@@ -104,6 +112,7 @@ if [ "$event" = "UserPromptSubmit" ]; then
         fi
       fi ;;
   esac
+  setstate working   # only a prompt that goes to Claude starts work; the cases above exit before this
   [ -z "$obj" ] && obj=$(trunc "$(first_prompt)" 160)
   [ -z "$obj" ] && obj=$(trunc "$prompt" 160)
   write "$obj" "${prog:--}" "$(trunc "$prompt" 140)"
@@ -111,6 +120,8 @@ if [ "$event" = "UserPromptSubmit" ]; then
 fi
 
 if [ "$event" = "SessionStart" ]; then
+  # also un-ends a resumed session; a compaction fires SessionStart in the middle of a turn, so it leaves the state alone
+  [ "$(printf '%s' "$input" | jq -r '.source // empty' 2>/dev/null)" = compact ] || setstate waiting
   # Resumed or continued sessions already have history: seed the state from the transcript.
   if [ -z "$obj" ] && [ -f "$tp" ]; then
     obj=$(trunc "$(first_prompt)" 160)
@@ -120,6 +131,7 @@ if [ "$event" = "SessionStart" ]; then
   exit 0
 fi
 
+[ "$event" = "Stop" ] && setstate waiting
 if [ "$event" = "Stop" ] && [ -f "$tp" ]; then
   # Debounce: at most one summary per window. A Stop inside the window schedules one deferred run for the
   # end of the window, so a quick follow-up turn is still summarized and never left stale.

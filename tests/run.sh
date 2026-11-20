@@ -378,6 +378,83 @@ out=$(LINES=12 COLUMNS=90 bounded sitrep watch --once)
 check "a long queue still fits the pane" test "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" -le 12
 rm -rf "$STATE"; mkdir -p "$STATE"
 
+# ---- session state: hook events, the running filter, the STATE column
+rm -rf "$STATE"; mkdir -p "$STATE"
+sword() { cat "$STATE/.$1.state" 2>/dev/null; }
+age() { perl -e '$t = time - shift; utime $t, $t, @ARGV' "$1" "$2"; }   # seconds ago, file
+ev stt00001 UserPromptSubmit "do the thing" | hook
+eq "a prompt that goes to Claude sets working" working "$(sword stt00001)"
+ev stt00001 Stop | hook
+eq "Stop sets waiting, even with no transcript" waiting "$(sword stt00001)"
+out=$(ev stt00001 UserPromptSubmit "+ later" | hook)
+eq "a queued prompt does not set working" waiting "$(sword stt00001)"
+ev stt00001 UserPromptSubmit "+pin A goal" | hook >/dev/null
+ev stt00001 UserPromptSubmit "+inbox thing" | hook >/dev/null
+eq "+pin and +inbox do not set working" waiting "$(sword stt00001)"
+ev stt00001 UserPromptSubmit "+take 9" | hook >/dev/null
+eq "a +take that falls through to Claude sets working" working "$(sword stt00001)"
+rm -f "$STATE/inbox.queue"
+out=$(ev stt00001 SessionEnd | hook); rcode=$(rc bash -c "$(declare -f ev); ev stt00001 SessionEnd | bash '$R/hooks/sitrep-hook.sh'")
+eq "SessionEnd sets ended" ended "$(sword stt00001)"
+eq "SessionEnd prints nothing" "" "$out"
+eq "SessionEnd exits 0" 0 "$rcode"
+ev stt00001 SessionStart | hook
+eq "SessionStart un-ends a session that already has an Objective" waiting "$(sword stt00001)"
+eq "the state file is owner-only" 600 "$(mode "$STATE/.stt00001.state")"
+ev inbox SessionEnd | hook
+check "a session id of inbox gets no state" test ! -e "$STATE/.inbox.state"
+rm -f "$STATE/.inbox.state"
+check "a failing state write never fails the hook" bash -c "chmod 500 '$STATE'; $(declare -f ev); ev stt00001 Stop | bash '$R/hooks/sitrep-hook.sh'; r=\$?; chmod 700 '$STATE'; exit \$r"
+
+rm -rf "$STATE"; mkdir -p "$STATE"
+mk stt10001 run 100; mk stt10002 fin 100; mk stt10003 old 100; mk stt10004 nostate 100; mk stt10005 junk 100
+printf 'waiting\n' > "$STATE/.stt10001.state"; age 180 "$STATE/.stt10001.state"
+printf 'ended\n' > "$STATE/.stt10002.state"
+printf 'working\n' > "$STATE/.stt10003.state"; age 30 "$STATE/.stt10003.state"
+printf 'rm -rf /\033[31m\n' > "$STATE/.stt10005.state"
+mkdir -p "$HOME/.claude/projects/p"
+printf '{}\n' > "$HOME/.claude/projects/p/stt10003.jsonl"; age 1500 "$HOME/.claude/projects/p/stt10003.jsonl"
+out=$(bounded sitrep ls)
+check "the header has a STATE column" has "$out" "STATE"
+check "a waiting session shows its age" has "$out" "waiting 3m"
+check "an ended session is hidden by default" hasnt "$out" "obj stt10002"
+check "the hidden count points at --all" has "$out" "+1 ended (--all)"
+check "a working session with a quiet transcript shows idle?" has "$out" "idle? 25m"
+check "a session with no state file is listed, with a dash" has "$out" "nostate"
+check "an unknown state word is shown as a dash" hasnt "$out" "rm -rf"
+check "--all shows the ended session" has "$(bounded sitrep ls --all)" "ended"
+check "-a is the same flag" has "$(bounded sitrep ls -a)" "ended"
+check "--all leaves no ended footer" hasnt "$(bounded sitrep ls --all)" "(--all)"
+check "watch hides ended sessions too" hasnt "$(LINES=40 COLUMNS=90 bounded sitrep watch --once)" "Objective: obj stt10002"
+check "watch --all shows them" has "$(LINES=40 COLUMNS=90 bounded sitrep watch --once --all)" "Objective: obj stt10002"
+printf '{}\n' > "$HOME/.claude/projects/p/stt10003.jsonl"; age 420 "$STATE/.stt10003.state"
+check "a working session with a live transcript stays working" has "$(bounded sitrep ls)" "working 7m"
+age 5 "$STATE/.stt10003.state"
+check "a short age reads <1m" has "$(bounded sitrep ls)" "working <1m"
+eq "the newest state change is listed first" stt1 "$(bounded sitrep ls | sed -n 2p | cut -c1-4)"
+check "ls <id> shows the state of an ended session" has "$(sitrep ls stt10002)" "ended"
+fn=$(sed -n '/^sig()/,/^}/p' "$R/bin/sitrep")
+before=$(bash -c "dir='$STATE'; $fn; sig"); age 1 "$STATE/.stt10001.state"
+check "the change signature sees a state change" test "$before" != "$(bash -c "dir='$STATE'; $fn; sig")"
+rm -f "$HOME/.claude/projects/p/stt10003.jsonl"
+rm -rf "$STATE"; mkdir -p "$STATE"
+for n in 1 2 3 4 5; do mk "ftr0000$n" "d$n" 100; printf 'waiting\n' > "$STATE/.ftr0000$n.state"; done; printf 'ended\n' > "$STATE/.ftr00005.state"
+for r in 6 10 14 17 18 22; do
+  out=$(LINES=$r COLUMNS=80 bounded sitrep watch --once)
+  eq "the ended footer stays visible in a $r-line pane" "+1 ended (--all)" "$(printf '%s\n' "$out" | tail -1)"
+  check "a $r-line pane gets at most $r lines" test "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" -le "$r"
+done
+rm -rf "$STATE"; mkdir -p "$STATE"
+jq -nc '{session_id:"cmp00001",hook_event_name:"SessionStart",cwd:"/tmp/proj",source:"compact"}' > "$T/compact.json"
+jq -nc '{session_id:"cmp00001",hook_event_name:"SessionStart",cwd:"/tmp/proj",source:"resume"}' > "$T/resume.json"
+ev cmp00001 UserPromptSubmit "long job" | hook
+hook < "$T/compact.json"
+eq "a compaction mid-turn leaves working alone" working "$(sword cmp00001)"
+hook < "$T/resume.json"
+eq "a resume sets waiting" waiting "$(sword cmp00001)"
+rm -rf "$STATE"; mkdir -p "$STATE"
+eq "with nothing running, watch says so" "No running sessions." "$(LINES=10 COLUMNS=60 bounded sitrep watch --once)"
+
 # ---- reorder
 printf 'Objective: r\n' > "$STATE/rord0001.txt"; rm -f "$STATE/rord0001.queue"
 for w in one two three four; do sitrep add rord "$w" >/dev/null; done
@@ -552,6 +629,10 @@ check "install removes a dangling old q link from this checkout" test ! -L "$H19
 H20="$T/home20"; fresh "$H20" '{}'; mkdir -p "$H20/bin"; ln -s /elsewhere/q "$H20/bin/q"
 instc "$H20" "$R" install.sh >/dev/null 2>&1
 check "install leaves a dangling q link that is not ours" test -L "$H20/bin/q"
+H26="$T/home26"; fresh "$H26" '{}'; mkdir -p "$H26/.claude/session-notes"
+echo "Objective: x" > "$H26/.claude/session-notes/abcd0001.txt"; echo waiting > "$H26/.claude/session-notes/.abcd0001.state"
+instc "$H26" "$R" install.sh >/dev/null 2>&1
+check "install migrates a state file from the old folder" test -f "$H26/.claude/sitrep/.abcd0001.state" -a ! -e "$H26/.claude/session-notes"
 H17="$T/home17"; fresh "$H17" '{}'; mkdir -p "$H17/.claude/session-notes" "$H17/.claude/sitrep"
 echo old > "$H17/.claude/session-notes/abcd0001.txt"; echo old > "$H17/.claude/session-notes/ijkl0003.txt"; echo new > "$H17/.claude/sitrep/abcd0001.txt"
 instc "$H17" "$R" install.sh >/dev/null 2>&1
@@ -587,6 +668,35 @@ eq "uninstall keeps the user's setting" "SITREP_QUEUE_ITEMS=3" "$(cat "$H21/.cla
 H22="$T/home22"; fresh "$H22" '{}'; mkdir -p "$H22/.claude/sitrep"; printf 'SITREP_QUEUE_ITEMS=8\nSITREP_HUD_CMD=stale\n' > "$H22/.claude/sitrep/sitrep.conf"
 instc "$H22" "$R" install.sh >/dev/null 2>&1
 eq "with no status line, install drops only the upstream line" "SITREP_QUEUE_ITEMS=8" "$(cat "$H22/.claude/sitrep/sitrep.conf")"
+
+# the SessionEnd hook: fresh install, upgrade from three events, a user's own hook, uninstall
+H23="$T/home23"; fresh "$H23" '{}'
+out=$(instc "$H23" "$R" install.sh 2>&1)
+eq "install registers all four events" 4 "$(jq '[.hooks[]|length]|add' "$H23/.claude/settings.json")"
+check "install says it registered SessionEnd" has "$out" "Registered the SessionEnd hook"
+check "a second install does not say it again" hasnt "$(instc "$H23" "$R" install.sh 2>&1)" "Registered the SessionEnd hook"
+eq "a second install adds no duplicate" 1 "$(jq '.hooks.SessionEnd|length' "$H23/.claude/settings.json")"
+H24="$T/home24"; fresh "$H24" "$(jq -nc --arg c "bash $R/hooks/sitrep-hook.sh" '{hooks:{SessionStart:[{hooks:[{type:"command",command:$c}]}],UserPromptSubmit:[{hooks:[{type:"command",command:$c}]}],Stop:[{hooks:[{type:"command",command:$c}]}],SessionEnd:[{hooks:[{type:"command",command:"my-end.sh",timeout:5}]}]}}')"
+out=$(instc "$H24" "$R" install.sh 2>&1)
+check "an upgrade adds the SessionEnd hook" has "$out" "Registered the SessionEnd hook"
+eq "an upgrade keeps one hook per old event" 3 "$(jq '[.hooks.SessionStart,.hooks.UserPromptSubmit,.hooks.Stop|length]|add' "$H24/.claude/settings.json")"
+eq "an upgrade keeps the user's SessionEnd hook" 1 "$(jq '[.hooks.SessionEnd[].hooks[]|select(.command=="my-end.sh" and .timeout==5)]|length' "$H24/.claude/settings.json")"
+eq "an upgrade adds ours beside it" 1 "$(jq '[.hooks.SessionEnd[].hooks[]|select(.command|contains("sitrep-hook.sh"))]|length' "$H24/.claude/settings.json")"
+instc "$H24" "$R" uninstall.sh >/dev/null 2>&1
+eq "uninstall leaves only the user's SessionEnd hook" '[{"hooks":[{"type":"command","command":"my-end.sh","timeout":5}]}]' "$(jq -c '.hooks.SessionEnd' "$H24/.claude/settings.json")"
+eq "uninstall leaves no empty event arrays" 1 "$(jq '.hooks|length' "$H24/.claude/settings.json")"
+instc "$H23" "$R" uninstall.sh >/dev/null 2>&1
+check "uninstall removes SessionEnd when it was only ours" jq -e 'has("hooks")|not' "$H23/.claude/settings.json"
+
+# an install must finish when sitrep.conf cannot be written
+H25="$T/home25"; fresh "$H25" '{"statusLine":{"type":"command","command":"echo hud"}}'; mkdir -p "$H25/.claude/sitrep/sitrep.conf"
+out=$(instc "$H25" "$R" install.sh 2>&1); rcode=$?
+eq "install exits 0 when sitrep.conf cannot be written" 0 "$rcode"
+check "install says it could not save the upstream" has "$out" "Could not save the upstream status line"
+check "install still links sitrep after that" test -L "$H25/bin/sitrep"
+check "install still wrote the hooks after that" jq -e '.hooks.Stop|length==1' "$H25/.claude/settings.json"
+eq "watch refuses options after the interval" 1 "$(rc sitrep watch 5 -n 3)"
+eq "watch accepts options before the interval" 0 "$(rc sitrep watch -n 3 5)"
 
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]

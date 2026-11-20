@@ -21,16 +21,18 @@ slp=$(printf '%q' "$R/statusline/statusline.sh"); hp=$(printf '%q' "$R/hooks/sit
 # The tag on our status line command is how any clone's wrapper is recognised as ours; also match untagged commands from earlier installs.
 tag="# claude-sitrep"
 old=$(jq -r '.statusLine.command // empty' "$S")
+had=$(jq -r --arg hp "$hp" '[.hooks.SessionEnd[]?.hooks[]? | (.command // "") | tostring | select(contains($hp))] | length' "$S" 2>/dev/null)
 tmp=$(mktemp "$S.XXXXXX"); trap 'rm -f "$tmp"' EXIT
 jq -L "$R/lib" --arg sl "bash $slp $tag" --arg h "bash $hp" --arg hp "$hp" --arg ohp "$ohp" '
   include "hooks";
   def add: ((. // []) | without($hp) | without($ohp)) + [{hooks:[{type:"command",command:$h}]}];
   .statusLine = ((.statusLine // {}) + {type:"command",command:$sl})
-  | reduce ("SessionStart","UserPromptSubmit","Stop") as $e (.; .hooks[$e] |= add)' "$S" > "$tmp"
+  | reduce ("SessionStart","UserPromptSubmit","Stop","SessionEnd") as $e (.; .hooks[$e] |= add)' "$S" > "$tmp"
 cat "$tmp" > "$S"   # write through, so a symlinked settings.json stays a symlink
+if [ "${had:-0}" = 0 ]; then echo "Registered the SessionEnd hook, which marks finished sessions."; fi
 # Earlier versions kept state in ~/.claude/session-notes and the config in ~/.claude/sitrep.conf; move them only if every file there is ours.
 od="$HOME/.claude/session-notes"
-if [ -d "$od" ] && [ -z "$(find "$od" -mindepth 1 ! \( -name '*.txt' -o -name '*.queue' -o -name '*.cwd' -o -name '.*.prompt' -o -name '.*.count' -o -name '.*.stamp' -o -name '.*.pending' \) 2>/dev/null)" ]; then
+if [ -d "$od" ] && [ -z "$(find "$od" -mindepth 1 ! \( -name '*.txt' -o -name '*.queue' -o -name '*.cwd' -o -name '.*.prompt' -o -name '.*.count' -o -name '.*.state' -o -name '.*.stamp' -o -name '.*.pending' \) 2>/dev/null)" ]; then
   mkdir -p "$ND"   # a running hook may have created it already, so merge and never overwrite
   for x in "$od"/* "$od"/.[!.]*; do [ -f "$x" ] && mv -n "$x" "$ND/"; done
   rmdir "$od" 2>/dev/null && echo "Moved state from $od to $ND."
@@ -39,9 +41,9 @@ mkdir -p "$ND"; chmod 700 "$ND"; chmod 600 "$ND"/* 2>/dev/null || true
 [ -e "$HOME/.claude/sitrep.conf" ] && [ ! -e "$CONF" ] && mv "$HOME/.claude/sitrep.conf" "$CONF"
 # Only after settings are written: keep the old status line (e.g. Claude HUD) as the upstream, unless it is ours.
 case "$old" in
-  "") hud_drop; echo "No existing status line found; showing the sitrep block only." ;;
+  "") hud_drop || echo "Could not update $CONF." >&2; echo "No existing status line found; showing the sitrep block only." ;;
   *"$slp"*|*"$tag"*|*claude-sitrep/statusline/statusline.sh*) echo "Status line is already sitrep; keeping the saved upstream (if any)." ;;
-  *) hud_put "$old"
+  *) hud_put "$old" || echo "Could not save the upstream status line to $CONF." >&2
      echo "Wrapping the existing status line (it renders first): $(printf '%s' "$old" | perl -CSD -pe 's/[\p{Cc}\p{Cf}]//g' 2>/dev/null)" ;;
 esac
 mkdir -p "$BIN_DIR" "$SKILLS_DIR"

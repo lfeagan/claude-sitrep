@@ -21,7 +21,7 @@ The block works as follows:
 
 Requires `jq`, `perl` and the `claude` CLI. Run `./install.sh`, which does the following:
 
-1. Backs up `~/.claude/settings.json` and adds `SessionStart`, `UserPromptSubmit` and `Stop` hooks.
+1. Backs up `~/.claude/settings.json` and adds `SessionStart`, `UserPromptSubmit`, `Stop` and `SessionEnd` hooks.
 2. Points the status line at `statusline/statusline.sh`. Any existing status line, such as Claude HUD, is saved to `~/.claude/sitrep/sitrep.conf` as `SITREP_HUD_CMD` and runs first, so its output stays above the sitrep block.
 3. Links `sitrep` into `~/bin`. `./install.sh --alias q` adds a short alias, unless the name is taken.
 4. Links the `sitrep-queue` skill into `~/.claude/skills`, which lets Claude queue work and pin the Objective when asked.
@@ -57,7 +57,9 @@ The text forms apply only to a single line of at most 200 characters, and `+take
 
 `sitrep watch [-n items] [seconds]` shows every active session at once, in the same shape as the status line, and is meant for a spare tmux pane. It is read-only. It redraws every N seconds (default 2) and straight away when a state file or the pane size changes. Press `q` or Ctrl-C to leave.
 
-A session appears for a day after its last activity. Each shows its id, directory and queue, then Objective, Progress and Now, newest first, and an `Inbox:` line sits on top when the inbox holds anything. Lines are cut to the pane width, and when the sessions do not fit, whole sessions are dropped and the last line says `+N more`.
+`watch` and `ls` show running sessions by default. A finished session is hidden, and a line at the end says how many (`+2 ended (--all)`). `--all` or `-a` shows them, with state `ended`. A session appears for a day after its last activity. Each shows its id, directory, state and queue, then Objective, Progress and Now, newest first by when its state last changed, and an `Inbox:` line sits on top when the inbox holds anything. Lines are cut to the pane width, and when the sessions do not fit, whole sessions are dropped and the last line says `+N more`.
+
+The state comes from the hooks: `working` from the moment a prompt goes to Claude, `waiting` when Claude has stopped and it is your turn, and `ended` when the session exits. The number after it is how long ago that changed. Claude Code fires no hook when you interrupt a turn, so a `working` session whose transcript has been quiet for ten minutes shows as `idle?` with how long it has been quiet. A session that is killed, or whose terminal is closed, may never fire `SessionEnd`. It then stays `waiting` until a day has passed, and the age on the row shows how stale it is. A session with no state file, such as one that started before you upgraded, shows `-` and counts as running.
 
 When the output is not a terminal, or `TERM` is unset or `dumb`, `sitrep watch` prints one frame and exits, as `sitrep watch --once` does. `sitrep ls -v` prints the same frame as `ls` with a Progress line added.
 
@@ -65,7 +67,7 @@ Both list each session's queue, and the inbox's, under the session, at most 5 it
 
 ## How It Works
 
-State lives in `~/.claude/sitrep/`: `<session_id>.{txt,queue,cwd}` per session, `inbox.queue` for the inbox, hidden `.<session_id>.*` files for the pin, the prompt count and the debounce, and `sitrep.conf`. The status line only reads files, so it renders instantly. The Haiku call runs in the background on `Stop`, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window (`SITREP_DEBOUNCE`). A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
+State lives in `~/.claude/sitrep/`: `<session_id>.{txt,queue,cwd}` per session, `inbox.queue` for the inbox, hidden `.<session_id>.*` files for the pin, the prompt count, the debounce and the session state, and `sitrep.conf`. The status line only reads files, so it renders instantly. The Haiku call runs in the background on `Stop`, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window (`SITREP_DEBOUNCE`). A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
 
 ## Privacy And Safety
 

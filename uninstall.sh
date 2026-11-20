@@ -13,14 +13,14 @@ up=""
 tmp=$(mktemp "$S.XXXXXX"); trap 'rm -f "$tmp"' EXIT
 jq -L "$R/lib" --arg up "$up" --arg slp "$slp" --arg hp "$hp" --arg ohp "$ohp" '
   include "hooks";
-  reduce ("SessionStart","UserPromptSubmit","Stop") as $e (.; .hooks[$e] |= ((. // []) | without($hp) | without($ohp)))
+  reduce ("SessionStart","UserPromptSubmit","Stop","SessionEnd") as $e (.; .hooks[$e] |= ((. // []) | without($hp) | without($ohp)))
   | .hooks |= with_entries(select(.value | length > 0))
   | (if (.hooks | length) == 0 then del(.hooks) else . end)
   | if ((.statusLine.command // "") | contains($slp))
     then (if $up == "" then del(.statusLine) else .statusLine.command = $up end)
     else . end' "$S" > "$tmp"
 cat "$tmp" > "$S"
-hud_drop   # consumed above; a stale upstream would otherwise outlive us
+hud_drop || echo "Could not update $CONF." >&2   # consumed above; a stale upstream would otherwise outlive us
 for l in "$BIN_DIR"/*; do [ "$(readlink "$l" 2>/dev/null)" = "$R/bin/sitrep" ] && rm -f "$l"; done
 [ "$(readlink "$SKILLS_DIR/sitrep-queue" 2>/dev/null)" = "$R/skills/sitrep-queue" ] && rm -f "$SKILLS_DIR/sitrep-queue"
 echo "Uninstalled. State in ~/.claude/sitrep is left in place."
