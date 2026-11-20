@@ -39,13 +39,15 @@ Claude HUD is optional. With no existing status line, only the sitrep block is s
 2. `sitrep add <id> <text>` appends an item.
 3. `sitrep pin <id> <text>` pins that session's Objective, and `sitrep unpin <id>` lets the summarizer rewrite it again.
 4. `sitrep rm <id> [n]` removes item `n` (default 1) and prints it.
-5. `sitrep move <from> <to> [n]` hands an item to another session.
+5. `sitrep move <from> <to> [n]` hands an item to another queue.
+
+The inbox is a queue that belongs to no session, for work you have not yet matched to one. Address it as `inbox` in any command that takes an id: `sitrep add inbox <text>`, `sitrep ls inbox`, `sitrep rm inbox [n]`, and `sitrep move inbox <id>` when you pick the item up. It has no Objective, so `pin` and `unpin` do not apply. `sitrep ls` prints an `Inbox:` line above the table when it holds anything, and the status line appends `Inbox: N` to the Queue line. From inside a Claude Code session, `! sitrep add inbox <text>` runs without a model turn. The inbox is one file that every session can append to, so two commands that rewrite it in the same instant can lose an append. `rm` and `move` refuse to delete an item that changed after they read it, but an `add` that lands while a `move` is rewriting the source queue can still be lost.
 
 Inside a session, a prompt starting with `+ ` queues the rest of the line, and one starting with `+pin ` pins the Objective. Neither is sent to Claude. Both apply only to a single line of at most 200 characters; anything longer or multi-line goes to Claude as written, so a pasted list never gets swallowed.
 
 ## How It Works
 
-State lives in `~/.claude/sitrep/`: `<session_id>.{txt,queue,cwd}` per session, hidden `.<session_id>.*` files for the pin, the prompt count and the debounce, and `sitrep.conf`. The status line only reads files, so it renders instantly. The Haiku call runs in the background on `Stop`, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window (`SITREP_DEBOUNCE`). A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
+State lives in `~/.claude/sitrep/`: `<session_id>.{txt,queue,cwd}` per session, `inbox.queue` for the inbox, hidden `.<session_id>.*` files for the pin, the prompt count and the debounce, and `sitrep.conf`. The status line only reads files, so it renders instantly. The Haiku call runs in the background on `Stop`, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window (`SITREP_DEBOUNCE`). A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
 
 ## Privacy And Safety
 

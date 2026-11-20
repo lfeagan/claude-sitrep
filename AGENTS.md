@@ -10,7 +10,7 @@ After editing any shell script, run `make lint` and `make test`, which CI also r
 
 1. Text from prompts, transcripts and models is untrusted terminal input. Strip control (Cc, including C1) and format (Cf) characters before storing it and before printing it. Filtering only ASCII bytes is not enough.
 2. State files are owner-only: `umask 077` in every script that writes them, and a unique `mktemp` name for every temporary file.
-3. A session id becomes part of a file name, so reject anything outside `[A-Za-z0-9_-]`. Read transcripts only from regular files under the Claude projects directory.
+3. A session id becomes part of a file name, so reject anything outside `[A-Za-z0-9_-]`, and `inbox` is reserved for the queue of no session. Read transcripts only from regular files under the Claude projects directory.
 4. Hooks must never fail or swallow a user's prompt: exit 0 on any error, and block only after the action the user asked for has succeeded.
 5. The installers change nothing until the settings merge has succeeded, and say what they found. They touch only what they own. Match our hook by its exact path, merge into `statusLine` and never replace it, write through a symlinked `settings.json`, and leave a `q` that is not ours alone.
 6. Our status line command ends in the tag `# claude-sitrep`, which is how any clone's wrapper is recognised as ours. `stat` differs between BSD and GNU. Try `stat -c` first, then `stat -f`, because `stat -f` succeeds with the wrong output on Linux.

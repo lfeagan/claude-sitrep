@@ -220,6 +220,11 @@ mkdir -p "$STATE"; printf 'Objective: wide\n' > "$STATE/wide0001.txt"; printf '/
 cols=$(sitrep ls | grep -E '^(ID|wide|abef)' | awk '{print index($0,"empty") + index($0,"2 items") + index($0,"QUEUE")}' | sort -u | wc -l | tr -d ' ')
 eq "sitrep ls aligns the queue column for long directory names" 1 "$cols"
 rm -f "$STATE/wide0001".*
+printf 'Objective: cut\n' > "$STATE/cutq0001.txt"; sitrep add cutq "$(printf 'z%.0s' $(seq 1 150))" >/dev/null
+row=$(COLUMNS=60 sitrep ls | grep -E '^cutq')
+rm -f "$STATE/cutq0001".*
+check "sitrep ls cuts a long next item to COLUMNS" test "$(printf '%s' "$row" | perl -CSD -ne 'print length')" -le 60
+check "sitrep ls marks the cut with an ellipsis" has "$row" "…"
 check "sitrep ls says empty for an empty queue" has "$(sitrep ls)" "empty"
 printf 'Objective: only\n' > "$STATE/abcd0001.txt"
 sitrep pin abcd "replaced" >/dev/null
@@ -229,6 +234,41 @@ check "sitrep ls prints no stray count for an emptied queue" bash -c '! sitrep l
 eq "sitrep add reports a zero count once" "queued on abcd (now 1)" "$(sitrep add abcd two)"
 eq "sitrep rm past the end of the queue fails" 1 "$(rc sitrep rm abcd 9)"
 eq "sitrep add rejects text that cleans to nothing" 1 "$(rc sitrep add abcd "$(printf '\001')")"
+
+# ---- inbox: the queue of no session
+rm -f "$STATE/inbox.queue"
+printf 'Objective: a\n' > "$STATE/inba0001.txt"; printf 'Objective: b\n' > "$STATE/inbb0002.txt"
+eq "add to the inbox" "queued on inbox (now 1)" "$(sitrep add inbox 'first thing')"
+sitrep add inbox 'second thing' >/dev/null
+check "ls inbox lists numbered items" has "$(sitrep ls inbox)" " 2. second thing"
+check "ls shows an Inbox line" has "$(sitrep ls)" "Inbox: 2 items, next: first thing"
+eq "move inbox to a session" "moved to inba: first thing" "$(sitrep move inbox inba 1)"
+eq "the item left the inbox" 1 "$(grep -c . "$STATE/inbox.queue")"
+eq "the item reached the session" "first thing" "$(head -1 "$STATE/inba0001.queue")"
+eq "move a session item into the inbox" "moved to inbox: first thing" "$(sitrep move inba inbox)"
+eq "move to the same queue fails" 1 "$(rc sitrep move inbox inbox)"
+eq "the same-queue move changed nothing" "second thing" "$(head -1 "$STATE/inbox.queue")"
+eq "move from an empty queue fails" 1 "$(rc sitrep move inba inbox)"
+eq "pin on the inbox fails" 1 "$(rc sitrep pin inbox x)"
+eq "unpin on the inbox fails" 1 "$(rc sitrep unpin inbox)"
+check "no ghost session files for the inbox" test ! -e "$STATE/inbox.txt" -a ! -e "$STATE/inbox.cwd" -a ! -e "$STATE/.inbox.pinned"
+eq "a prefix of inbox is not the inbox" 1 "$(rc sitrep add inb x)"
+check "status line shows the inbox count" has "$(status inba0001)" "Inbox: 2"
+printf 'a\nb\n' > "$STATE/inbox.queue"; sitrep rm inbox >/dev/null; sitrep rm inbox >/dev/null
+check "status line hides an empty inbox" hasnt "$(status inba0001)" "Inbox"
+check "ls prints no Inbox line when empty" hasnt "$(sitrep ls)" "Inbox:"
+printf 'x\n' > "$STATE/inbox.queue"
+check "status line ignores inbox as a session id" test -z "$(status inbox)"
+rm -f "$STATE/inbox.queue"
+printf 'one\n' > "$STATE/inbox.queue"
+fn=$(sed -n '/^without()/,/^}/p' "$R/bin/sitrep")
+eq "a stale item number is refused, not mis-deleted" 1 "$(rc bash -c "tmpfile() { mktemp '$STATE/.sitrep.XXXXXX'; }; $fn; without '$STATE/inbox.queue' 1 'other'")"
+eq "the refused delete left the queue alone" one "$(cat "$STATE/inbox.queue")"
+printf 'esc\033[31m\n' > "$STATE/inbox.queue"
+check "ls inbox strips escapes" hasnt "$(sitrep ls inbox)" $'\033'
+ev inbox UserPromptSubmit hi | hook
+check "a session id of inbox is ignored by the hook" test ! -e "$STATE/inbox.txt" -a ! -e "$STATE/inbox.cwd"
+rm -f "$STATE/inbox.queue" "$STATE"/inb[ab]000*
 
 # ---- install / uninstall round trip, in a separate HOME
 H2="$T/home2"

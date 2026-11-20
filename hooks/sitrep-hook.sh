@@ -6,7 +6,7 @@ umask 077   # state holds prompt text: owner-only
 input=$(cat)
 sid=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
 [ -z "$sid" ] && exit 0
-case "$sid" in *[!A-Za-z0-9_-]*) exit 0 ;; esac   # the id becomes part of a file name
+case "$sid" in *[!A-Za-z0-9_-]*|inbox) exit 0 ;; esac   # the id becomes part of a file name; `inbox` is the queue of no session
 event=$(printf '%s' "$input" | jq -r '.hook_event_name // empty')
 tp=$(printf '%s' "$input" | jq -r '.transcript_path // empty')
 # Only read transcripts that are regular files under the Claude projects directory.

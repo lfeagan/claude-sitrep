@@ -13,7 +13,7 @@ if [ -n "$SITREP_HUD_CMD" ]; then
 fi
 sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
 dir="$HOME/.claude/sitrep"; f="$dir/$sid.txt"
-case "$sid" in *[!A-Za-z0-9_-]*) sid="" ;; esac
+case "$sid" in *[!A-Za-z0-9_-]*|inbox) sid="" ;; esac
 # Our own block is untrusted text: drop control (Cc, incl. C1) and format (Cf, incl. bidi) characters; keeps tab and newline.
 strip() { perl -CSD -pe 's/(?!\n|\t)[\p{Cc}\p{Cf}]//g' 2>/dev/null; }
 if [ -n "$sid" ]; then
@@ -24,6 +24,7 @@ if [ -n "$sid" ]; then
     next=$(printf '%s' "$first" | perl -CSD -pe 's/(?!\t)[\p{Cc}\p{Cf}]//g; $_=substr($_,0,90)' 2>/dev/null)
   fi
   case "$n" in 0) q="empty" ;; 1) q="1 item" ;; *) q="$n items" ;; esac
-  printf 'Queue: %s%s  [id %s]\n' "$q" "${next:+, next: $next}" "${sid:0:4}"
+  inbox=$(grep -c . "$dir/inbox.queue" 2>/dev/null)
+  printf 'Queue: %s%s  [id %s]%s\n' "$q" "${next:+, next: $next}" "${sid:0:4}" "${inbox:+$([ "$inbox" -gt 0 ] && echo "  Inbox: $inbox")}"
 fi
 exit 0
