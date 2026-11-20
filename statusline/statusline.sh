@@ -1,8 +1,8 @@
 #!/bin/bash
 # Status line wrapper: runs an optional upstream status line (SITREP_HUD_CMD, e.g. Claude HUD),
 # then appends the per-session Objective / Progress / Now block and the queue line.
-[ -n "$SITREP_ACTIVE" ] && exit 0   # never render ourselves, even if the upstream command points back here
-export SITREP_ACTIVE=1
+[ -n "$SITREP_RENDERING" ] && exit 0   # never render ourselves, even if the upstream command points back here
+export SITREP_RENDERING=1
 IFS= read -r -d '' input
 conf="$HOME/.claude/sitrep/sitrep.conf"
 # shellcheck source=/dev/null
@@ -23,7 +23,7 @@ if [ -n "$sid" ]; then
     n=$(grep -c . "$qf"); read -r first < "$qf"
     next=$(printf '%s' "$first" | perl -CSD -pe 's/(?!\t)[\p{Cc}\p{Cf}]//g; $_=substr($_,0,90)' 2>/dev/null)
   fi
-  if [ "$n" -eq 0 ]; then q="empty"; else q="$n queued"; fi
-  printf 'Queue: %s%s  (session %s)\n' "$q" "${next:+, next: $next}" "${sid:0:4}"
+  case "$n" in 0) q="empty" ;; 1) q="1 item" ;; *) q="$n items" ;; esac
+  printf 'Queue: %s%s  [id %s]\n' "$q" "${next:+, next: $next}" "${sid:0:4}"
 fi
 exit 0

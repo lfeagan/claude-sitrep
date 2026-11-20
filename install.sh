@@ -15,23 +15,23 @@ command -v perl >/dev/null || { echo "perl is required" >&2; exit 1; }
 umask 077
 [ -f "$S" ] || echo '{}' > "$S"
 cp "$S" "$S.bak.$(date +%Y%m%dT%H%M%S)"
-slp=$(printf '%q' "$R/statusline/statusline.sh"); hp=$(printf '%q' "$R/hooks/notes-hook.sh")
+slp=$(printf '%q' "$R/statusline/statusline.sh"); hp=$(printf '%q' "$R/hooks/sitrep-hook.sh"); ohp=$(printf '%q' "$R/hooks/notes-hook.sh")   # ohp: the name before 0.2, dropped so an upgrade leaves one hook
 # The tag on our status line command is how any clone's wrapper is recognised as ours; also match untagged commands from earlier installs.
 tag="# claude-sitrep"
 old=$(jq -r '.statusLine.command // empty' "$S")
 tmp=$(mktemp "$S.XXXXXX"); trap 'rm -f "$tmp"' EXIT
-jq -L "$R/lib" --arg sl "bash $slp $tag" --arg h "bash $hp" --arg hp "$hp" '
+jq -L "$R/lib" --arg sl "bash $slp $tag" --arg h "bash $hp" --arg hp "$hp" --arg ohp "$ohp" '
   include "hooks";
-  def add: ((. // []) | without($hp)) + [{hooks:[{type:"command",command:$h}]}];
+  def add: ((. // []) | without($hp) | without($ohp)) + [{hooks:[{type:"command",command:$h}]}];
   .statusLine = ((.statusLine // {}) + {type:"command",command:$sl})
   | reduce ("SessionStart","UserPromptSubmit","Stop") as $e (.; .hooks[$e] |= add)' "$S" > "$tmp"
 cat "$tmp" > "$S"   # write through, so a symlinked settings.json stays a symlink
-# Earlier versions kept notes in ~/.claude/session-notes and the config in ~/.claude/sitrep.conf; move them only if every file there is ours.
+# Earlier versions kept state in ~/.claude/session-notes and the config in ~/.claude/sitrep.conf; move them only if every file there is ours.
 od="$HOME/.claude/session-notes"
-if [ -d "$od" ] && [ -z "$(find "$od" -mindepth 1 ! \( -name '*.txt' -o -name '*.queue' -o -name '*.cwd' -o -name '.*.prompt' -o -name '.*.stamp' -o -name '.*.pending' \) 2>/dev/null)" ]; then
+if [ -d "$od" ] && [ -z "$(find "$od" -mindepth 1 ! \( -name '*.txt' -o -name '*.queue' -o -name '*.cwd' -o -name '.*.prompt' -o -name '.*.count' -o -name '.*.stamp' -o -name '.*.pending' \) 2>/dev/null)" ]; then
   mkdir -p "$ND"   # a running hook may have created it already, so merge and never overwrite
   for x in "$od"/* "$od"/.[!.]*; do [ -f "$x" ] && mv -n "$x" "$ND/"; done
-  rmdir "$od" 2>/dev/null && echo "Moved notes from $od to $ND."
+  rmdir "$od" 2>/dev/null && echo "Moved state from $od to $ND."
 fi
 mkdir -p "$ND"; chmod 700 "$ND"; chmod 600 "$ND"/* 2>/dev/null || true
 [ -e "$HOME/.claude/sitrep.conf" ] && [ ! -e "$CONF" ] && mv "$HOME/.claude/sitrep.conf" "$CONF"
