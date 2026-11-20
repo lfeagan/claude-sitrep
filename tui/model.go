@@ -30,6 +30,8 @@ type model struct {
 	height    int
 	tab       int
 	showEnded bool
+	sortBy    int
+	help      bool
 	isDark    bool
 	now       func() time.Time
 }
@@ -76,6 +78,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 	case tea.KeyPressMsg:
+		if m.help { // any key closes the key list; ctrl+c still quits
+			if msg.String() == "ctrl+c" {
+				return m, tea.Quit
+			}
+			m.help = false
+			return m, nil
+		}
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
@@ -89,6 +98,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tab = tabTop
 		case "a":
 			m.showEnded = !m.showEnded
+		case "s":
+			if m.tab == tabTop { // only the Top view has a sort
+				m.sortBy = (m.sortBy + 1) % sortCount
+			}
+		case "?":
+			m.help = true
 		case "r":
 			if !m.fetching {
 				m.fetching, m.started = true, m.started+1
@@ -113,8 +128,11 @@ func (m model) errText() string {
 func (m model) View() tea.View {
 	theme := newTheme(m.isDark, m.snap.Settings.HighlightSGR)
 	body := "waiting for sitrep…"
-	if m.haveSnap || m.err != nil {
-		body = render(m.snap, m.tab, m.errText(), viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Theme: theme})
+	switch {
+	case m.help:
+		body = helpScreen(m.width, m.height, theme)
+	case m.haveSnap || m.err != nil:
+		body = render(m.snap, m.tab, m.errText(), viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Theme: theme})
 	}
 	v := tea.NewView(body)
 	v.AltScreen = true

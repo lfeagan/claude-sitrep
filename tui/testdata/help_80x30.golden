@@ -1,0 +1,30 @@
+Keys
+
+  tab, shift+tab, arrows, 1, 2   switch tab
+  a                              show or hide ended sessions
+  s                              cycle the Top sort: activity, state, dir, queue
+  r                              refresh now
+  ?                              this list
+  q, ctrl+c                      quit
+
+Tabs
+
+  Watch   every session as a block: Objective, Progress, Now and the queue
+  Top     a summary line, then one line per session
+
+Colours
+
+  ● pink-red   Claude has stopped and the next move is yours, until you reply
+  purple       the session changed in the last minute
+
+Any key closes this list.
+
+
+
+
+
+
+
+
+
+ keys                                                                           

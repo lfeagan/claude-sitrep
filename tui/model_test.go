@@ -21,6 +21,8 @@ func key(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyRight}
 	case "ctrl+c":
 		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
+	case "?":
+		return tea.KeyPressMsg{Code: '?', Text: "?"}
 	}
 	return tea.KeyPressMsg{Code: rune(s[0]), Text: s}
 }
@@ -220,5 +222,52 @@ func TestZeroSizedWindowMeansOneRow(t *testing.T) {
 	}
 	if lines := strings.Count(m.View().Content, "\n") + 1; lines > 1 {
 		t.Errorf("a one-row window gets one row, got %d", lines)
+	}
+}
+
+func TestSKeyCyclesTheTopSort(t *testing.T) {
+	m := newModel("x", time.Second, tabTop)
+	for want := 1; want <= sortCount; want++ {
+		m, _ = press(t, m, "s")
+		if m.sortBy != want%sortCount {
+			t.Fatalf("after %d presses the sort is %d", want, m.sortBy)
+		}
+	}
+	w := newModel("x", time.Second, tabWatch)
+	w, _ = press(t, w, "s")
+	if w.sortBy != sortActivity {
+		t.Errorf("s does nothing on the Watch tab")
+	}
+}
+
+func TestQuestionMarkOpensAndAnyKeyCloses(t *testing.T) {
+	m := newModel("x", time.Second, tabWatch)
+	next, _ := m.Update(snapMsg{snap: loadFixture(t)})
+	m = next.(model)
+	m, _ = press(t, m, "?")
+	if !m.help {
+		t.Fatalf("? opens the key list")
+	}
+	if v := m.View(); !strings.Contains(v.Content, "Keys") || strings.Contains(v.Content, "claude-sitrep") || !v.AltScreen {
+		t.Errorf("the key list replaces the screen, in the alternate screen: %q", v.Content)
+	}
+	m, cmd := press(t, m, "x")
+	if m.help || cmd != nil {
+		t.Errorf("any key closes the list and does nothing else")
+	}
+	m, _ = press(t, m, "?")
+	m, _ = press(t, m, "tab")
+	if m.help || m.tab != tabWatch {
+		t.Errorf("a key that closes the list must not also act: tab %d", m.tab)
+	}
+	m, _ = press(t, m, "?")
+	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
+		t.Errorf("ctrl+c quits even from the key list")
+	} else if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Errorf("ctrl+c should produce a quit")
+	}
+	m, _ = press(t, m, "q")
+	if m.help {
+		t.Errorf("q closes the key list")
 	}
 }

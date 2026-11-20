@@ -267,3 +267,93 @@ func TestEndedSessionsNeverNeedYou(t *testing.T) {
 		t.Errorf("only running sessions count: %d", needYou(s))
 	}
 }
+
+func ids(list []Session) string {
+	var out []string
+	for _, x := range list {
+		out = append(out, x.Short)
+	}
+	return strings.Join(out, " ")
+}
+
+func TestSortOrders(t *testing.T) {
+	list, _ := shown(loadFixture(t), false)
+	if got := ids(list); got != "15f1 2cd8 b1fb" {
+		t.Fatalf("the fixture order is activity order: %s", got)
+	}
+	for _, c := range []struct {
+		by   int
+		want string
+	}{
+		{sortActivity, "15f1 2cd8 b1fb"},
+		{sortState, "b1fb 15f1 2cd8"}, // needs you, then working, then idle
+		{sortDir, "15f1 2cd8 b1fb"},   // claude-sitrep, savannah..., timescaledb...
+		{sortQueue, "15f1 b1fb 2cd8"}, // 7 items, 1 item, empty
+	} {
+		if got := ids(sorted(list, c.by)); got != c.want {
+			t.Errorf("sort %s: got %s, want %s", sortNames[c.by], got, c.want)
+		}
+	}
+	if ids(list) != "15f1 2cd8 b1fb" {
+		t.Errorf("sorting must not change the caller's slice")
+	}
+}
+
+func TestSortTiesKeepSitrepOrder(t *testing.T) {
+	list := []Session{{Short: "aaaa", Dir: "x"}, {Short: "bbbb", Dir: "x"}, {Short: "cccc", Dir: "x"}}
+	for by := 0; by < sortCount; by++ {
+		if got := ids(sorted(list, by)); got != "aaaa bbbb cccc" {
+			t.Errorf("sort %s reshuffled equal rows: %s", sortNames[by], got)
+		}
+	}
+}
+
+func TestTopNamesItsSort(t *testing.T) {
+	s := loadFixture(t)
+	for by := 0; by < sortCount; by++ {
+		o := opts(100, 12)
+		o.Sort = by
+		if got := render(s, tabTop, "", o); !strings.Contains(got, "sort: "+sortNames[by]) {
+			t.Errorf("the Top view should say it is sorted by %s:\n%s", sortNames[by], got)
+		}
+	}
+	o := opts(80, 12)
+	o.Sort = sortState
+	golden(t, "top_80x12_by_state", render(s, tabTop, "", o))
+	if got := render(s, tabWatch, "", opts(100, 40)); strings.Contains(got, "sort:") {
+		t.Errorf("the Watch view has no sort")
+	}
+}
+
+func TestStatusBarHints(t *testing.T) {
+	last := func(w int) string {
+		lines := strings.Split(render(loadFixture(t), tabWatch, "", opts(w, 20)), "\n")
+		return lines[len(lines)-1]
+	}
+	if got := last(80); !strings.Contains(got, "s sort") || !strings.Contains(got, "? help") || !strings.Contains(got, "● 1 need you") {
+		t.Errorf("at 80 columns the bar keeps who needs you and the key hints: %q", got)
+	}
+}
+
+func TestHelpScreen(t *testing.T) {
+	out := helpScreen(80, 30, plainTheme())
+	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Top sort", "refresh", "quit", "Watch", "Top ", "pink-red", "purple", "Any key closes"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the help should mention %q", want)
+		}
+	}
+	golden(t, "help_80x30", out)
+	for w := 1; w <= 100; w += 7 {
+		for h := 1; h <= 40; h += 3 {
+			lines := strings.Split(helpScreen(w, h, plainTheme()), "\n")
+			if len(lines) > h {
+				t.Errorf("help %dx%d has %d lines", w, h, len(lines))
+			}
+			for _, l := range lines {
+				if ansi.StringWidth(l) > w {
+					t.Errorf("help %dx%d: a line is wider than the screen: %q", w, h, l)
+				}
+			}
+		}
+	}
+}

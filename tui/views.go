@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -18,10 +19,61 @@ const (
 
 var tabNames = [tabCount]string{"Watch", "Top"}
 
+// The Top view can be sorted four ways. Activity is the order sitrep sends, newest first.
+const (
+	sortActivity = iota
+	sortState
+	sortDir
+	sortQueue
+	sortCount
+)
+
+var sortNames = [sortCount]string{"activity", "state", "directory", "queue"}
+
 type viewOpts struct {
 	Width, Height int
 	ShowEnded     bool
+	Sort          int
 	Theme         Theme
+}
+
+// stateRank orders sessions for the state sort: the ones that need the user come first.
+func stateRank(x Session) int {
+	switch {
+	case x.NeedsInput:
+		return 0
+	case x.Idle:
+		return 3
+	case x.State == "working":
+		return 1
+	case x.State == "waiting":
+		return 2
+	}
+	return 4
+}
+
+// sorted returns a copy of list in the chosen order. Ties keep the order sitrep sent, then
+// break by id, so rows do not shuffle between refreshes.
+func sorted(list []Session, by int) []Session {
+	out := append([]Session(nil), list...)
+	less := func(a, b Session) int {
+		switch by {
+		case sortState:
+			return stateRank(a) - stateRank(b)
+		case sortDir:
+			return strings.Compare(strings.ToLower(a.Dir), strings.ToLower(b.Dir))
+		case sortQueue:
+			return b.Queue.Count - a.Queue.Count
+		}
+		return 0
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if c := less(out[i], out[j]); c != 0 {
+			return c < 0
+		}
+		return false
+	})
+	return out
 }
 
 func padRight(s string, w int) string {
@@ -262,16 +314,18 @@ func shortSummary(s Snapshot) string {
 // topBody is the one-line-per-session view.
 func topBody(s Snapshot, o viewOpts) []string {
 	list, ended := shown(s, o.ShowEnded)
+	list = sorted(list, o.Sort)
 	head := []string{summary(s)}
 	if s.Inbox.Count > 0 {
 		head[0] += "   inbox " + queueWord(s.Inbox.Count)
 	}
+
 	dw, sw := 9, 5
 	for _, x := range list {
 		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
 	dw = min(dw, max((o.Width-20)/3, 6)) // a narrow screen gets a narrow directory column
-	head = append(head, o.Theme.Label.Render(fmt.Sprintf("%-4s  %s  %s  %-5s  %s", "ID", padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW")))
+	head = append(head, o.Theme.Label.Render(fmt.Sprintf("%-4s  %s  %s  %-5s  %s", "ID", padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW   sort: "+sortNames[o.Sort])))
 	var blocks [][]string
 	for _, x := range list {
 		text := x.Now
@@ -309,13 +363,53 @@ func statusBar(s Snapshot, width int, errText string, th Theme) string {
 	if errText != "" {
 		left = " " + errText
 	}
-	right := "q quit  tab switch  a ended "
+	right := "q quit  tab  a ended  s sort  ? help "
 	gap := width - ansi.StringWidth(left) - ansi.StringWidth(right)
 	if gap < 1 {
 		right, gap = "", width-ansi.StringWidth(left)
 	}
 	line := ansi.Truncate(left+strings.Repeat(" ", max(gap, 0))+right, width, "")
 	return th.Status.Width(width).Render(line)
+}
+
+// helpScreen is the key list: the keys, what the tabs show, and what the colours mean.
+func helpScreen(width, height int, th Theme) string {
+	lines := []string{
+		"Keys",
+		"",
+		"  tab, shift+tab, arrows, 1, 2   switch tab",
+		"  a                              show or hide ended sessions",
+		"  s                              cycle the Top sort: activity, state, dir, queue",
+		"  r                              refresh now",
+		"  ?                              this list",
+		"  q, ctrl+c                      quit",
+		"",
+		"Tabs",
+		"",
+		"  Watch   every session as a block: Objective, Progress, Now and the queue",
+		"  Top     a summary line, then one line per session",
+		"",
+		"Colours",
+		"",
+		"  ● pink-red   Claude has stopped and the next move is yours, until you reply",
+		"  purple       the session changed in the last minute",
+		"",
+		"Any key closes this list.",
+	}
+	for i, l := range lines {
+		lines[i] = ansi.Truncate(l, max(width, 1), "…")
+	}
+	if height > 0 {
+		lines = lines[:min(len(lines), max(height-1, 0))]
+		for len(lines) < height-1 {
+			lines = append(lines, "")
+		}
+	}
+	bar := th.Status.Width(max(width, 1)).Render(ansi.Truncate(" keys", max(width, 1), ""))
+	if height == 1 {
+		return bar
+	}
+	return strings.Join(append(lines, bar), "\n")
 }
 
 // render lays out the whole screen: tabs on top, the body, the status bar at the bottom.
