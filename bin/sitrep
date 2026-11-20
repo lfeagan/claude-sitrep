@@ -34,6 +34,23 @@ without() { # file n text: print a temp file holding the queue minus line n; fai
   if E=$3 awk -v n="$2" '{ if (NR == n) { if ($0 != ENVIRON["E"]) bad = 1; else next } print } END { exit bad }' "$1" > "$t"; then echo "$t"; else rm -f "$t"; return 1; fi
 }
 
+reorder_q() { # id from to: move item `from` to position `to`
+  local sid=$1 from=$2 to=$3 f n item t
+  itemno "$from"; itemno "$to"
+  f=$(qf "$sid"); n=$(count "$sid")
+  [ "$from" -le "$n" ] && [ "$to" -le "$n" ] || die "$(label "$sid") has $n items"
+  item=$(sed -n "${from}p" "$f"); t=$(tmpfile) || exit 1
+  if E=$item awk -v f="$from" -v t="$to" '{ a[NR] = $0 }
+      END { if (a[f] != ENVIRON["E"]) exit 1
+            for (i = 1; i <= NR; i++) if (i != f) c[++k] = a[i]
+            for (i = 1; i < t; i++) print c[i]
+            print a[f]
+            for (i = t; i <= k; i++) print c[i] }' "$f" > "$t"; then
+    mv "$t" "$f" || { rm -f "$t"; die "could not update $(label "$sid")"; }
+    echo "item $to on $(label "$sid"): $(printf '%s' "$item" | strip)"
+  else rm -f "$t"; die "queue changed; run 'sitrep ls $(label "$sid")'"; fi
+}
+
 cmd=${1:-ls}; [ $# -gt 0 ] && shift
 case "$cmd" in
   ls)
@@ -70,6 +87,10 @@ case "$cmd" in
         item=$(sed -n "${n}p" "$f"); [ -n "$item" ] || die "no item $n on $(label "$sid")"
         t=$(without "$f" "$n" "$item") || die "queue changed; run 'sitrep ls $(label "$sid")'"
         mv "$t" "$f" && printf '%s\n' "$item" | strip ;;
+  top)  [ $# -ge 2 ] || die "usage: sitrep top <id> <n>"
+        sid=$(resolve "$1") || exit 1; reorder_q "$sid" "$2" 1 ;;
+  reorder) [ $# -ge 3 ] || die "usage: sitrep reorder <id> <from> <to>"
+        sid=$(resolve "$1") || exit 1; reorder_q "$sid" "$2" "$3" ;;
   pin) [ $# -ge 2 ] || die "usage: sitrep pin <id> <text>"
         sid=$(resolve "$1") || exit 1; shift; f="$dir/$sid.txt"
         [ "$sid" != inbox ] || die "inbox has no objective"
@@ -90,5 +111,5 @@ case "$cmd" in
         # append first, then swap the source in: a crash leaves a duplicate, never a lost item
         printf '%s\n' "$item" >> "$(qf "$to")"; mv "$t" "$f" || { rm -f "$t"; die "could not update $(label "$from")"; }
         echo "moved to $(label "$to"): $(printf '%s' "$item" | strip)" ;;
-  *) die "usage: sitrep [ls [id]] | add <id> <text> | pin <id> <text> | unpin <id> | rm <id> [n] | move <from> <to> [n]" ;;
+  *) die "usage: sitrep [ls [id]] | add <id> <text> | pin <id> <text> | unpin <id> | rm <id> [n] | top <id> <n> | reorder <id> <from> <to> | move <from> <to> [n]" ;;
 esac

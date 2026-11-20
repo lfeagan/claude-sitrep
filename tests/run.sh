@@ -235,6 +235,25 @@ eq "sitrep add reports a zero count once" "queued on abcd (now 1)" "$(sitrep add
 eq "sitrep rm past the end of the queue fails" 1 "$(rc sitrep rm abcd 9)"
 eq "sitrep add rejects text that cleans to nothing" 1 "$(rc sitrep add abcd "$(printf '\001')")"
 
+# ---- reorder
+printf 'Objective: r\n' > "$STATE/rord0001.txt"; rm -f "$STATE/rord0001.queue"
+for w in one two three four; do sitrep add rord "$w" >/dev/null; done
+eq "top moves an item to the front" "item 1 on rord: three" "$(sitrep top rord 3)"
+eq "top gives the new order" "three one two four" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
+sitrep reorder rord 1 4 >/dev/null
+eq "reorder moves an item to a later position" "one two four three" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
+sitrep reorder rord 4 2 >/dev/null
+eq "reorder moves an item to an earlier position" "one three two four" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
+sitrep reorder rord 2 2 >/dev/null
+eq "reorder to the same position changes nothing" "one three two four" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
+eq "reorder past the end fails" 1 "$(rc sitrep reorder rord 1 9)"
+eq "top of a missing item fails" 1 "$(rc sitrep top rord 9)"
+eq "reorder rejects a non-number" 1 "$(rc sitrep reorder rord x 1)"
+eq "a failed reorder changed nothing" "one three two four" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
+sitrep add inbox alpha >/dev/null; sitrep add inbox beta >/dev/null; sitrep top inbox 2 >/dev/null
+eq "top works on the inbox" beta "$(head -1 "$STATE/inbox.queue")"
+rm -f "$STATE/inbox.queue" "$STATE"/rord000*
+
 # ---- inbox: the queue of no session
 rm -f "$STATE/inbox.queue"
 printf 'Objective: a\n' > "$STATE/inba0001.txt"; printf 'Objective: b\n' > "$STATE/inbb0002.txt"

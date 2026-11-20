@@ -23,6 +23,7 @@ You do not get your own session id. Find it from `sitrep ls`:
 - `sitrep unpin <id>` lets the summarizer rewrite the Objective again.
 - `sitrep rm <id> [n]` removes item `n` (default 1) and prints it.
 - `sitrep move <from> <to> [n]` hands an item to another queue.
+- `sitrep top <id> <n>` moves item `n` to the front, and `sitrep reorder <id> <from> <to>` moves it to any position. Reorder only when the user asks.
 - `inbox` is a shared queue that belongs to no session. Use it as an id with `add`, `ls`, `rm` and `move`, for example `sitrep add inbox <text>`. It has no Objective, so `pin` and `unpin` fail on it.
 
 ## Rules
