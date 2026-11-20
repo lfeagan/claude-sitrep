@@ -110,6 +110,9 @@ sitrep goal sess "Pinned by cli" >/dev/null
 ev sess0009 Stop "" "$TP" | hook
 check "stop summary arrives after sitrep goal" waitfor sess0009 Progress "stub progress"
 eq "sitrep goal pins against the summarizer" "Pinned by cli" "$(field sess0009 Objective)"
+sitrep unpin sess >/dev/null; rm -f "$NOTES/.sess0009.stamp"
+ev sess0009 Stop "" "$TP" | hook
+check "sitrep unpin lets the summarizer rewrite the objective" waitfor sess0009 Objective "stub objective"
 
 # ---- hook: C1 controls and bidi overrides are untrusted too
 reset

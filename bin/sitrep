@@ -56,9 +56,12 @@ case "$cmd" in
         mv "$t" "$f" || { rm -f "$t"; exit 1; }
         : > "$dir/.$sid.pinned"   # keeps the summarizer from rewriting it
         echo "objective set on ${sid:0:4}" ;;
+  unpin) [ $# -ge 1 ] || die "usage: sitrep unpin <session>"
+        sid=$(resolve "$1") || exit 1; rm -f "$dir/.$sid.pinned"
+        echo "objective on ${sid:0:4} will be summarized again" ;;
   move) [ $# -ge 2 ] || die "usage: sitrep move <from> <to> [item=1]"
         from=$(resolve "$1") || exit 1; to=$(resolve "$2") || exit 1; n=${3:-1}; itemno "$n"
         f=$(qf "$from"); item=$(sed -n "${n}p" "$f" 2>/dev/null); [ -n "$item" ] || die "no item $n on ${from:0:4}"
         printf '%s\n' "$item" >> "$(qf "$to")"; dropline "$f" "$n"; echo "moved to ${to:0:4}: $item" ;;
-  *) die "usage: sitrep [ls [session]] | add <session> <text> | goal <session> <text> | done <session> [n] | move <from> <to> [n]" ;;
+  *) die "usage: sitrep [ls [session]] | add <session> <text> | goal <session> <text> | unpin <session> | done <session> [n] | move <from> <to> [n]" ;;
 esac

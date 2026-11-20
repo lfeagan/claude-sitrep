@@ -20,6 +20,7 @@ You do not get your own session id. Find it from `sitrep ls`:
 - `sitrep ls <id>` shows one queue.
 - `sitrep add <id> <text>` appends an item.
 - `sitrep goal <id> <text>` pins the Objective.
+- `sitrep unpin <id>` lets the summarizer rewrite the Objective again.
 - `sitrep done <id> [n]` removes item `n` (default 1) and prints it.
 - `sitrep move <from> <to> [n]` hands an item to another session.
 
