@@ -8,7 +8,8 @@ clean() { perl -CSD -0777 -pe 's/[\n\t\p{Zl}\p{Zp}]/ /g; s/[\p{Cc}\p{Cf}]//g; s/
 strip() { perl -CSD -pe 's/(?!\n|\t)[\p{Cc}\p{Cf}]//g' 2>/dev/null; }                                                   # for text being shown: keeps line breaks
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 tmpfile() { mktemp "$dir/.q.XXXXXX"; }
-isint() { [[ $1 =~ ^[1-9][0-9]*$ ]]; }
+itemno() { [[ $1 =~ ^[1-9][0-9]*$ ]] || die "item must be a number"; }
+cwd_of() { clean 2>/dev/null < "$dir/$1.cwd"; }
 
 resolve() { # prefix -> full session id
   [[ $1 =~ ^[A-Za-z0-9_-]+$ ]] || die "bad session '$1'"
@@ -28,13 +29,13 @@ cmd=${1:-ls}; [ $# -gt 0 ] && shift
 case "$cmd" in
   ls)
     if [ -n "$1" ]; then
-      sid=$(resolve "$1") || exit 1; f=$(qf "$sid"); echo "Session ${sid:0:4}  $( { clean < "$dir/$sid.cwd"; } 2>/dev/null)"
+      sid=$(resolve "$1") || exit 1; f=$(qf "$sid"); echo "Session ${sid:0:4}  $(cwd_of "$sid")"
       sed -n 's/^Objective: /  Objective: /p' "$dir/$sid.txt" | strip
       [ -s "$f" ] && strip < "$f" | nl -w2 -s'. ' || echo "  (queue empty)"
     else
       for t in "$dir"/*.txt; do [ -f "$t" ] && echo "$(mtime "$t") $t"; done | sort -rn | while read -r _ t; do
         [ -n "$(find "$t" -mtime -1 2>/dev/null)" ] || continue
-        sid=$(basename "$t" .txt); cwd=$( { clean < "$dir/$sid.cwd"; } 2>/dev/null)
+        sid=$(basename "$t" .txt); cwd=$(cwd_of "$sid")
         printf '%s  %s  queue:%s\n' "${sid:0:4}" "$(basename "${cwd:-?}")" "$(count "$sid")"
         sed -n 's/^Objective: /    Objective: /p;s/^Now: */    Now:       /p' "$t" | strip
       done
@@ -44,10 +45,10 @@ case "$cmd" in
         [ -n "${item//[[:space:]]/}" ] || die "nothing to queue"
         printf '%s\n' "$item" >> "$(qf "$sid")"; echo "queued on ${sid:0:4} (now $(count "$sid"))" ;;
   done) [ $# -ge 1 ] || die "usage: q done <session> [item=1]"
-        sid=$(resolve "$1") || exit 1; n=${2:-1}; isint "$n" || die "item must be a number"
+        sid=$(resolve "$1") || exit 1; n=${2:-1}; itemno "$n"
         f=$(qf "$sid"); [ -s "$f" ] || die "queue empty"
-        [ -n "$(sed -n "${n}p" "$f")" ] || die "no item $n on ${sid:0:4}"
-        sed -n "${n}p" "$f" | strip; dropline "$f" "$n" ;;
+        item=$(sed -n "${n}p" "$f"); [ -n "$item" ] || die "no item $n on ${sid:0:4}"
+        printf '%s\n' "$item" | strip; dropline "$f" "$n" ;;
   goal) [ $# -ge 2 ] || die "usage: q goal <session> <text>"
         sid=$(resolve "$1") || exit 1; shift; f="$dir/$sid.txt"
         t=$(tmpfile) || exit 1
@@ -55,7 +56,7 @@ case "$cmd" in
         mv "$t" "$f" || { rm -f "$t"; exit 1; }
         echo "objective set on ${sid:0:4}" ;;
   move) [ $# -ge 2 ] || die "usage: q move <from> <to> [item=1]"
-        from=$(resolve "$1") || exit 1; to=$(resolve "$2") || exit 1; n=${3:-1}; isint "$n" || die "item must be a number"
+        from=$(resolve "$1") || exit 1; to=$(resolve "$2") || exit 1; n=${3:-1}; itemno "$n"
         f=$(qf "$from"); item=$(sed -n "${n}p" "$f" 2>/dev/null); [ -n "$item" ] || die "no item $n on ${from:0:4}"
         printf '%s\n' "$item" >> "$(qf "$to")"; dropline "$f" "$n"; echo "moved to ${to:0:4}: $item" ;;
   *) die "usage: q [ls [session]] | add <session> <text> | goal <session> <text> | done <session> [n] | move <from> <to> [n]" ;;

@@ -16,7 +16,7 @@ case "$tp" in
   "$cfg/projects/"*) { [ -f "$tp" ] && [ ! -L "$tp" ]; } || tp="" ;;
   *) tp="" ;;
 esac
-dir="$HOME/.claude/session-notes"; mkdir -p "$dir"; chmod 700 "$dir"
+dir="$HOME/.claude/session-notes"; [ -d "$dir" ] || mkdir -p "$dir"; chmod 700 "$dir"
 f="$dir/$sid.txt"
 
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
@@ -36,11 +36,14 @@ obj=$(get Objective); prog=$(get Progress); now=$(get Now)
 # A placeholder or command wrapper (e.g. /clear) is not a real Objective: treat it as unset so it gets replaced.
 case "$obj" in "-"|*"<command-"*|*"&lt;command-"*|"<"*|"&lt;"*) obj="" ;; esac
 
+short() { [[ $1 != *$'\n'* ]] && [ ${#1} -le 200 ] && [ -n "${1//[[:space:]]/}" ]; }
+block() { jq -n --arg r "$1" '{decision:"block",reason:$r}'; }
+
 first_prompt() { # first real user message in the transcript; skips whole messages that are command/system wrappers (start with a tag)
   [ -f "$tp" ] && jq -r 'select(.type=="user") | .message.content | if type=="string" then . else map(select(.type=="text")|.text)|join(" ") end | select(test("^\\s*(<|&lt;)")|not) | select(test("\\S"))' "$tp" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e '/^$/d' | head -1
 }
 summarize() { # background Haiku call: rewrites Progress and Now
-  local since; since=$(cat "$dir/.$sid.prompt" 2>/dev/null)
+  local since=; { read -r since < "$dir/.$sid.prompt"; } 2>/dev/null
   (
     export CLAUDE_NOTES_RUNNING=1
     work=$(mktemp -d) && cd "$work" || exit 0   # neutral cwd: no project CLAUDE.md, settings or MCP servers
@@ -60,16 +63,16 @@ summarize() { # background Haiku call: rewrites Progress and Now
 
 if [ "$event" = "UserPromptSubmit" ]; then
   prompt=$(printf '%s' "$input" | jq -r '.prompt // empty')
-  echo $(( $(cat "$dir/.$sid.prompt" 2>/dev/null || echo 0) + 1 )) > "$dir/.$sid.prompt"   # prompt counter, for the stale-summary check
+  c=0; { read -r c < "$dir/.$sid.prompt"; } 2>/dev/null
+  echo $(( ${c:-0} + 1 )) > "$dir/.$sid.prompt"   # prompt counter, for the stale-summary check
   # +goal and + are handled here only for a short single line. Anything else goes to Claude untouched.
-  short() { [[ $1 != *$'\n'* ]] && [ ${#1} -le 200 ] && [ -n "${1//[[:space:]]/}" ]; }
   case "$prompt" in
     "+goal "*) # pin the objective; the summarizer never overwrites it
       text=${prompt#+goal }
       if short "$text"; then
         g=$(trunc "$text" 200)
         if write "$g" "${prog:--}" "${now:--}"; then
-          jq -n --arg r "Objective pinned: $g" '{decision:"block",reason:$r}'; exit 0
+          block "Objective pinned: $g"; exit 0
         fi
       fi ;;
     "+ "*) # queue instead of sending to Claude
@@ -78,7 +81,7 @@ if [ "$event" = "UserPromptSubmit" ]; then
         item=$(trunc "$text" 200)
         if [ -n "$item" ] && printf '%s\n' "$item" >> "$qfile"; then
           [ -f "$f" ] || write "-" "-" "-"
-          jq -n --arg r "Queued ($(grep -c . "$qfile")): $item" '{decision:"block",reason:$r}'; exit 0
+          block "Queued ($(grep -c . "$qfile")): $item"; exit 0
         fi
       fi ;;
   esac
@@ -103,11 +106,11 @@ if [ "$event" = "Stop" ] && [ -f "$tp" ]; then
   # end of the window, so a quick follow-up turn is still summarized and never left stale.
   window=${SITREP_DEBOUNCE:-45}
   stamp="$dir/.$sid.stamp"; pending="$dir/.$sid.pending"
-  last=$(mtime "$stamp")
-  if [ -n "$last" ] && [ $(( $(date +%s) - last )) -lt "$window" ]; then
+  last=$(mtime "$stamp"); ts=$(date +%s)
+  if [ -n "$last" ] && [ $(( ts - last )) -lt "$window" ]; then
     [ -e "$pending" ] && exit 0
     : > "$pending"
-    wait_s=$(( window - ($(date +%s) - last) ))
+    wait_s=$(( window - (ts - last) ))
     (
       sleep "$wait_s"; rm -f "$pending"
       obj=$(get Objective); touch "$stamp"; summarize

@@ -11,7 +11,7 @@ Now:       Waiting on a repo name.
 Queue (2) [a1b2]  next: update README
 ```
 
-The four lines work as follows:
+The block works as follows:
 
 1. Objective is set once from the first prompt of the session and then kept. A resumed session is seeded from its transcript at start, so it does not wait for a new prompt.
 2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
@@ -29,16 +29,15 @@ Claude HUD is optional. With no existing status line, only the sitrep block is s
 
 1. `q ls` lists recent sessions with Objective, Now and queue length, and `q ls <session>` lists one queue.
 2. `q add <session> <text>` appends an item.
-3. `q done <session> [n]` removes item `n` (default 1) and prints it.
-4. `q move <from> <to> [n]` hands an item to another session.
-
-5. `q goal <session> <text>` pins that session's Objective.
+3. `q goal <session> <text>` pins that session's Objective.
+4. `q done <session> [n]` removes item `n` (default 1) and prints it.
+5. `q move <from> <to> [n]` hands an item to another session.
 
 Inside a session, a prompt starting with `+ ` queues the rest of the line, and one starting with `+goal ` pins the Objective. Neither is sent to Claude. Both apply only to a single line of at most 200 characters; anything longer or multi-line goes to Claude as written, so a pasted list never gets swallowed.
 
 ## How It Works
 
-State lives in `~/.claude/session-notes/<session_id>.{txt,queue,cwd}`, so the status line only reads files and renders instantly. The Haiku call runs in the background on `Stop`, is skipped if the last update was under 45 seconds ago, is capped at $0.05 per call, and sets `CLAUDE_NOTES_RUNNING` so its own hooks do not recurse.
+State lives in `~/.claude/session-notes/<session_id>.{txt,queue,cwd}`, so the status line only reads files and renders instantly. The Haiku call runs in the background on `Stop`, is capped at $0.05 per call, and sets `CLAUDE_NOTES_RUNNING` so its own hooks do not recurse. At most one runs per 45 second window (`SITREP_DEBOUNCE`): a `Stop` inside the window schedules a single deferred summary for the end of it, and a summary that arrives after a newer prompt is dropped.
 
 ## Privacy And Safety
 
@@ -48,8 +47,8 @@ Prompt text is stored in `~/.claude/session-notes`, which is owner-only (`700`, 
 
 ## Development
 
-`make lint` runs `bash -n` and `shellcheck` over every script, and `make test` runs `tests/run.sh`, which needs only bash and `jq`. The tests use a throwaway `$HOME` and a stub `claude`, so they never touch real settings or the API. Both run in CI on Linux and macOS.
+`make lint` runs `bash -n` and `shellcheck` over every script, and `make test` runs `tests/run.sh`, which needs bash, `jq`, `perl` and `tar`. The tests use a throwaway `$HOME` and a stub `claude`, so they never touch real settings or the API. Both run in CI on Linux and macOS. `lib/hooks.jq` holds the settings filter that `install.sh` and `uninstall.sh` share.
 
 ## Status
 
-The queue does not feed work to Claude automatically. Whether a `Stop` hook should hand over the next item is TBD, as an unattended session that keeps itself busy is also a runaway session. Nothing is pushed to the cmux sidebar yet.
+The queue does not feed work to Claude automatically. Whether a `Stop` hook should hand over the next item is TBD, as an unattended session that keeps itself busy is also a runaway session. Pushing the same text to the cmux sidebar has not been built; the notes are plain files, so a script can read them.

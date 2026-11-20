@@ -3,7 +3,7 @@
 # then appends the per-session Objective / Progress / Now block and the queue line.
 [ -n "$SITREP_ACTIVE" ] && exit 0   # never render ourselves, even if the upstream command points back here
 export SITREP_ACTIVE=1
-input=$(cat)
+IFS= read -r -d '' input
 conf="$HOME/.claude/sitrep.conf"
 # shellcheck source=/dev/null
 [ -f "$conf" ] && . "$conf"
@@ -19,7 +19,10 @@ strip() { perl -CSD -pe 's/(?!\n|\t)[\p{Cc}\p{Cf}]//g' 2>/dev/null; }
 if [ -n "$sid" ]; then
   if [ -f "$f" ]; then strip < "$f"; else echo "Objective: (set on your first prompt)"; fi
   qf="$dir/$sid.queue"; n=0; next=""
-  [ -s "$qf" ] && { n=$(grep -c . "$qf"); next=$(head -1 "$qf" | strip | tr -d '\n' | perl -CSD -pe '$_=substr($_,0,90)' 2>/dev/null); }
+  if [ -s "$qf" ]; then
+    n=$(grep -c . "$qf"); read -r first < "$qf"
+    next=$(printf '%s' "$first" | perl -CSD -pe 's/(?!\t)[\p{Cc}\p{Cf}]//g; $_=substr($_,0,90)' 2>/dev/null)
+  fi
   printf 'Queue (%s) [%s]%s\n' "$n" "${sid:0:4}" "${next:+  next: $next}"
 fi
 exit 0
