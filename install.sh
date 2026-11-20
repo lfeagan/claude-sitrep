@@ -4,7 +4,10 @@ set -e
 R=$(cd "$(dirname "$0")" && pwd)
 S="$HOME/.claude/settings.json"; BIN_DIR=${BIN_DIR:-$HOME/bin}
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
-mkdir -p "$HOME/.claude/session-notes" "$BIN_DIR"; [ -f "$S" ] || echo '{}' > "$S"
+umask 077
+mkdir -p "$HOME/.claude/session-notes" "$BIN_DIR"
+chmod 700 "$HOME/.claude/session-notes"; chmod 600 "$HOME"/.claude/session-notes/* 2>/dev/null || true
+[ -f "$S" ] || echo '{}' > "$S"
 cp "$S" "$S.bak.$(date +%Y%m%dT%H%M%S)"
 # Keep the existing status line (e.g. Claude HUD) as the upstream, unless it is already ours.
 old=$(jq -r '.statusLine.command // empty' "$S")

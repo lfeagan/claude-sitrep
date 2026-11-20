@@ -1,43 +1,54 @@
 #!/bin/bash
 # q: per-session work queues for Claude Code sessions. Sessions are addressed by a unique id prefix (shown in the status line and `q ls`).
+umask 077
 dir="$HOME/.claude/session-notes"
 die() { echo "q: $*" >&2; exit 1; }
+# Text from users and sessions is untrusted terminal input: flatten whitespace, drop control characters.
+clean() { tr '\n\t' '  ' | LC_ALL=C tr -d '\000-\037\177'; }   # for text being stored: one flat line
+strip() { LC_ALL=C tr -d '\000-\010\013-\037\177'; }             # for text being shown: keeps line breaks
+mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1"; }
+isint() { [[ $1 =~ ^[1-9][0-9]*$ ]]; }
 
 resolve() { # prefix -> full session id
+  [[ $1 =~ ^[A-Za-z0-9_-]+$ ]] || die "bad session '$1'"
   local m=() f
   for f in "$dir"/"$1"*.txt; do [ -f "$f" ] && m+=("$(basename "$f" .txt)"); done
-  [ ${#m[@]} -eq 1 ] || die "session '$1' ${#m[@]:+matches ${#m[@]}}; run 'q ls'"
+  [ ${#m[@]} -eq 1 ] || die "session '$1' matches ${#m[@]}; run 'q ls'"
   echo "${m[0]}"
 }
 qf() { echo "$dir/$1.queue"; }
 count() { [ -f "$(qf "$1")" ] && grep -c . "$(qf "$1")" || echo 0; }
+dropline() { # file n: delete line n
+  sed "${2}d" "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+}
 
-cmd=${1:-ls}; shift
+cmd=${1:-ls}; [ $# -gt 0 ] && shift
 case "$cmd" in
   ls)
     if [ -n "$1" ]; then
-      sid=$(resolve "$1"); f=$(qf "$sid"); echo "Session ${sid:0:4}  $(cat "$dir/$sid.cwd" 2>/dev/null)"
-      sed -n 's/^Objective: /  Objective: /p' "$dir/$sid.txt"
-      [ -s "$f" ] && nl -w2 -s'. ' "$f" || echo "  (queue empty)"
+      sid=$(resolve "$1") || exit 1; f=$(qf "$sid"); echo "Session ${sid:0:4}  $(clean < "$dir/$sid.cwd" 2>/dev/null)"
+      sed -n 's/^Objective: /  Objective: /p' "$dir/$sid.txt" | strip
+      [ -s "$f" ] && strip < "$f" | nl -w2 -s'. ' || echo "  (queue empty)"
     else
-      while read -r _ t; do
+      for t in "$dir"/*.txt; do [ -f "$t" ] && echo "$(mtime "$t") $t"; done | sort -rn | while read -r _ t; do
         [ -n "$(find "$t" -mtime -1 2>/dev/null)" ] || continue
-        sid=$(basename "$t" .txt); cwd=$(cat "$dir/$sid.cwd" 2>/dev/null)
+        sid=$(basename "$t" .txt); cwd=$(clean < "$dir/$sid.cwd" 2>/dev/null)
         printf '%s  %s  queue:%s\n' "${sid:0:4}" "$(basename "${cwd:-?}")" "$(count "$sid")"
-        sed -n 's/^Objective: /    Objective: /p;s/^Now: */    Now:       /p' "$t"
-      done < <(stat -f '%m %N' "$dir"/*.txt 2>/dev/null | sort -rn)
+        sed -n 's/^Objective: /    Objective: /p;s/^Now: */    Now:       /p' "$t" | strip
+      done
     fi ;;
   add)  [ $# -ge 2 ] || die "usage: q add <session> <text>"
-        sid=$(resolve "$1"); shift; echo "$*" >> "$(qf "$sid")"; echo "queued on ${sid:0:4} (now $(count "$sid"))" ;;
+        sid=$(resolve "$1") || exit 1; shift; printf '%s\n' "$(printf '%s' "$*" | clean)" >> "$(qf "$sid")"; echo "queued on ${sid:0:4} (now $(count "$sid"))" ;;
   done) [ $# -ge 1 ] || die "usage: q done <session> [item=1]"
-        sid=$(resolve "$1"); n=${2:-1}; f=$(qf "$sid"); [ -s "$f" ] || die "queue empty"
-        sed -n "${n}p" "$f"; sed -i '' "${n}d" "$f" ;;
+        sid=$(resolve "$1") || exit 1; n=${2:-1}; isint "$n" || die "item must be a number"
+        f=$(qf "$sid"); [ -s "$f" ] || die "queue empty"
+        sed -n "${n}p" "$f" | strip; dropline "$f" "$n" ;;
   goal) [ $# -ge 2 ] || die "usage: q goal <session> <text>"
-        sid=$(resolve "$1"); shift; f="$dir/$sid.txt"
-        { printf 'Objective: %s\n' "$*"; grep -v '^Objective:' "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"; echo "objective set on ${sid:0:4}" ;;
+        sid=$(resolve "$1") || exit 1; shift; f="$dir/$sid.txt"
+        { printf 'Objective: %s\n' "$(printf '%s' "$*" | clean | cut -c1-160)"; grep -v '^Objective:' "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"; echo "objective set on ${sid:0:4}" ;;
   move) [ $# -ge 2 ] || die "usage: q move <from> <to> [item=1]"
-        from=$(resolve "$1"); to=$(resolve "$2"); n=${3:-1}; f=$(qf "$from")
-        item=$(sed -n "${n}p" "$f"); [ -n "$item" ] || die "no item $n on ${from:0:4}"
-        echo "$item" >> "$(qf "$to")"; sed -i '' "${n}d" "$f"; echo "moved to ${to:0:4}: $item" ;;
+        from=$(resolve "$1") || exit 1; to=$(resolve "$2") || exit 1; n=${3:-1}; isint "$n" || die "item must be a number"
+        f=$(qf "$from"); item=$(sed -n "${n}p" "$f" 2>/dev/null); [ -n "$item" ] || die "no item $n on ${from:0:4}"
+        printf '%s\n' "$item" >> "$(qf "$to")"; dropline "$f" "$n"; echo "moved to ${to:0:4}: $item" ;;
   *) die "usage: q [ls [session]] | add <session> <text> | goal <session> <text> | done <session> [n] | move <from> <to> [n]" ;;
 esac

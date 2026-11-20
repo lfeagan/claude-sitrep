@@ -38,9 +38,13 @@ Inside a session, a prompt starting with `+ ` queues the rest of the line, and o
 
 State lives in `~/.claude/session-notes/<session_id>.{txt,queue,cwd}`, so the status line only reads files and renders instantly. The Haiku call runs in the background on `Stop`, is skipped if the last update was under 45 seconds ago, is capped at $0.05 per call, and sets `CLAUDE_NOTES_RUNNING` so its own hooks do not recurse.
 
+## Privacy And Safety
+
+Prompt text is stored in `~/.claude/session-notes`, which is owner-only (`700`, files `600`). Prompt and model text is treated as untrusted terminal input, so control characters such as escape sequences are removed before it is stored and again before it is printed. The summarizer sends the tail of the transcript to Haiku through `claude -p`, the same service the session itself uses.
+
 ## Development
 
-`make lint` runs `bash -n` and `shellcheck` over every script. The scripts assume macOS (`stat -f`, `sed -i ''`).
+`make lint` runs `bash -n` and `shellcheck` over every script, and `make test` runs `tests/run.sh`, which needs only bash and `jq`. The tests use a throwaway `$HOME` and a stub `claude`, so they never touch real settings or the API. Both run in CI on Linux and macOS.
 
 ## Status
 

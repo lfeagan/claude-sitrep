@@ -10,5 +10,7 @@ jq --arg up "$up" '
   .hooks.SessionStart|=((. // [])|map(select(.hooks[0].command|contains("notes-hook")|not)))
   | .hooks.UserPromptSubmit|=((. // [])|map(select(.hooks[0].command|contains("notes-hook")|not)))
   | .hooks.Stop|=((. // [])|map(select(.hooks[0].command|contains("notes-hook")|not)))
+  | .hooks |= with_entries(select(.value|length>0))
+  | (if (.hooks|length)==0 then del(.hooks) else . end)
   | if $up=="" then del(.statusLine) else .statusLine={type:"command",command:$up} end' "$S" > "$S.tmp" && mv "$S.tmp" "$S"
 rm -f "$BIN_DIR/q"; echo "Uninstalled. Notes in ~/.claude/session-notes are left in place."

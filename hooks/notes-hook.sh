@@ -2,19 +2,23 @@
 # Hook for SessionStart, UserPromptSubmit and Stop. Maintains ~/.claude/session-notes/<session_id>.txt
 # (three lines: Objective / Progress / Now). Haiku summarizer runs in the background on Stop.
 [ -n "$CLAUDE_NOTES_RUNNING" ] && exit 0   # recursion guard: the summarizer's own claude -p fires hooks
+umask 077   # notes hold prompt text: owner-only
 input=$(cat)
 sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
 [ -z "$sid" ] && exit 0
+case "$sid" in *[!A-Za-z0-9_-]*) exit 0 ;; esac   # the id becomes part of a file name
 event=$(printf '%s' "$input" | jq -r '.hook_event_name // empty')
 tp=$(printf '%s' "$input" | jq -r '.transcript_path // empty')
-dir="$HOME/.claude/session-notes"; mkdir -p "$dir"
+dir="$HOME/.claude/session-notes"; mkdir -p "$dir"; chmod 700 "$dir"
 f="$dir/$sid.txt"
 
 get() { [ -f "$f" ] && sed -n "s/^$1: //p" "$f" | head -1; }
 write() { # objective progress now
   printf 'Objective: %s\nProgress:  %s\nNow:       %s\n' "$1" "$2" "$3" > "$f.tmp" && mv "$f.tmp" "$f"
 }
-trunc() { printf '%s' "$1" | tr '\n' ' ' | cut -c1-"${2:-140}"; }
+# Prompt and model text is untrusted terminal input: flatten whitespace and drop control characters (ESC etc.).
+trunc() { printf '%s' "$1" | tr '\n\t' '  ' | LC_ALL=C tr -d '\000-\037\177' | cut -c1-"${2:-140}"; }
+mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1"; }
 
 printf '%s' "$input" | jq -r '.cwd // empty' > "$dir/$sid.cwd"
 qfile="$dir/$sid.queue"
@@ -45,7 +49,7 @@ if [ "$event" = "UserPromptSubmit" ]; then
       write "$obj" "${prog:--}" "${now:--}"
       jq -n --arg r "Objective pinned: $obj" '{decision:"block",reason:$r}'; exit 0 ;;
     "+ "*) # queue instead of sending to Claude
-      item=${prompt#+ }; printf '%s\n' "$item" >> "$qfile"
+      item=$(trunc "${prompt#+ }" 200); printf '%s\n' "$item" >> "$qfile"
       [ -f "$f" ] || write "-" "-" "-"
       jq -n --arg r "Queued ($(grep -c . "$qfile")): $item" '{decision:"block",reason:$r}'; exit 0 ;;
   esac
@@ -68,7 +72,7 @@ fi
 if [ "$event" = "Stop" ] && [ -f "$tp" ]; then
   # debounce: skip if summarized in the last 45s
   stamp="$dir/.$sid.stamp"
-  if [ -f "$stamp" ] && [ $(( $(date +%s) - $(stat -f %m "$stamp") )) -lt 45 ]; then exit 0; fi
+  if [ -f "$stamp" ] && [ $(( $(date +%s) - $(mtime "$stamp") )) -lt 45 ]; then exit 0; fi
   touch "$stamp"
   summarize
 fi

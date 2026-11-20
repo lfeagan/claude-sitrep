@@ -4,7 +4,15 @@ Guidance for agents working in this repository. The commit and comment rules are
 
 ## Linting
 
-After editing any shell script, run `make lint`. It runs `bash -n` and `shellcheck` over every script listed in the `Makefile`, which CI also runs. Add a new script to `SCRIPTS` there.
+After editing any shell script, run `make lint` and `make test`, which CI also runs. Lint runs `bash -n` and `shellcheck` over every script listed in `SCRIPTS` in the `Makefile`, so add a new script there. Tests live in `tests/run.sh` and add a case for every behavior or bug fix.
+
+## Invariants
+
+1. Text from prompts, transcripts and models is untrusted terminal input. Strip control characters before storing it and before printing it.
+2. Notes are owner-only: `umask 077` in every script that writes them.
+3. A session id becomes part of a file name, so reject anything outside `[A-Za-z0-9_-]`.
+4. Hooks must never fail a user's prompt: exit 0 on any error other than an intended block.
+5. Scripts run on macOS and Linux, so avoid `stat -f` and `sed -i ''` without a fallback.
 
 ## Commit Messages
 
