@@ -11,13 +11,13 @@ import (
 
 // Theme holds every style the views use. The plain theme has none, so tests compare text.
 type Theme struct {
-	Tab, TabActive, Rule, Label, Dim, Err, Status, StatusKey, Hot lipgloss.Style
-	Plain                                                         bool
+	Tab, TabActive, Rule, Label, Dim, Err, Status, StatusKey, Hot, Attn lipgloss.Style
+	Plain                                                               bool
 }
 
 func plainTheme() Theme {
 	s := lipgloss.NewStyle()
-	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Plain: true}
+	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Plain: true}
 }
 
 // newTheme picks light or dark colours. sgr is the highlight setting from sitrep, as
@@ -40,6 +40,8 @@ func newTheme(isDark bool, sgr string) Theme {
 		Status:    lipgloss.NewStyle().Foreground(ld(lipgloss.Color("#ffffff"), lipgloss.Color("#101014"))).Background(accent),
 		StatusKey: lipgloss.NewStyle().Foreground(ld(lipgloss.Color("#ffffff"), lipgloss.Color("#101014"))).Background(accent).Bold(true),
 		Hot:       lipgloss.NewStyle().Background(hot),
+		// a session waiting for the user: a soft pink-red that stands out from the purple of recent activity
+		Attn: lipgloss.NewStyle().Background(ld(lipgloss.Color("#ffd9e4"), lipgloss.Color("#5c1f35"))),
 	}
 }
 

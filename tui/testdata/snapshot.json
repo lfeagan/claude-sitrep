@@ -16,7 +16,7 @@
      "progress": "Cleaned up worktrees and merged branches; only main remains",
      "now": "",
      "queue": {"count": 0, "items": []}},
-    {"id": "b1fb2044-ad15-4a8d-bec9-400b49361e79", "short": "b1fb", "dir": "timescaledb-storage-policy", "cwd": "/Users/x/timescaledb", "running": true, "state": "waiting", "state_label": "waiting 3m", "age": 180, "state_changed": 1795199820, "quiet_secs": null, "idle": false, "pinned": false, "highlight": false,
+    {"id": "b1fb2044-ad15-4a8d-bec9-400b49361e79", "short": "b1fb", "dir": "timescaledb-storage-policy", "cwd": "/Users/x/timescaledb", "running": true, "state": "waiting", "state_label": "waiting 3m", "age": 180, "state_changed": 1795199820, "quiet_secs": null, "idle": false, "needs_input": true, "pinned": false, "highlight": false,
      "objective": "evil \u001b[31mred\u001b]0;title\u0007 ‮bidi  sep\tTab",
      "progress": "p",
      "now": "waiting for your call on the branch",

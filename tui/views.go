@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -108,13 +109,45 @@ func queueLines(label string, q Queue, width, maxLines, indent int) []string {
 	return out
 }
 
-func highlight(lines []string, o viewOpts) []string {
+func paint(lines []string, st lipgloss.Style, width int) []string {
 	out := make([]string, len(lines))
 	for i, l := range lines {
 		// clip first: a style with a width wraps a line that is too wide, it does not cut it
-		out[i] = o.Theme.Hot.Width(o.Width).Render(ansi.Truncate(l, o.Width, "…"))
+		out[i] = st.Width(width).Render(ansi.Truncate(l, width, "…"))
 	}
 	return out
+}
+
+// mark colours a session's lines: pink-red when it waits for the user, which beats the
+// purple of recent activity.
+func mark(lines []string, x Session, o viewOpts) []string {
+	switch {
+	case x.NeedsInput && x.Running:
+		return paint(lines, o.Theme.Attn, o.Width)
+	case x.Highlight && x.Running:
+		return paint(lines, o.Theme.Hot, o.Width)
+	}
+	return lines
+}
+
+// stateText is the state as drawn: a ● leads the state of a session that needs the user,
+// so it shows in plain text, in screenshots, and for readers who cannot tell the colours apart.
+func stateText(x Session) string {
+	if x.NeedsInput && x.Running {
+		return "● " + x.StateLabel
+	}
+	return x.StateLabel
+}
+
+// needYou counts the running sessions that wait for the user.
+func needYou(s Snapshot) int {
+	n := 0
+	for _, x := range s.Sessions {
+		if x.Running && x.NeedsInput {
+			n++
+		}
+	}
+	return n
 }
 
 // watchBody is today's multi-line view: a block per session.
@@ -127,20 +160,17 @@ func watchBody(s Snapshot, o viewOpts) []string {
 	}
 	dw, sw := 9, 5
 	for _, x := range list {
-		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(x.StateLabel))
+		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
 	var blocks [][]string
 	for _, x := range list {
-		row := fmt.Sprintf("%-4s  %s  %s  %s", x.Short, padRight(x.Dir, dw), padRight(x.StateLabel, sw), queueWord(x.Queue.Count))
+		row := fmt.Sprintf("%-4s  %s  %s  %s", x.Short, padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
 		block := []string{ansi.Truncate(row, o.Width, "…")}
 		block = append(block, field("Objective:", x.Objective, o.Width, 3)...)
 		block = append(block, field("Progress:", x.Progress, o.Width, 3)...)
 		block = append(block, field("Now:", x.Now, o.Width, 3)...)
 		block = append(block, queueLines("Queue:", x.Queue, o.Width, 2, 4+11)...)
-		if x.Highlight && x.Running {
-			block = highlight(block, o)
-		}
-		blocks = append(blocks, block)
+		blocks = append(blocks, mark(block, x, o))
 	}
 	return fitBlocks(head, blocks, ended, s.Hidden.StrandedItems, o)
 }
@@ -212,7 +242,21 @@ func counts(s Snapshot) (running, working, waiting, idle, ended int) {
 
 func summary(s Snapshot) string {
 	r, w, a, i, e := counts(s)
-	return fmt.Sprintf("%d running: %d working, %d waiting, %d idle?, %d ended", r, w, a, i, e)
+	out := fmt.Sprintf("%d running: %d working, %d waiting, %d idle?, %d ended", r, w, a, i, e)
+	if n := needYou(s); n > 0 {
+		out = fmt.Sprintf("● %d need you   ", n) + out
+	}
+	return out
+}
+
+// shortSummary is the status bar's version: short enough to leave room for the key hints.
+func shortSummary(s Snapshot) string {
+	r, _, _, _, e := counts(s)
+	out := fmt.Sprintf("%d running, %d ended", r, e)
+	if n := needYou(s); n > 0 {
+		out = fmt.Sprintf("● %d need you   ", n) + out
+	}
+	return out
 }
 
 // topBody is the one-line-per-session view.
@@ -224,7 +268,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 	}
 	dw, sw := 9, 5
 	for _, x := range list {
-		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(x.StateLabel))
+		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
 	dw = min(dw, max((o.Width-20)/3, 6)) // a narrow screen gets a narrow directory column
 	head = append(head, o.Theme.Label.Render(fmt.Sprintf("%-4s  %s  %s  %-5s  %s", "ID", padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW")))
@@ -234,13 +278,9 @@ func topBody(s Snapshot, o viewOpts) []string {
 		if text == "" {
 			text = x.Objective
 		}
-		prefix := fmt.Sprintf("%-4s  %s  %s  %-5d  ", x.Short, padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(x.StateLabel, sw), x.Queue.Count)
+		prefix := fmt.Sprintf("%-4s  %s  %s  %-5d  ", x.Short, padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count)
 		line := prefix + ansi.Truncate(text, max(o.Width-ansi.StringWidth(prefix), 1), "…")
-		block := []string{line}
-		if x.Highlight && x.Running {
-			block = highlight(block, o)
-		}
-		blocks = append(blocks, block)
+		blocks = append(blocks, mark([]string{line}, x, o))
 	}
 	return fitBlocks(head, blocks, ended, s.Hidden.StrandedItems, o)
 }
@@ -265,7 +305,7 @@ func tabBar(active, width int, th Theme) []string {
 // statusBar shows the counts on the left and the keys on the right. A failed refresh
 // replaces the counts with the error, so the last good data stays on screen.
 func statusBar(s Snapshot, width int, errText string, th Theme) string {
-	left := " " + summary(s)
+	left := " " + shortSummary(s)
 	if errText != "" {
 		left = " " + errText
 	}

@@ -61,6 +61,7 @@ type Session struct {
 	Age          int64  `json:"age"`
 	StateChanged int64  `json:"state_changed"`
 	Idle         bool   `json:"idle"`
+	NeedsInput   bool   `json:"needs_input"`
 	QuietSecs    *int64 `json:"quiet_secs"`
 	Pinned       bool   `json:"pinned"`
 	Highlight    bool   `json:"highlight"`

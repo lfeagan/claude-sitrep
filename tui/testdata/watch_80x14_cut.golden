@@ -5,10 +5,10 @@ Inbox: 3 items
     2. check the CI flake on macOS and write down what the runner image does
        about the node deprecation
     +1 more
-15f1  claude-sitrep               working 1m  7 items                           
+15f1  claude-sitrep               working 1m    7 items                         
     Objective: Sitrep: add a Go front-end that reads sitrep ls --json, with a   
                Watch tab and a Top tab, a status bar and a theme                
 +2 more
 +2 ended (a)
 2 items stranded in ended sessions (sitrep prune)
- 3 running: 1 working, 1 waiting, 1 idle?, 2 ended  q quit  tab switch  a ended 
+ ● 1 need you   3 running, 2 ended                  q quit  tab switch  a ended 

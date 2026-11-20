@@ -104,6 +104,8 @@ The two tabs are:
 1. **Watch** is the multi-line view of `sitrep watch`: Objective, Progress, Now and the queue of each session, wrapped with a hanging indent.
 2. **Top** is a summary line (`3 running: 1 working, 1 waiting, 1 idle?, 2 ended`) and one line per session, with its state, queue size and what it is doing now.
 
+A session that waits for you, meaning Claude has stopped and the next move is yours, is drawn with a soft pink-red background and a `●` before its state, until you send it a prompt. This takes priority over the recent-activity colour. The status bar then leads with `● 2 need you`. The rule is the `needs_input` field of `sitrep ls --json`, so the dashboard decides nothing itself.
+
 The status bar shows the counts and the keys. `tab`, `shift+tab`, the arrow keys, `1` and `2` switch tabs, `a` shows or hides ended sessions, `r` refreshes, and `q` quits. A session that changed in the last `highlight_seconds` has a background colour, and the colours follow a light or dark terminal. `--interval` sets the refresh (default 3s), and `--once` prints one frame as plain text and exits.
 
 It is read-only and has no rules of its own. It runs `sitrep ls --json -a` for each refresh, so what counts as running, the two-minute grace and the `idle?` label are decided in one place, the shell script. If a refresh fails or is slow, the last good screen stays and the status bar says how old it is. It strips control and format characters from everything it draws, even though `sitrep` has already done so. `make tui-test` runs its tests, which need no terminal.
@@ -139,6 +141,7 @@ Each session has these fields:
 | `state_label`, `age` | The text `watch` shows, such as `working 1m` or `idle? 25m`, and the seconds since the state changed. |
 | `state_changed` | When the state changed, in epoch seconds. |
 | `idle`, `quiet_secs` | `idle` is true for a working session whose transcript has been quiet for ten minutes. `quiet_secs` is that quiet time, and null unless the session is working. |
+| `needs_input` | True for a running session in the `waiting` state: Claude has stopped, and the next move is the user's. It stays true until the user sends a prompt. |
 | `pinned`, `highlight` | Whether the Objective is pinned, and whether the session changed within `highlight_seconds`. |
 | `objective`, `progress`, `now` | The three lines of the status block. |
 | `queue` | `count` is the true number of items, and `items` holds the first ones, up to the cap. |

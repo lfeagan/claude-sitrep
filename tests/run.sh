@@ -628,6 +628,11 @@ eq "a finished session is not running" false "$(j -a | jq '.sessions[] | select(
 eq "a finished session has state ended" ended "$(j -a | jq -r '.sessions[] | select(.id == "jsn00002") | .state')"
 check "its label says how long ago" has "$(j -a | jq -r '.sessions[] | select(.id == "jsn00002") | .state_label')" "ended "
 eq "a live session with a stale ended state is running" running "$(j | jq -r '.sessions[] | select(.id == "jsn00003") | .state')"
+st jsn00003 waiting 500
+eq "a waiting session needs input" true "$(j | jq '.sessions[] | select(.id == "jsn00003") | .needs_input')"
+eq "a working session does not" false "$(j | jq '.sessions[] | select(.id == "jsn00001") | .needs_input')"
+eq "an ended session does not" false "$(j -a | jq '.sessions[] | select(.id == "jsn00002") | .needs_input')"
+st jsn00003 ended 500
 eq "the recent live session is highlighted" true "$(j | jq '.sessions[] | select(.id == "jsn00001") | .highlight')"
 eq "an older live session is not" false "$(j | jq '.sessions[] | select(.id == "jsn00003") | .highlight')"
 eq "a finished session is never highlighted" false "$(j -a | jq '.sessions[] | select(.id == "jsn00002") | .highlight')"

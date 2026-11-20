@@ -174,20 +174,21 @@ gather() { # all: collect the sessions active in the last day, newest first, for
 }
 
 json_frame() { # all cap: one JSON document for the running sessions (all: finished ones too); cap limits each queue's items, -1 for none
-  local all=$1 cap=$2 now live reg=0 ended=0 strand=0 isend=() ages=() sts=() ids=() full=() dirs=() ts=() i k sid w run state quiet idle pin hl hlsec q meta="" sep="" args=() out
+  local all=$1 cap=$2 now live reg=0 ended=0 strand=0 isend=() ages=() sts=() ids=() full=() dirs=() ts=() i k sid w run state quiet idle needs pin hl hlsec q meta="" sep="" args=() out
   gather "$all"
   hlsec=$(hl_seconds)
   for i in "${!full[@]}"; do
     sid=${full[$i]}; [[ $sid =~ ^[A-Za-z0-9_-]+$ ]] || continue   # ids come from file names; anything else is not ours
     w=$(sword "$sid"); run=true; [ "${isend[$i]}" = 1 ] && run=false
     state=$w; if [ "$run" = false ]; then state=ended; elif [ "$w" = ended ]; then state=running; fi   # alive in the registry, so a stale ended is not true
-    quiet=null; idle=false
+    quiet=null; idle=false; needs=false
+    [ "$run" = true ] && [ "$w" = waiting ] && needs=true   # Claude has stopped and the turn is the user's, until the next prompt
     if [ "$w" = working ] && [ "$run" = true ]; then q=$(tquiet "$sid" "$now"); [ -n "$q" ] && quiet=$q; fi
     [[ ${sts[$i]} == "idle?"* ]] && idle=true
     pin=false; [ -e "$dir/.$sid.pinned" ] && pin=true
     hl=false; [ "$run" = true ] && [ "$hlsec" -gt 0 ] && [ "${ages[$i]}" -le "$hlsec" ] && hl=true
     [[ ${sts[$i]} =~ ^[a-z?]+(\ [0-9\<]+[mhd]?)?$ ]] || sts[i]=-   # the label is built from known words; only such a label goes into the JSON
-    meta+="$sep{\"i\":$i,\"id\":\"$sid\",\"short\":\"${sid:0:4}\",\"running\":$run,\"state\":\"$state\",\"state_label\":\"${sts[$i]}\",\"age\":${ages[$i]},\"state_changed\":$(( now - ages[i] )),\"quiet_secs\":$quiet,\"idle\":$idle,\"pinned\":$pin,\"highlight\":$hl}"; sep=","
+    meta+="$sep{\"i\":$i,\"id\":\"$sid\",\"short\":\"${sid:0:4}\",\"running\":$run,\"state\":\"$state\",\"state_label\":\"${sts[$i]}\",\"age\":${ages[$i]},\"state_changed\":$(( now - ages[i] )),\"quiet_secs\":$quiet,\"idle\":$idle,\"needs_input\":$needs,\"pinned\":$pin,\"highlight\":$hl}"; sep=","
     for k in t:txt c:cwd q:queue; do   # a file that is missing or unreadable reads as empty, so one bad file does not blank the listing
       if [ -f "$dir/$sid.${k#*:}" ] && [ -r "$dir/$sid.${k#*:}" ]; then args+=(--rawfile "${k%%:*}$i" "$dir/$sid.${k#*:}"); else args+=(--rawfile "${k%%:*}$i" /dev/null); fi
     done

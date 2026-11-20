@@ -169,8 +169,17 @@ func TestBgFromSGR(t *testing.T) {
 	}
 }
 
+func TestStatusBarKeepsTheKeysAt80Columns(t *testing.T) {
+	s := loadFixture(t)
+	lines := strings.Split(render(s, tabWatch, "", opts(80, 20)), "\n")
+	last := lines[len(lines)-1]
+	if !strings.Contains(last, "● 1 need you") || !strings.Contains(last, "q quit") {
+		t.Errorf("the status bar should show who needs you and the keys: %q", last)
+	}
+}
+
 func TestSummaryCounts(t *testing.T) {
-	if got := summary(loadFixture(t)); got != "3 running: 1 working, 1 waiting, 1 idle?, 2 ended" {
+	if got := summary(loadFixture(t)); got != "● 1 need you   3 running: 1 working, 1 waiting, 1 idle?, 2 ended" {
 		t.Errorf("summary: %q", got)
 	}
 }
@@ -196,10 +205,65 @@ func TestTinyScreensNeverOverflow(t *testing.T) {
 
 func TestHighlightClipsInsteadOfWrapping(t *testing.T) {
 	o := viewOpts{Width: 20, Theme: newTheme(true, "48;5;238")}
-	got := highlight([]string{strings.Repeat("wide ", 20), "short"}, o)
+	got := paint([]string{strings.Repeat("wide ", 20), "short"}, o.Theme.Hot, o.Width)
 	for _, l := range got {
 		if strings.Contains(l, "\n") || ansi.StringWidth(l) > 20 {
 			t.Errorf("a highlighted line must be clipped to the width, not wrapped: %q", l)
 		}
+	}
+}
+
+func TestNeedsInputIsMarkedAndColoured(t *testing.T) {
+	s := loadFixture(t)
+	if !s.Sessions[2].NeedsInput || s.Sessions[0].NeedsInput {
+		t.Fatalf("the fixture's waiting session needs input, the working one does not")
+	}
+	plain := render(s, tabWatch, "", opts(80, 40))
+	if strings.Count(plain, "● waiting 3m") != 1 || strings.Contains(plain, "● working") {
+		t.Errorf("only the waiting session carries the marker:\n%s", plain)
+	}
+	top := render(s, tabTop, "", opts(80, 12))
+	if !strings.Contains(top, "● waiting 3m") {
+		t.Errorf("the Top tab marks it too:\n%s", top)
+	}
+	const attn, hot = "48;2;92;31;53", "48;5;238" // the dark attention colour, and the recent-activity colour
+	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
+	var attnLines, hotLines int
+	for _, l := range strings.Split(render(s, tabWatch, "", styled), "\n") {
+		if strings.Contains(l, attn) {
+			attnLines++
+		}
+		if strings.Contains(l, hot) {
+			hotLines++
+		}
+	}
+	if attnLines == 0 || hotLines == 0 {
+		t.Errorf("both highlights should appear: attention %d, recent %d", attnLines, hotLines)
+	}
+}
+
+func TestNeedsInputBeatsRecentActivity(t *testing.T) {
+	s := loadFixture(t)
+	s.Sessions[2].Highlight = true // recent as well as waiting
+	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
+	for _, l := range strings.Split(render(s, tabWatch, "", styled), "\n") {
+		if strings.Contains(ansi.Strip(l), "waiting for your call on the branch") {
+			if !strings.Contains(l, "48;2;92;31;53") || strings.Contains(l, "48;5;238") {
+				t.Errorf("a waiting session shows the attention colour even when it is recent: %q", l)
+			}
+		}
+	}
+}
+
+func TestEndedSessionsNeverNeedYou(t *testing.T) {
+	s := loadFixture(t)
+	s.Sessions[3].NeedsInput = true // an ended session, which the shell would never flag
+	o := opts(80, 40)
+	o.ShowEnded = true
+	if got := render(s, tabWatch, "", o); strings.Contains(got, "● ended") {
+		t.Errorf("an ended session must not be marked:\n%s", got)
+	}
+	if needYou(s) != 1 {
+		t.Errorf("only running sessions count: %d", needYou(s))
 	}
 }
