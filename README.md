@@ -92,6 +92,22 @@ Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the envi
 
 It never touches a running session or one under two minutes old, and it never deletes a queue file.
 
+## The Full-Screen Dashboard
+
+`sitrep tui` is an optional full-screen view with two tabs and a status bar. It is written in Go with Bubble Tea and Lip Gloss, and it is not built by default, so everything above works without Go. To build it you need Go 1.26 or newer:
+
+1. Run `make tui` in the claude-sitrep checkout. It writes `bin/sitrep-tui` next to `bin/sitrep`.
+2. Run `sitrep tui`, or `sitrep tui --tab top` to open on the Top tab. `sitrep-tui` is found through `$SITREP_TUI`, then next to the `sitrep` script, then on `PATH`.
+
+The two tabs are:
+
+1. **Watch** is the multi-line view of `sitrep watch`: Objective, Progress, Now and the queue of each session, wrapped with a hanging indent.
+2. **Top** is a summary line (`3 running: 1 working, 1 waiting, 1 idle?, 2 ended`) and one line per session, with its state, queue size and what it is doing now.
+
+The status bar shows the counts and the keys. `tab`, `shift+tab`, the arrow keys, `1` and `2` switch tabs, `a` shows or hides ended sessions, `r` refreshes, and `q` quits. A session that changed in the last `highlight_seconds` has a background colour, and the colours follow a light or dark terminal. `--interval` sets the refresh (default 3s), and `--once` prints one frame as plain text and exits.
+
+It is read-only and has no rules of its own. It runs `sitrep ls --json -a` for each refresh, so what counts as running, the two-minute grace and the `idle?` label are decided in one place, the shell script. If a refresh fails or is slow, the last good screen stays and the status bar says how old it is. It strips control and format characters from everything it draws, even though `sitrep` has already done so. `make tui-test` runs its tests, which need no terminal.
+
 ## For Programs
 
 `sitrep ls --json [-a] [-n items | --full]` prints one JSON document that describes the running sessions, and is meant for a program that draws its own view. `-a` includes ended sessions, `-n` caps the items listed in each queue (default 5, or `SITREP_QUEUE_ITEMS`), and `--full` lists them all. It follows these rules:

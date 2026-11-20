@@ -286,6 +286,17 @@ watch_loop() { # seconds (with $items, $all, $wrapn and $hl set): redraw every N
   done
 }
 
+tui_bin() { # the optional Go dashboard: $SITREP_TUI, then next to this script (through a symlink), then PATH
+  local self=$0 d p t n=0
+  if [ -n "$SITREP_TUI" ]; then [ -f "$SITREP_TUI" ] && [ -x "$SITREP_TUI" ] && echo "$SITREP_TUI"; return; fi
+  while [ -L "$self" ] && [ "$n" -lt 20 ]; do   # follow a chain of links; a relative target is relative to the link's own directory
+    t=$(readlink "$self"); case "$t" in /*) self=$t ;; *) self=$(dirname "$self")/$t ;; esac; n=$(( n + 1 ))
+  done
+  d=$(cd "$(dirname "$self")" 2>/dev/null && pwd) && p="$d/sitrep-tui"
+  if [ -n "$p" ] && [ -f "$p" ] && [ -x "$p" ]; then echo "$p"; return; fi
+  command -v sitrep-tui
+}
+
 help_all() {
   cat <<'EOF'
 usage: sitrep <command> [args]
@@ -300,6 +311,7 @@ usage: sitrep <command> [args]
   unpin <id>                 let the summarizer rewrite the Objective
   prune                      clear out sessions that are gone
   watch                      live dashboard of running sessions
+  tui                        optional full-screen dashboard with tabs; needs a Go build
   help [command]             this list, or the details of one command
 
 An <id> is a unique prefix of a session id, or "inbox".
@@ -406,6 +418,18 @@ Settings, in the environment or sitrep.conf: SITREP_QUEUE_ITEMS, SITREP_HIGHLIGH
 and SITREP_HIGHLIGHT_SGR. NO_COLOR turns the highlight off.
 EOF
     ;;
+    tui) cat <<'EOF'
+usage: sitrep tui [--tab watch|top] [--interval 3s] [--once] [--width n]
+
+Run sitrep-tui, an optional full-screen dashboard with a Watch tab and a Top tab and a
+status bar. It is read-only, and it gets everything from `sitrep ls --json`. It is not
+built by default: run `make tui` in the claude-sitrep checkout, which needs Go 1.26 or
+newer. Keys: tab, shift-tab, left, right, 1 and 2 switch tabs, a shows or hides ended
+sessions, r refreshes, q quits. --once prints one frame as plain text and exits.
+
+sitrep-tui is found through $SITREP_TUI, then next to this script, then on PATH.
+EOF
+    ;;
     help) cat <<'EOF'
 usage: sitrep help [command]
 
@@ -487,6 +511,10 @@ case "$cmd" in
           case "$ans" in y|Y|yes) for (( i = 0; i < n; i++ )); do bash "$0" move "$sid" inbox 1 >/dev/null || break; moved=$(( moved + 1 )); done ;; esac
         done
         echo "$marked marked ended, $moved item(s) moved to the inbox" ;;
+  tui)  bin=$(tui_bin)
+        [ -n "$bin" ] || die "sitrep-tui is not built; run 'make tui' in the claude-sitrep checkout (needs Go 1.26 or newer)"
+        case $0 in /*) me=$0 ;; *) me=$PWD/$0 ;; esac   # an absolute path, so the dashboard never searches PATH for it
+        SITREP_BIN=$me exec "$bin" "$@" ;;   # the dashboard runs this very script, so their versions match
   help|-h|--help) case "$1" in
           "") help_all ;;
           -h|--help) help_for help ;;

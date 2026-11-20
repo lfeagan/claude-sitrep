@@ -717,7 +717,7 @@ check "help starts with the usage line" has "$(sitrep help | head -1)" "usage: s
 eq "the command list is short" 1 "$([ "$(sitrep help | wc -l)" -le 18 ] && echo 1)"
 eq "no line of the list is wider than 90 columns" 0 "$(sitrep help | awk 'length > 90' | wc -l | tr -d ' ')"
 eq "help prints to stdout and nothing to stderr" "" "$(sitrep help 2>&1 >/dev/null)"
-for c in ls add rm top reorder move pin unpin prune watch help; do
+for c in ls add rm top reorder move pin unpin prune watch tui help; do
   check "the list has a line for $c" has "$(sitrep help)" "  $c"
   check "help $c starts with its usage line" has "$(sitrep help "$c" | head -1)" "usage: sitrep $c"
   eq "$c --help is the same as help $c" "$(sitrep help "$c")" "$(bounded sitrep "$c" --help)"
@@ -735,6 +735,30 @@ eq "an unknown command prints nothing on stdout" "" "$(sitrep bogus 2>/dev/null)
 eq "--help on an unknown command fails" 1 "$(rc sitrep bogus --help)"
 eq "help of an unknown command fails" 1 "$(rc sitrep help bogus)"
 check "help of an unknown command says so" has "$(sitrep help bogus 2>&1)" "no help for 'bogus'"
+
+# ---- tui: the command that starts the optional Go dashboard
+fake="$T/fake-tui"
+# shellcheck disable=SC2016  # the script's own variables must stay literal
+printf '#!/bin/sh\necho "args: $*"\necho "bin: $SITREP_BIN"\nexit 7\n' > "$fake"; chmod +x "$fake"
+out=$(SITREP_TUI="$fake" sitrep tui --tab top --once)
+check "sitrep tui passes its arguments on" has "$out" "args: --tab top --once"
+check "sitrep tui tells the dashboard which sitrep to run" has "$out" "bin: $R/bin/sitrep"
+eq "sitrep tui becomes the dashboard, so its exit status comes through" 7 "$(SITREP_TUI="$fake" rc sitrep tui)"
+eq "a missing dashboard fails" 1 "$(SITREP_TUI="$T/nope" rc sitrep tui)"
+check "and says how to build it" has "$(SITREP_TUI="$T/nope" sitrep tui 2>&1)" "make tui"
+printf 'plain file\n' > "$T/notexec"
+eq "a file that is not executable is not used" 1 "$(SITREP_TUI="$T/notexec" rc sitrep tui)"
+# the dashboard is found through relative and chained links, whatever the working directory
+mkdir -p "$T/chk/real/bin" "$T/chk/links"
+cp "$R/bin/sitrep" "$T/chk/real/bin/sitrep"; cp "$fake" "$T/chk/real/bin/sitrep-tui"
+ln -s ../real/bin/sitrep "$T/chk/links/rel"; ln -s rel "$T/chk/links/chain"; ln -s "$T/chk/real/bin/sitrep" "$T/chk/links/abs"
+for l in rel chain abs; do
+  check "sitrep tui is found through the $l link" has "$(cd / && env -u SITREP_TUI "$T/chk/links/$l" tui 2>&1)" "args: "
+done
+check "SITREP_BIN is an absolute path, even for a script run by a relative name" has "$(cd "$R/bin" && SITREP_TUI="$fake" bash sitrep tui)" "bin: $R/bin/sitrep"
+check "sitrep help tui mentions the build" has "$(sitrep help tui)" "make tui"
+check "the list has a line for tui" has "$(sitrep help)" "  tui "
+check "top is still the queue command, not the dashboard" has "$(sitrep help top)" "usage: sitrep top <id> <n>"
 
 # ---- reorder
 printf 'Objective: r\n' > "$STATE/rord0001.txt"; rm -f "$STATE/rord0001.queue"
