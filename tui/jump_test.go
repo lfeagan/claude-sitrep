@@ -202,7 +202,7 @@ func TestEnterJumpsOnce(t *testing.T) {
 	if _, none := press(t, newModel("x", time.Second, tabWatch), "enter"); none != nil {
 		t.Errorf("nothing selected, nothing to jump to")
 	}
-	d, _ := press(t, m, "i")
+	d, _ := press(t, m, "d")
 	if _, cmd := press(t, d, "enter"); cmd == nil {
 		t.Errorf("enter jumps from the detail pane too")
 	}

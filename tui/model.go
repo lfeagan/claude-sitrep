@@ -103,7 +103,7 @@ func (m model) selected() *Session {
 }
 
 // detailKey handles keys while the detail pane is open: up and down change the session, and
-// the page keys and the space bar scroll. Esc or i closes it.
+// the page keys and the space bar scroll. Esc or d closes it.
 func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	x := m.selected()
 	if x == nil {
@@ -115,7 +115,7 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		return m, tea.Quit
-	case "esc", "i", "backspace":
+	case "esc", "d", "backspace":
 		m.detail = false
 	case "enter":
 		if cmd := m.jumpCmd(); cmd != nil {
@@ -247,7 +247,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cmd := m.jumpCmd(); cmd != nil {
 				return m, cmd
 			}
-		case "i", "space", " ":
+		case "d", "space", " ":
 			if m.selected() != nil {
 				m.detail, m.scroll = true, 0
 			}
