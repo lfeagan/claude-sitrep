@@ -174,7 +174,7 @@ gather() { # all: collect the sessions active in the last day, newest first, for
 }
 
 json_frame() { # all cap: one JSON document for the running sessions (all: finished ones too); cap limits each queue's items, -1 for none
-  local all=$1 cap=$2 now live reg=0 ended=0 strand=0 isend=() ages=() sts=() ids=() full=() dirs=() ts=() i k sid w run state quiet idle needs pin hl hlsec q rest pid meta="" sep="" args=() out
+  local all=$1 cap=$2 now live reg=0 ended=0 strand=0 isend=() ages=() sts=() ids=() full=() dirs=() ts=() i k sid w run state quiet idle needs snoozed sv pin hl hlsec q rest pid meta="" sep="" args=() out
   gather "$all"
   hlsec=$(hl_seconds)
   for i in "${!full[@]}"; do
@@ -183,14 +183,17 @@ json_frame() { # all cap: one JSON document for the running sessions (all: finis
     state=$w; if [ "$run" = false ]; then state=ended; elif [ "$w" = ended ]; then state=running; fi   # alive in the registry, so a stale ended is not true
     pid=null   # the live process, when the registry names one here; the first, if a resume left several
     if [ "$run" = true ]; then case $'\n'"$live" in *$'\n'"$sid "*) rest=${live#*"$sid "}; rest=${rest%%$'\n'*}; [[ $rest =~ ^[0-9]+$ ]] && pid=$rest ;; esac; fi
-    quiet=null; idle=false; needs=false
-    [ "$run" = true ] && [ "$w" = waiting ] && needs=true   # Claude has stopped and the turn is the user's, until the next prompt
+    quiet=null; idle=false; needs=false; snoozed=false
+    if [ "$run" = true ] && [ "$w" = waiting ]; then needs=true   # Claude has stopped and the turn is the user's, until the next prompt
+      # `sitrep snooze` stored when the state last changed; while that is still the time, the user has muted it
+      if [ -f "$dir/.$sid.snooze" ]; then read -r sv < "$dir/.$sid.snooze"; [ "$sv" = "$(( now - ages[i] ))" ] && { needs=false; snoozed=true; }; fi
+    fi
     if [ "$w" = working ] && [ "$run" = true ]; then q=$(tquiet "$sid" "$now"); [ -n "$q" ] && quiet=$q; fi
     [[ ${sts[$i]} == "idle?"* ]] && idle=true
     pin=false; [ -e "$dir/.$sid.pinned" ] && pin=true
     hl=false; [ "$run" = true ] && [ "$hlsec" -gt 0 ] && [ "${ages[$i]}" -le "$hlsec" ] && hl=true
     [[ ${sts[$i]} =~ ^[a-z?]+(\ [0-9\<]+[mhd]?)?$ ]] || sts[i]=-   # the label is built from known words; only such a label goes into the JSON
-    meta+="$sep{\"i\":$i,\"id\":\"$sid\",\"short\":\"${sid:0:4}\",\"running\":$run,\"state\":\"$state\",\"state_label\":\"${sts[$i]}\",\"age\":${ages[$i]},\"state_changed\":$(( now - ages[i] )),\"quiet_secs\":$quiet,\"idle\":$idle,\"needs_input\":$needs,\"pid\":$pid,\"pinned\":$pin,\"highlight\":$hl}"; sep=","
+    meta+="$sep{\"i\":$i,\"id\":\"$sid\",\"short\":\"${sid:0:4}\",\"running\":$run,\"state\":\"$state\",\"state_label\":\"${sts[$i]}\",\"age\":${ages[$i]},\"state_changed\":$(( now - ages[i] )),\"quiet_secs\":$quiet,\"idle\":$idle,\"needs_input\":$needs,\"snoozed\":$snoozed,\"pid\":$pid,\"pinned\":$pin,\"highlight\":$hl}"; sep=","
     for k in t:txt c:cwd q:queue; do   # a file that is missing or unreadable reads as empty, so one bad file does not blank the listing
       if [ -f "$dir/$sid.${k#*:}" ] && [ -r "$dir/$sid.${k#*:}" ]; then args+=(--rawfile "${k%%:*}$i" "$dir/$sid.${k#*:}"); else args+=(--rawfile "${k%%:*}$i" /dev/null); fi
     done
@@ -312,6 +315,7 @@ usage: sitrep <command> [args]
   move <from> <to> [n]       hand an item to another queue
   pin <id> <text>            fix a session's Objective
   unpin <id>                 let the summarizer rewrite the Objective
+  snooze [--off] <id>        mute the needs-you state of a session until it changes
   prune                      clear out sessions that are gone
   watch                      live dashboard of running sessions
   tui                        optional full-screen dashboard with tabs; needs a Go build
@@ -389,6 +393,15 @@ EOF
 usage: sitrep unpin <id>
 
 Let the summarizer rewrite a session's Objective again.
+EOF
+    ;;
+    snooze) cat <<'EOF'
+usage: sitrep snooze [--off] <id>
+
+Mute the "waiting for you" state of one session, so that a program such as sitrep-tui stops
+drawing it as needing you. The mute ends by itself when the session changes: the next
+prompt, or the end of the next turn. `--off` ends it at once. Only the JSON changes: the
+`needs_input` field turns false and `snoozed` turns true.
 EOF
     ;;
     prune) cat <<'EOF'
@@ -529,6 +542,16 @@ case "$cmd" in
         [ -n "$bin" ] || die "sitrep-tui is not built; run 'make tui' in the claude-sitrep checkout (needs Go 1.26 or newer)"
         case $0 in /*) me=$0 ;; *) me=$PWD/$0 ;; esac   # an absolute path, so the dashboard never searches PATH for it
         SITREP_BIN=$me exec "$bin" "$@" ;;   # the dashboard runs this very script, so their versions match
+  snooze) off=0; [ "$1" = --off ] && { off=1; shift; }
+        [ $# -eq 1 ] || die "usage: sitrep snooze [--off] <id>"
+        sid=$(resolve "$1") || exit 1; [ "$sid" != inbox ] || die "the inbox is not a session"
+        if [ "$off" = 1 ]; then rm -f "$dir/.$sid.snooze"; echo "$(label "$sid") is no longer snoozed"
+        else
+          key="$dir/.$sid.state"; [ -f "$key" ] || key="$dir/$sid.txt"
+          m=$(mtime "$key"); [[ $m =~ ^[0-9]+$ ]] || die "cannot read when $(label "$sid") last changed"
+          if ! { t=$(tmpfile) && printf '%s\n' "$m" > "$t" && mv "$t" "$dir/.$sid.snooze"; }; then die "cannot snooze $(label "$sid")"; fi
+          echo "snoozed $(label "$sid") until it changes"
+        fi ;;
   help|-h|--help) case "$1" in
           "") help_all ;;
           -h|--help) help_for help ;;

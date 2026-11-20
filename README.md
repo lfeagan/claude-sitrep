@@ -153,7 +153,7 @@ Each session has these fields:
 | `state_changed` | When the state changed, in epoch seconds. |
 | `idle`, `quiet_secs` | `idle` is true for a working session whose transcript has been quiet for ten minutes. `quiet_secs` is that quiet time, and null unless the session is working. |
 | `pid` | The live process of the session, from the registry, or null when it is not known here (another pid space). If a resume left several, the first. A hint only: it can be stale by the time it is used. |
-| `needs_input` | True for a running session in the `waiting` state: Claude has stopped, and the next move is the user's. It stays true until the user sends a prompt. |
+| `needs_input`, `snoozed` | `needs_input` is true for a running session in the `waiting` state: Claude has stopped, and the next move is the user's. It stays true until the user sends a prompt, unless the session is snoozed. `sitrep snooze <id>` mutes it until the session next changes (`snoozed` is then true and `needs_input` false), and `sitrep snooze --off <id>` ends the mute at once. |
 | `pinned`, `highlight` | Whether the Objective is pinned, and whether the session changed within `highlight_seconds`. |
 | `objective`, `progress`, `now` | The three lines of the status block. |
 | `queue` | `count` is the true number of items, and `items` holds the first ones, up to the cap. |

@@ -657,6 +657,18 @@ check "its label says how long ago" has "$(j -a | jq -r '.sessions[] | select(.i
 eq "a live session with a stale ended state is running" running "$(j | jq -r '.sessions[] | select(.id == "jsn00003") | .state')"
 st jsn00003 waiting 500
 eq "a waiting session needs input" true "$(j | jq '.sessions[] | select(.id == "jsn00003") | .needs_input')"
+eq "a waiting session is not snoozed" false "$(j | jq '.sessions[] | select(.id == "jsn00003") | .snoozed')"
+check "snooze says what it did" has "$(sitrep snooze jsn00003)" "snoozed jsn0 until it changes"
+eq "a snoozed session no longer needs input" "false true" "$(j | jq -r '.sessions[] | select(.id == "jsn00003") | "\(.needs_input) \(.snoozed)"')"
+eq "the snooze marker is owner-only" 600 "$(mode "$STATE/.jsn00003.snooze")"
+st jsn00003 waiting 400
+eq "a change of state ends the snooze by itself" "true false" "$(j | jq -r '.sessions[] | select(.id == "jsn00003") | "\(.needs_input) \(.snoozed)"')"
+sitrep snooze jsn00003 >/dev/null; sitrep snooze --off jsn00003 >/dev/null
+eq "snooze --off ends it at once" "true false" "$(j | jq -r '.sessions[] | select(.id == "jsn00003") | "\(.needs_input) \(.snoozed)"')"
+eq "a snooze of the inbox is refused" 1 "$(rc sitrep snooze inbox)"
+eq "a snooze with no id is refused" 1 "$(rc sitrep snooze)"
+eq "a snooze of an unknown session is refused" 1 "$(rc sitrep snooze zzzz)"
+check "help snooze says how to end it" has "$(sitrep help snooze)" "--off"
 eq "a working session does not" false "$(j | jq '.sessions[] | select(.id == "jsn00001") | .needs_input')"
 eq "an ended session does not" false "$(j -a | jq '.sessions[] | select(.id == "jsn00002") | .needs_input')"
 st jsn00003 ended 500
@@ -749,7 +761,7 @@ check "help starts with the usage line" has "$(sitrep help | head -1)" "usage: s
 eq "the command list is short" 1 "$([ "$(sitrep help | wc -l)" -le 18 ] && echo 1)"
 eq "no line of the list is wider than 90 columns" 0 "$(sitrep help | awk 'length > 90' | wc -l | tr -d ' ')"
 eq "help prints to stdout and nothing to stderr" "" "$(sitrep help 2>&1 >/dev/null)"
-for c in ls add rm top reorder move pin unpin prune watch tui help; do
+for c in ls add rm top reorder move pin unpin snooze prune watch tui help; do
   check "the list has a line for $c" has "$(sitrep help)" "  $c"
   check "help $c starts with its usage line" has "$(sitrep help "$c" | head -1)" "usage: sitrep $c"
   eq "$c --help is the same as help $c" "$(sitrep help "$c")" "$(bounded sitrep "$c" --help)"
