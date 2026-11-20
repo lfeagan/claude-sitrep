@@ -32,9 +32,12 @@ case "$cmd" in
   done) [ $# -ge 1 ] || die "usage: q done <session> [item=1]"
         sid=$(resolve "$1"); n=${2:-1}; f=$(qf "$sid"); [ -s "$f" ] || die "queue empty"
         sed -n "${n}p" "$f"; sed -i '' "${n}d" "$f" ;;
+  goal) [ $# -ge 2 ] || die "usage: q goal <session> <text>"
+        sid=$(resolve "$1"); shift; f="$dir/$sid.txt"
+        { printf 'Objective: %s\n' "$*"; grep -v '^Objective:' "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"; echo "objective set on ${sid:0:4}" ;;
   move) [ $# -ge 2 ] || die "usage: q move <from> <to> [item=1]"
         from=$(resolve "$1"); to=$(resolve "$2"); n=${3:-1}; f=$(qf "$from")
         item=$(sed -n "${n}p" "$f"); [ -n "$item" ] || die "no item $n on ${from:0:4}"
         echo "$item" >> "$(qf "$to")"; sed -i '' "${n}d" "$f"; echo "moved to ${to:0:4}: $item" ;;
-  *) die "usage: q [ls [session]] | add <session> <text> | done <session> [n] | move <from> <to> [n]" ;;
+  *) die "usage: q [ls [session]] | add <session> <text> | goal <session> <text> | done <session> [n] | move <from> <to> [n]" ;;
 esac

@@ -31,13 +31,17 @@ summarize() { # background Haiku call: rewrites Progress and Now
       | claude -p --model haiku --no-session-persistence --disable-slash-commands --tools "" --max-budget-usd 0.05 2>/dev/null)
     p=$(printf '%s' "$out" | sed -n 's/^Progress: *//p' | head -1)
     n=$(printf '%s' "$out" | sed -n 's/^Now: *//p' | head -1)
-    [ -n "$p" ] && [ -n "$n" ] && write "$obj" "$(trunc "$p" 140)" "$(trunc "$n" 140)"
+    [ -n "$p" ] && [ -n "$n" ] && write "$(get Objective)" "$(trunc "$p" 140)" "$(trunc "$n" 140)"
   ) >/dev/null 2>&1 &
 }
 
 if [ "$event" = "UserPromptSubmit" ]; then
   prompt=$(printf '%s' "$input" | jq -r '.prompt // empty')
   case "$prompt" in
+    "+goal "*) # pin the objective; the summarizer never overwrites it
+      obj=$(trunc "${prompt#+goal }" 160)
+      write "$obj" "${prog:--}" "${now:--}"
+      jq -n --arg r "Objective pinned: $obj" '{decision:"block",reason:$r}'; exit 0 ;;
     "+ "*) # queue instead of sending to Claude
       item=${prompt#+ }; printf '%s\n' "$item" >> "$qfile"
       [ -f "$f" ] || write "-" "-" "-"

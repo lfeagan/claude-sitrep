@@ -30,7 +30,9 @@ Requires `jq` and the `claude` CLI. Run `./install.sh`. It backs up `~/.claude/s
 3. `q done <session> [n]` removes item `n` (default 1) and prints it.
 4. `q move <from> <to> [n]` hands an item to another session.
 
-Inside a session, a prompt starting with `+ ` queues the rest of the line and is not sent to Claude.
+5. `q goal <session> <text>` pins that session's Objective.
+
+Inside a session, a prompt starting with `+ ` queues the rest of the line, and one starting with `+goal ` pins the Objective. Neither is sent to Claude.
 
 ## How It Works
 
