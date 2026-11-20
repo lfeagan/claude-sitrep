@@ -23,11 +23,21 @@ resolve() { # prefix -> full session id; `inbox` is the queue of no session and 
 qf() { echo "$dir/$1.queue"; }
 count() { local n; n=$(grep -c . "$(qf "$1")" 2>/dev/null); echo "${n:-0}"; }
 label() { if [ "$1" = inbox ]; then echo inbox; else echo "${1:0:4}"; fi; }
-qsum() { # id: "empty", "1 item" or "N items", plus the next item
+qsum() { # id [count]: "empty", "1 item" or "N items", plus the next item unless asked for the count alone
   local n q; n=$(count "$1")
   case "$n" in 0) q="empty" ;; 1) q="1 item" ;; *) q="$n items" ;; esac
-  [ "$n" -gt 0 ] && q="$q, next: $(head -n 1 "$(qf "$1")" | strip)"
+  [ "$n" -gt 0 ] && [ "$2" != count ] && q="$q, next: $(head -n 1 "$(qf "$1")" | strip)"
   echo "$q"
+}
+qlist() { # id max first-prefix other-prefix: the first max items, numbered, then "+K more"
+  local n; n=$(count "$1"); [ "$n" -gt 0 ] || return 0
+  awk -v n="$2" -v p1="$3" -v p2="$4" -v t="$n" 'NR <= n { printf "%s%d. %s\n", (NR == 1 ? p1 : p2), NR, $0 } END { if (t > n) printf "%s+%d more\n", p2, t - n }' "$(qf "$1")" | strip
+}
+items_default() { # SITREP_QUEUE_ITEMS from the environment, then from sitrep.conf (read, not run), then 5
+  local n=${SITREP_QUEUE_ITEMS:-}
+  [ -n "$n" ] || n=$(sed -n 's/^SITREP_QUEUE_ITEMS=//p' "$dir/sitrep.conf" 2>/dev/null | head -n 1 | tr -d "'\"")
+  [[ $n =~ ^[0-9]+$ ]] || n=5
+  echo "$n"
 }
 without() { # file n text: print a temp file holding the queue minus line n; fails if line n is no longer text
   local t; t=$(tmpfile) || return 1
@@ -51,9 +61,93 @@ reorder_q() { # id from to: move item `from` to position `to`
   else rm -f "$t"; die "queue changed; run 'sitrep ls $(label "$sid")'"; fi
 }
 
+termsize() { # sets rows and cols: LINES/COLUMNS, then the terminal, then 24x100 (a pipe or a bad value)
+  rows=${LINES:-}; cols=${COLUMNS:-}
+  if [ -t 1 ] && { [ -z "$rows" ] || [ -z "$cols" ]; }; then
+    local sz; sz=$(stty size </dev/tty 2>/dev/null) && { rows=${rows:-${sz% *}}; cols=${cols:-${sz#* }}; }
+  fi
+  [ "$rows" -ge 3 ] 2>/dev/null || rows=24
+  [ "$cols" -ge 10 ] 2>/dev/null || cols=100
+}
+
+render_frame() { # verbose rows cols items: the Inbox, then a table of recent sessions. rows 0 means no height limit.
+  # With verbose and items above 0 each queue is listed (at most items entries) and the header shows the count alone.
+  local v=$1 rows=$2 cols=$3 items=$4 list=0 expr l ids=() dirs=() qs=() ts=() w=9 now m t sid cwd d q i avail blk nlc
+  local full=() head=() blocks=() bn=() out=() used shown=0 cap total=0
+  now=$(date +%s)
+  { [ "$v" = 1 ] && [ "$items" -gt 0 ]; } && list=1
+  expr='s/^Objective: /    Objective: /p;s/^Now: */    Now:       /p'
+  [ "$v" = 1 ] && expr='s/^Objective: /    Objective: /p;s/^Progress: */    Progress:  /p;s/^Now: */    Now:       /p'
+  while read -r m t; do
+    [ $(( now - m )) -lt 86400 ] || continue   # active in the last day
+    sid=$(basename "$t" .txt); cwd=$(cwd_of "$sid"); d=$(basename "${cwd:-?}")
+    if [ "$list" = 1 ]; then q=$(qsum "$sid" count); else q=$(qsum "$sid"); fi
+    ids+=("${sid:0:4}"); full+=("$sid"); dirs+=("$d"); qs+=("$q"); ts+=("$t"); [ ${#d} -gt "$w" ] && w=${#d}   # w: width of the DIRECTORY column
+  done < <(for t in "$dir"/*.txt; do [ -f "$t" ] && echo "$(mtime "$t") $t"; done | sort -rn)
+  if [ "$(count inbox)" -gt 0 ]; then
+    if [ "$list" = 1 ]; then
+      head+=("$(printf 'Inbox: %s' "$(qsum inbox count)" | fit "$cols")")
+      while IFS= read -r l; do head+=("$(printf '%s' "$l" | fit "$cols")"); done < <(qlist inbox "$items" "    " "    ")
+    else head+=("$(printf 'Inbox: %s' "$(qsum inbox)" | fit "$cols")"); fi
+  fi
+  [ ${#ids[@]} -gt 0 ] && head+=("$(printf '%-4s  %-*s  %s' ID "$w" DIRECTORY QUEUE | { if [ "$rows" -gt 0 ]; then fit "$cols"; else cat; fi; })")
+  avail=$(( cols - w - 8 )); [ "$avail" -lt 10 ] && avail=10   # 8 = id column and the gaps
+  for i in "${!ids[@]}"; do
+    blk=$(printf '%-4s  %-*s  %s\n' "${ids[$i]}" "$w" "${dirs[$i]}" "$(printf '%s' "${qs[$i]}" | fit "$avail")"
+          sed -n "$expr" "${ts[$i]}" | strip
+          [ "$list" = 1 ] && qlist "${full[$i]}" "$items" "    Queue:     " "               ")
+    [ "$rows" -gt 0 ] && blk=$(printf '%s' "$blk" | tr '\t' ' ' | fit "$cols")   # a tab can span 8 columns
+    nlc=${blk//[!$'\n']/}; blocks+=("$blk"); bn+=($(( ${#nlc} + 1 ))); total=$(( total + ${#nlc} + 1 ))
+  done
+  used=${#head[@]}; cap=0
+  if [ "$rows" -gt 0 ] && [ $(( used + total )) -gt "$rows" ]; then cap=$(( rows - 1 )); fi   # too tall: sessions get rows-1 lines, and the last line is the footer
+  out=("${head[@]}")
+  for i in "${!blocks[@]}"; do
+    if [ "$cap" -gt 0 ] && [ $(( used + bn[i] )) -gt "$cap" ]; then break; fi
+    out+=("${blocks[$i]}"); used=$(( used + bn[i] )); shown=$(( shown + 1 ))
+  done
+  if [ "$shown" -lt ${#blocks[@]} ]; then out+=("+$(( ${#blocks[@]} - shown )) more"); fi
+  [ ${#out[@]} -gt 0 ] || return 0
+  printf '%s\n' "${out[@]}" | { if [ "$rows" -gt 0 ]; then head -n "$rows"; else cat; fi; }   # a tiny pane still gets at most rows lines
+}
+
+sig() { # one stat over the state files: names, sizes and mtimes; a directory mtime misses in-place appends
+  local files=() f
+  for f in "$dir"/*.txt "$dir"/*.queue; do [ -e "$f" ] && files+=("$f"); done
+  [ ${#files[@]} -gt 0 ] || return 0
+  if stat -c %Y "${files[0]}" >/dev/null 2>&1; then stat -c '%Y %s %n' "${files[@]}" 2>/dev/null   # GNU first: BSD-style `stat -f` succeeds with other output on Linux
+  else stat -f '%m %z %N' "${files[@]}" 2>/dev/null; fi
+}
+
+watch_loop() { # seconds: redraw every N seconds, and at once when a state file or the terminal size changes
+  local interval=$1 last="" lastdraw=0 s now frame l key tty=0
+  { : </dev/tty; } 2>/dev/null && tty=1   # a readable terminal: wait on it, so a key wakes the loop
+  [[ $interval =~ ^[1-9][0-9]*$ ]] || die "usage: sitrep watch [--once] [-n items] [seconds]"
+  trap 'printf "\033[?7h\033[?25h"' EXIT; trap 'exit 130' INT TERM
+  printf '\033[?25l\033[?7l'   # hide the cursor and clip, not wrap, a line that is too wide
+  while :; do
+    termsize; now=$(date +%s); s="$(sig)|$rows|$cols"
+    if [ "$s" != "$last" ] || [ $(( now - lastdraw )) -ge "$interval" ]; then
+      frame=$(render_frame 1 $(( rows - 1 )) "$cols" "$items"); [ -n "$frame" ] || frame="No sessions active in the last day."
+      printf '\033[H'; while IFS= read -r l; do printf '%s\033[K\n' "$l"; done <<<"$frame"; printf '\033[J'
+      last=$s; lastdraw=$now
+    fi
+    if [ "$tty" = 1 ]; then
+      if read -t 1 -n 1 -r -s key </dev/tty 2>/dev/null; then [ "$key" = q ] && exit 0; fi   # q quits; a timeout is the normal tick
+    else sleep 1; fi
+  done
+}
+
 cmd=${1:-ls}; [ $# -gt 0 ] && shift
 case "$cmd" in
   ls)
+    v=0; items=""
+    while :; do case "$1" in   # -v adds Progress and the queue lists; -n sets how many items, and implies -v
+      -v) v=1; shift ;;
+      -n) [ $# -ge 2 ] || die "usage: sitrep ls [-v] [-n items] [id]"; items=$2; v=1; shift 2 ;;
+      *) break ;;
+    esac; done
+    [ -n "$items" ] || items=$(items_default); [[ $items =~ ^[0-9]+$ ]] || die "items must be a number"
     if [ -n "$1" ]; then
       sid=$(resolve "$1") || exit 1; f=$(qf "$sid")
       if [ "$sid" = inbox ]; then echo "Inbox"; else
@@ -62,21 +156,18 @@ case "$cmd" in
       fi
       [ -s "$f" ] && strip < "$f" | nl -w2 -s'. ' || echo "  (queue empty)"
     else
-      cols=${COLUMNS:-}; [ -z "$cols" ] && [ -t 1 ] && cols=$(tput cols 2>/dev/null); [ "$cols" -ge 10 ] 2>/dev/null || cols=100   # no terminal (a pipe) or a bad COLUMNS: fixed width
-      [ "$(count inbox)" -gt 0 ] && printf 'Inbox: %s\n' "$(qsum inbox)" | fit "$cols"
-      ids=(); dirs=(); qs=(); ts=(); w=9   # w: width of the DIRECTORY column, grown to the longest name
-      while read -r _ t; do
-        [ -n "$(find "$t" -mtime -1 2>/dev/null)" ] || continue
-        sid=$(basename "$t" .txt); cwd=$(cwd_of "$sid"); d=$(basename "${cwd:-?}"); q=$(qsum "$sid")
-        ids+=("${sid:0:4}"); dirs+=("$d"); qs+=("$q"); ts+=("$t"); [ ${#d} -gt "$w" ] && w=${#d}
-      done < <(for t in "$dir"/*.txt; do [ -f "$t" ] && echo "$(mtime "$t") $t"; done | sort -rn)
-      [ ${#ids[@]} -gt 0 ] && printf '%-4s  %-*s  %s\n' ID "$w" DIRECTORY QUEUE
-      for i in "${!ids[@]}"; do
-        avail=$(( cols - w - 8 )); [ "$avail" -lt 10 ] && avail=10   # 8 = id column and the gaps
-        printf '%-4s  %-*s  %s\n' "${ids[$i]}" "$w" "${dirs[$i]}" "$(printf '%s' "${qs[$i]}" | fit "$avail")"
-        sed -n 's/^Objective: /    Objective: /p;s/^Now: */    Now:       /p' "${ts[$i]}" | strip
-      done
+      termsize; render_frame "$v" 0 "$cols" "$items"
     fi ;;
+  watch) once=0; items=""
+        while :; do case "$1" in
+          --once) once=1; shift ;;
+          -n) [ $# -ge 2 ] || die "usage: sitrep watch [--once] [-n items] [seconds]"; items=$2; shift 2 ;;
+          *) break ;;
+        esac; done
+        [ -n "$items" ] || items=$(items_default); [[ $items =~ ^[0-9]+$ ]] || die "items must be a number"
+        # a pipe or a terminal that cannot move the cursor gets one frame, never a loop of escape codes
+        { [ -t 1 ] && [ -n "$TERM" ] && [ "$TERM" != dumb ]; } || once=1
+        if [ "$once" = 1 ]; then termsize; render_frame 1 "$rows" "$cols" "$items"; else watch_loop "${1:-2}"; fi ;;
   add)  [ $# -ge 2 ] || die "usage: sitrep add <id> <text>"
         sid=$(resolve "$1") || exit 1; shift; item=$(printf '%s' "$*" | clean)
         [ -n "${item//[[:space:]]/}" ] || die "nothing to queue"
@@ -112,5 +203,5 @@ case "$cmd" in
         printf '%s\n' "$item" >> "$(qf "$to")" || { rm -f "$t"; die "could not queue on $(label "$to")"; }
         mv "$t" "$f" || { rm -f "$t"; die "could not update $(label "$from")"; }
         echo "moved to $(label "$to"): $(printf '%s' "$item" | strip)" ;;
-  *) die "usage: sitrep [ls [id]] | add <id> <text> | pin <id> <text> | unpin <id> | rm <id> [n] | top <id> <n> | reorder <id> <from> <to> | move <from> <to> [n]" ;;
+  *) die "usage: sitrep [ls [-v] [-n items] [id]] | watch [--once] [-n items] [seconds] | add <id> <text> | pin <id> <text> | unpin <id> | rm <id> [n] | top <id> <n> | reorder <id> <from> <to> | move <from> <to> [n]" ;;
 esac

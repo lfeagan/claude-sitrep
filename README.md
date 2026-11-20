@@ -53,6 +53,16 @@ Inside a session, four prefixes work on the prompt itself, and none of them is s
 
 The text forms apply only to a single line of at most 200 characters, and `+take` accepts only an optional number. Anything else goes to Claude as written, so a pasted list, or a prompt such as "+take care of the rest", never gets swallowed. So does a prefix with a leading space, and a `+take` that cannot succeed, such as one on an empty inbox.
 
+## The Dashboard
+
+`sitrep watch [-n items] [seconds]` shows every active session at once, in the same shape as the status line, and is meant for a spare tmux pane. It is read-only. It redraws every N seconds (default 2) and straight away when a state file or the pane size changes. Press `q` or Ctrl-C to leave.
+
+A session appears for a day after its last activity. Each shows its id, directory and queue, then Objective, Progress and Now, newest first, and an `Inbox:` line sits on top when the inbox holds anything. Lines are cut to the pane width, and when the sessions do not fit, whole sessions are dropped and the last line says `+N more`.
+
+When the output is not a terminal, or `TERM` is unset or `dumb`, `sitrep watch` prints one frame and exits, as `sitrep watch --once` does. `sitrep ls -v` prints the same frame as `ls` with a Progress line added.
+
+Both list each session's queue, and the inbox's, under the session, at most 5 items each, followed by `+N more` when there are more. `-n <items>` changes the limit for one run, and `-n 0` returns to the compact form, with the count and the next item in the header. To change the default, set `SITREP_QUEUE_ITEMS=<items>` in `~/.claude/sitrep/sitrep.conf` or in the environment. `sitrep.conf` is read for that one line and not run by `sitrep`, and the installers replace or remove only their own `SITREP_HUD_CMD` line in it.
+
 ## How It Works
 
 State lives in `~/.claude/sitrep/`: `<session_id>.{txt,queue,cwd}` per session, `inbox.queue` for the inbox, hidden `.<session_id>.*` files for the pin, the prompt count and the debounce, and `sitrep.conf`. The status line only reads files, so it renders instantly. The Haiku call runs in the background on `Stop`, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window (`SITREP_DEBOUNCE`). A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.

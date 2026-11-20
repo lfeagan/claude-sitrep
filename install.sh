@@ -10,6 +10,8 @@ case "$1" in
 esac
 R=$(cd "$(dirname "$0")" && pwd)
 S="$HOME/.claude/settings.json"; BIN_DIR=${BIN_DIR:-$HOME/bin}; SKILLS_DIR=${SKILLS_DIR:-$HOME/.claude/skills}; ND="$HOME/.claude/sitrep"; CONF="$ND/sitrep.conf"
+# shellcheck source=lib/conf.sh
+. "$R/lib/conf.sh"
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 command -v perl >/dev/null || { echo "perl is required" >&2; exit 1; }
 umask 077
@@ -37,9 +39,9 @@ mkdir -p "$ND"; chmod 700 "$ND"; chmod 600 "$ND"/* 2>/dev/null || true
 [ -e "$HOME/.claude/sitrep.conf" ] && [ ! -e "$CONF" ] && mv "$HOME/.claude/sitrep.conf" "$CONF"
 # Only after settings are written: keep the old status line (e.g. Claude HUD) as the upstream, unless it is ours.
 case "$old" in
-  "") rm -f "$CONF"; echo "No existing status line found; showing the sitrep block only." ;;
+  "") hud_drop; echo "No existing status line found; showing the sitrep block only." ;;
   *"$slp"*|*"$tag"*|*claude-sitrep/statusline/statusline.sh*) echo "Status line is already sitrep; keeping the saved upstream (if any)." ;;
-  *) printf 'SITREP_HUD_CMD=%q\n' "$old" > "$CONF"
+  *) hud_put "$old"
      echo "Wrapping the existing status line (it renders first): $(printf '%s' "$old" | perl -CSD -pe 's/[\p{Cc}\p{Cf}]//g' 2>/dev/null)" ;;
 esac
 mkdir -p "$BIN_DIR" "$SKILLS_DIR"

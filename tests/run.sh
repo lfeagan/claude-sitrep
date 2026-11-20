@@ -271,6 +271,113 @@ fi
 chmod 600 "$STATE/tk000001.queue"
 rm -f "$STATE/inbox.queue" "$STATE"/tk000001.* "$STATE"/.tk000001.*
 
+# ---- watch and ls -v
+reset; mkdir -p "$STATE"
+bounded() { perl -e 'alarm 10; exec @ARGV' -- "$@"; }   # a looping watch fails the test instead of hanging it
+mk() { # id dir age: a session with Objective, Progress and Now, last touched age seconds ago
+  printf 'Objective: obj %s\nProgress:  prog %s\nNow:       now %s\n' "$1" "$1" "$1" > "$STATE/$1.txt"
+  printf '/x/%s\n' "$2" > "$STATE/$1.cwd"; perl -e '$t = time - shift; utime $t, $t, @ARGV' "$3" "$STATE/$1.txt"
+}
+mk dsh10001 alpha 500; mk dsh10002 beta 400; mk dsh10003 gamma 300
+mk dsh10004 delta 200; mk dsh10005 eps 100; mk dsh10006 ancient 200000
+eq "ls exits 0" 0 "$(rc sitrep ls)"
+check "ls hides Progress" hasnt "$(sitrep ls)" "Progress:"
+check "ls -v shows Progress" has "$(sitrep ls -v)" "Progress:  prog dsh1"
+check "ls leaves out a session idle for more than a day" hasnt "$(sitrep ls -v)" "ancient"
+eq "ls lists the newest session first" dsh1 "$(sitrep ls | sed -n 2p | cut -c1-4)"
+eq "newest first by modification time" "obj dsh10005" "$(sitrep ls | sed -n 3p | sed 's/.*Objective: //')"
+check "watch prints one frame and exits when stdout is not a terminal" has "$(bounded sitrep watch)" "Progress:  prog dsh1"
+eq "watch exits 0 here" 0 "$(rc bounded sitrep watch)"
+eq "watch --once exits 0" 0 "$(rc bounded sitrep watch --once)"
+out=$(LINES=10 COLUMNS=80 bounded sitrep watch --once)
+eq "a tall frame is cut to LINES" 10 "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
+eq "the cut frame ends in a footer" "+3 more" "$(printf '%s\n' "$out" | tail -1)"
+check "whole sessions are kept, none half shown" has "$out" "now dsh10004"
+eq "a frame that fits has no footer" 0 "$(LINES=40 COLUMNS=80 bounded sitrep watch --once | grep -c 'more$')"
+out=$(LINES=40 COLUMNS=30 bounded sitrep watch --once)
+eq "watch cuts every line to COLUMNS" 0 "$(printf '%s\n' "$out" | perl -CSD -ne 'chomp; print "x\n" if length > 30' | wc -l | tr -d ' ')"
+printf 'Objective: tab\there\033[31mred\nProgress:  p\nNow:       n\n' > "$STATE/dsh10005.txt"
+out=$(LINES=40 COLUMNS=80 bounded sitrep watch --once)
+check "watch strips escapes" hasnt "$out" $'\033'
+check "watch turns tabs into spaces" hasnt "$out" $'\t'
+sitrep add inbox 'inbox thing' >/dev/null
+eq "watch puts the Inbox first, as a count and a list" "Inbox: 1 item|    1. inbox thing" "$(LINES=40 COLUMNS=80 bounded sitrep watch --once | head -2 | paste -sd'|' -)"
+eq "plain ls keeps the one-line Inbox" "Inbox: 1 item, next: inbox thing" "$(sitrep ls | head -1)"
+rm -f "$STATE/inbox.queue"
+fn=$(sed -n '/^sig()/,/^}/p' "$R/bin/sitrep")
+sigof() { bash -c "dir='$STATE'; $fn; sig"; }
+before=$(sigof); printf 'x\n' >> "$STATE/dsh10001.queue"
+check "the change signature sees an in-place append" test "$before" != "$(sigof)"
+before=$(sigof); perl -e '$t = time - 7; utime $t, $t, @ARGV' "$STATE/dsh10001.txt"
+check "the change signature sees a file being touched" test "$before" != "$(sigof)"
+eq "the change signature is stable when nothing changed" "$(sigof)" "$(sigof)"
+out=$(LINES=3 COLUMNS=80 bounded sitrep watch --once)
+check "a 3-line pane gets at most 3 lines" test "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" -le 3
+# short blocks: four sessions of two lines each, one header, so nine lines in all
+rm -rf "$STATE"; mkdir -p "$STATE"
+for n in 1 2 3 4; do printf 'Objective: s%s\n' "$n" > "$STATE/shrt000$n.txt"; printf '/x/d%s\n' "$n" > "$STATE/shrt000$n.cwd"; done
+eq "a frame that exactly fits has no footer" 0 "$(LINES=9 COLUMNS=80 bounded sitrep watch --once | grep -c 'more$')"
+out=$(LINES=7 COLUMNS=80 bounded sitrep watch --once)
+eq "one line short: footer counts the dropped sessions" "+2 more" "$(printf '%s\n' "$out" | tail -1)"
+eq "one line short: the footer keeps its own line" 6 "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
+# the signature must see an append that leaves the mtime alone
+printf 'a\n' > "$STATE/shrt0001.queue"; perl -e 'utime 1700000000, 1700000000, @ARGV' "$STATE/shrt0001.queue"
+before=$(sigof); printf 'b\n' >> "$STATE/shrt0001.queue"; perl -e 'utime 1700000000, 1700000000, @ARGV' "$STATE/shrt0001.queue"
+check "the change signature sees a size-only change" test "$before" != "$(sigof)"
+eq "the change signature is empty with no state files" "" "$(rm -rf "$STATE/shrt"*; sigof)"
+# the live loop, under a real pseudo-terminal
+pty() { if script -qc true /dev/null >/dev/null 2>&1; then script -qc "$1" /dev/null; else script -q /dev/null bash -c "$1"; fi; }
+if command -v script >/dev/null 2>&1; then
+  mk dsh20001 live 10
+  out=$( ( sleep 3; printf q ) | TERM=xterm bounded bash -c "$(declare -f pty); pty 'LINES=12 COLUMNS=70 sitrep watch 1; echo \"exit=\$?\"'" 2>&1 )
+  check "the live loop draws a frame" has "$out" "Objective: obj dsh20001"
+  check "the live loop leaves on q with status 0" has "$out" "exit=0"
+  check "the live loop restores the cursor and line wrap on exit" has "$out" $'\033[?7h\033[?25h'
+fi
+rm -rf "$STATE"; mkdir -p "$STATE"
+
+# ---- queue lists in watch and ls -v
+rm -rf "$STATE"; mkdir -p "$STATE"
+mk lst00001 lister 60; for i in 1 2 3 4 5 6 7; do sitrep add lst "item $i" >/dev/null; done
+frame() { LINES=60 COLUMNS=90 bounded sitrep watch --once "$@"; }
+out=$(frame)
+check "watch lists the first five items" has "$out" "Queue:     1. item 1"
+check "watch lists each item on its own line" has "$out" "               5. item 5"
+check "watch says how many more there are" has "$out" "               +2 more"
+check "the header shows the count alone" has "$out" "7 items"
+check "the header drops the next item" hasnt "$out" "next:"
+check "an item past the limit is not listed" hasnt "$out" "6. item 6"
+check "-n raises the limit" has "$(frame -n 7)" "7. item 7"
+check "-n 7 leaves no more-line" hasnt "$(frame -n 7)" "more"
+out=$(frame -n 0)
+check "-n 0 is the compact form, with next in the header" has "$out" "7 items, next: item 1"
+check "-n 0 lists nothing" hasnt "$out" "Queue:"
+check "ls -v lists items too" has "$(sitrep ls -v)" "Queue:     1. item 1"
+check "-n implies -v on ls" has "$(sitrep ls -n 2)" "Progress:"
+check "ls without -v is unchanged" has "$(sitrep ls)" "7 items, next: item 1"
+eq "a bad -n fails" 1 "$(rc sitrep ls -n x)"
+eq "a missing -n value fails" 1 "$(rc sitrep ls -n)"
+printf 'SITREP_QUEUE_ITEMS=2\n' > "$STATE/sitrep.conf"
+check "the default comes from sitrep.conf" has "$(frame)" "               +5 more"
+printf 'SITREP_QUEUE_ITEMS="3"\n' > "$STATE/sitrep.conf"
+check "a quoted value in sitrep.conf works" has "$(frame)" "               +4 more"
+check "the environment beats sitrep.conf" has "$(SITREP_QUEUE_ITEMS=4 frame)" "               +3 more"
+check "-n beats the environment" has "$(SITREP_QUEUE_ITEMS=4 frame -n 6)" "               +1 more"
+printf 'SITREP_QUEUE_ITEMS=lots\nSITREP_HUD_CMD=echo hi\n' > "$STATE/sitrep.conf"
+check "a bad value in sitrep.conf falls back to five" has "$(frame)" "               +2 more"
+rm -f "$STATE/sitrep.conf"
+for i in 1 2 3 4 5 6 7; do sitrep add inbox "in $i" >/dev/null; done
+out=$(frame)
+check "the inbox is listed with the same limit" has "$out" "    5. in 5"
+check "the inbox says how many more" has "$out" "    +2 more"
+eq "the inbox comes first" "Inbox: 7 items" "$(printf '%s\n' "$out" | head -1)"
+check "-n applies to the inbox too" hasnt "$(frame -n 2)" "3. in 3"
+printf 'esc\033[31mx\n' >> "$STATE/lst00001.queue"
+check "listed items are stripped" hasnt "$(frame -n 9)" $'\033'
+out=$(LINES=12 COLUMNS=90 bounded sitrep watch --once)
+check "a long queue still fits the pane" test "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" -le 12
+rm -rf "$STATE"; mkdir -p "$STATE"
+
 # ---- reorder
 printf 'Objective: r\n' > "$STATE/rord0001.txt"; rm -f "$STATE/rord0001.queue"
 for w in one two three four; do sitrep add rord "$w" >/dev/null; done
@@ -466,6 +573,20 @@ check "the remaining hook is sitrep-hook.sh" jq -e '.hooks.Stop[0].hooks[0].comm
 fresh "$H18" "$(jq -nc --arg c "bash $R/hooks/notes-hook.sh" '{hooks:{Stop:[{hooks:[{type:"command",command:$c}]}]}}')"
 instc "$H18" "$R" uninstall.sh >/dev/null 2>&1
 check "uninstall also removes the old hook name" jq -e 'has("hooks")|not' "$H18/.claude/settings.json"
+
+# sitrep.conf keeps the user's own settings
+H21="$T/home21"; fresh "$H21" '{"statusLine":{"type":"command","command":"echo hud"}}'; mkdir -p "$H21/.claude/sitrep"
+printf 'SITREP_QUEUE_ITEMS=3\n' > "$H21/.claude/sitrep/sitrep.conf"
+instc "$H21" "$R" install.sh >/dev/null 2>&1
+check "install keeps a setting in sitrep.conf" grep -q '^SITREP_QUEUE_ITEMS=3$' "$H21/.claude/sitrep/sitrep.conf"
+check "install saves the upstream beside it" grep -q '^SITREP_HUD_CMD=' "$H21/.claude/sitrep/sitrep.conf"
+instc "$H21" "$R" install.sh >/dev/null 2>&1
+eq "a second install keeps one upstream line" 1 "$(grep -c '^SITREP_HUD_CMD=' "$H21/.claude/sitrep/sitrep.conf")"
+instc "$H21" "$R" uninstall.sh >/dev/null 2>&1
+eq "uninstall keeps the user's setting" "SITREP_QUEUE_ITEMS=3" "$(cat "$H21/.claude/sitrep/sitrep.conf")"
+H22="$T/home22"; fresh "$H22" '{}'; mkdir -p "$H22/.claude/sitrep"; printf 'SITREP_QUEUE_ITEMS=8\nSITREP_HUD_CMD=stale\n' > "$H22/.claude/sitrep/sitrep.conf"
+instc "$H22" "$R" install.sh >/dev/null 2>&1
+eq "with no status line, install drops only the upstream line" "SITREP_QUEUE_ITEMS=8" "$(cat "$H22/.claude/sitrep/sitrep.conf")"
 
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]

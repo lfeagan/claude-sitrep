@@ -3,6 +3,8 @@
 set -e
 R=$(cd "$(dirname "$0")" && pwd)
 S="$HOME/.claude/settings.json"; BIN_DIR=${BIN_DIR:-$HOME/bin}; SKILLS_DIR=${SKILLS_DIR:-$HOME/.claude/skills}; CONF="$HOME/.claude/sitrep/sitrep.conf"
+# shellcheck source=lib/conf.sh
+. "$R/lib/conf.sh"
 cp "$S" "$S.bak.$(date +%Y%m%dT%H%M%S)"
 slp=$(printf '%q' "$R/statusline/statusline.sh"); hp=$(printf '%q' "$R/hooks/sitrep-hook.sh"); ohp=$(printf '%q' "$R/hooks/notes-hook.sh")
 up=""
@@ -18,7 +20,7 @@ jq -L "$R/lib" --arg up "$up" --arg slp "$slp" --arg hp "$hp" --arg ohp "$ohp" '
     then (if $up == "" then del(.statusLine) else .statusLine.command = $up end)
     else . end' "$S" > "$tmp"
 cat "$tmp" > "$S"
-rm -f "$CONF"   # consumed above; a stale upstream would otherwise outlive us
+hud_drop   # consumed above; a stale upstream would otherwise outlive us
 for l in "$BIN_DIR"/*; do [ "$(readlink "$l" 2>/dev/null)" = "$R/bin/sitrep" ] && rm -f "$l"; done
 [ "$(readlink "$SKILLS_DIR/sitrep-queue" 2>/dev/null)" = "$R/skills/sitrep-queue" ] && rm -f "$SKILLS_DIR/sitrep-queue"
 echo "Uninstalled. State in ~/.claude/sitrep is left in place."
