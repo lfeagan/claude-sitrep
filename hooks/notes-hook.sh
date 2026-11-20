@@ -20,10 +20,10 @@ printf '%s' "$input" | jq -r '.cwd // empty' > "$dir/$sid.cwd"
 qfile="$dir/$sid.queue"
 obj=$(get Objective); prog=$(get Progress); now=$(get Now)
 # A placeholder or command wrapper (e.g. /clear) is not a real Objective: treat it as unset so it gets replaced.
-case "$obj" in "-"|"<"*|"&lt;"*) obj="" ;; esac
+case "$obj" in "-"|*"<command-"*|*"&lt;command-"*|"<"*|"&lt;"*) obj="" ;; esac
 
-first_prompt() { # first real user message in the transcript (skips command/system wrappers)
-  [ -f "$tp" ] && jq -r 'select(.type=="user") | .message.content | if type=="string" then . else map(select(.type=="text")|.text)|join(" ") end' "$tp" 2>/dev/null | grep -v -e '^<' -e '^&lt;' -e '^$' | head -1
+first_prompt() { # first real user message in the transcript; skips whole messages that are command/system wrappers (start with a tag)
+  [ -f "$tp" ] && jq -r 'select(.type=="user") | .message.content | if type=="string" then . else map(select(.type=="text")|.text)|join(" ") end | select(test("^\\s*(<|&lt;)")|not) | select(test("\\S"))' "$tp" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e '/^$/d' | head -1
 }
 summarize() { # background Haiku call: rewrites Progress and Now
   (
