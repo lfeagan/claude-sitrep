@@ -12,20 +12,19 @@ A ninety second version plays scenes 1 to 3 only.
 
 Both sessions are real Claude Code sessions, so the hooks, the summaries and the jump are the real ones, and nothing is staged. The cost is a few cents, since only the summary call uses a model and it is capped at $0.05 a call.
 
-The state folder of sitrep is always `~/.claude/sitrep`, so the demo needs a home of its own. Otherwise the dashboard would show your real sessions and your real inbox. We use a separate `HOME`, and your real `~/.claude` is never touched.
+The demo needs a state folder of its own. Otherwise the dashboard would show your real sessions and your real inbox. We set `SITREP_STATE_DIR=~/demo-state` in every demo terminal, so the sessions, the inbox and the settings of the demo live there, and your real `~/.claude/sitrep` is never touched. Claude Code itself, its login and the installed plugin stay as they are.
 
 ## One-time setup
 
-1. Make the demo home and use it for every demo terminal: `mkdir ~/demo-home` and `export HOME=~/demo-home`.
-2. In that home, run `claude` and log in. Check that it works before the day, since where Claude Code keeps its login is not something we have tested.
-3. Install the plugin and run `/sitrep:setup`, which needs Go 1.26 to build the program. Put `~/demo-home/.claude/sitrep/bin` on `PATH`, and check `sitrep version`.
-4. Make the two projects under `~/demo-home`, each small enough that a task takes one turn:
+1. Make the demo state folder and set it for every demo terminal, before `claude` starts: `export SITREP_STATE_DIR=~/demo-state`. The hooks, the status line and the summarizer take it from the shell that starts `claude`, and so do your own `sitrep` commands.
+2. Check that sitrep 0.9.0 or newer is installed (`sitrep version`), since the setting does not exist before it. Nothing else needs installing: the program and the plugin are the ones you already have.
+3. Make the two projects under `~/demo-projects`, each small enough that a task takes one turn:
    - `shop-api`: a few files with a `list_orders` function and a flaky test.
    - `shop-web`: a few files with a settings page and a stylesheet.
-5. Set up cmux for the screen: a large font, a theme with good contrast, a short prompt, and a window size that records well. Allow screen recording if cmux asks.
-6. Do one dry run end to end.
+4. Set up cmux for the screen: a large font, a theme with good contrast, a short prompt, and a window size that records well. Allow screen recording if cmux asks.
+5. Do one dry run end to end, and check that `sitrep ls` in a plain terminal, without the variable, shows your real sessions and none of the demo.
 
-Between takes, empty the demo inbox with `sitrep rm inbox` and run `sitrep prune`, or keep a copy of `~/demo-home/.claude/sitrep` from before the first take and put it back.
+Between takes, empty the demo inbox with `sitrep rm inbox` and run `sitrep prune`, or keep a copy of `~/demo-state` from before the first take and put it back. Starting over completely is deleting that one folder, by its literal path.
 
 ## Cue prompts
 
@@ -120,4 +119,3 @@ Then back to `sitrep watch`: the rows now show a different picture from the open
 - Whether `sitrep watch` runs full screen or in a popup (`--quit-on-jump`).
 - Whether the script should name the other tools. We lean to no: the comparison slide has them.
 - Whether the lack of a "done" state should be fixed first. It is an inbox item, and today `rm` is the answer, which is honest but may read as "delete".
-- Whether a state folder setting (step 1 of `SHARED-STATE.md`) should come before the demo, so we would not need a separate home.
