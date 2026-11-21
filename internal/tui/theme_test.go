@@ -177,6 +177,28 @@ func contrast(a, b string) float64 {
 	return (l1 + 0.05) / (l2 + 0.05)
 }
 
+func TestRainbowSetsItsOwnTextAndPastelDoesNot(t *testing.T) {
+	st := Settings{HighlightSGR: "48;5;238"}
+	st.Theme = "rainbow"
+	if !strings.Contains(themeFor(true, st).Attn.Render("x"), "38;2;16;16;20") { // dark text on the bright yellow
+		t.Errorf("rainbow attn: %q", themeFor(true, st).Attn.Render("x"))
+	}
+	st.Theme = "pastel"
+	if strings.Contains(themeFor(true, st).Attn.Render("x"), "38;") {
+		t.Errorf("pastel keeps the terminal's own text: %q", themeFor(true, st).Attn.Render("x"))
+	}
+	// no background of a colourful theme is brown: red must not be far above green and blue together
+	for _, name := range []string{"pastel", "rainbow"} {
+		p := presets[name]
+		for _, bg := range []string{p.attn[1], p.hot[1]} {
+			r, g, b := rgbOf(bg)
+			if r > g+20 && g > b+20 && r < 130 {
+				t.Errorf("%s dark %s is brown", name, bg)
+			}
+		}
+	}
+}
+
 func TestPastelAndRainbowThemes(t *testing.T) {
 	for _, name := range []string{"pastel", "rainbow"} {
 		checkColourfulTheme(t, name)
@@ -200,8 +222,11 @@ func checkColourfulTheme(t *testing.T, name string) {
 			t.Errorf("%s: attn and hot are the same", who)
 		}
 		// the terminal's own text colour (near black on light, near white on dark) must read on both backgrounds
-		text := map[int]string{0: "#1a1a1a", 1: "#e6e6e6"}[side]
 		for role, bg := range map[string]string{"hot": p.hot[side], "attn": p.attn[side]} {
+			text := map[int]string{0: "#1a1a1a", 1: "#e6e6e6"}[side]
+			if solidThemes[name] {
+				text = onColor(bg) // a theme with bright backgrounds on any terminal sets its own text
+			}
 			if c := contrast(text, bg); c < 7 {
 				t.Errorf("%s %s: terminal text has contrast %.1f", who, role, c)
 			}
