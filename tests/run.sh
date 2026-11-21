@@ -819,6 +819,18 @@ eq "reorder past the end fails" 1 "$(rc sitrep reorder rord 1 9)"
 eq "top of a missing item fails" 1 "$(rc sitrep top rord 9)"
 eq "reorder rejects a non-number" 1 "$(rc sitrep reorder rord x 1)"
 eq "a failed reorder changed nothing" "one three two four" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
+eq "reorder --item refuses a different item" 1 "$(rc sitrep reorder rord 1 2 --item three)"
+eq "top --item refuses a different item" 1 "$(rc sitrep top rord 3 --item four)"
+eq "rm --item refuses a different item" 1 "$(rc sitrep rm rord 1 --item four)"
+eq "--item with no text fails on each" "1 1 1" "$(rc sitrep rm rord 1 --item) $(rc sitrep top rord 1 --item) $(rc sitrep reorder rord 1 2 --item)"
+eq "the refused calls changed nothing" "one three two four" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
+eq "reorder --item moves the item it names" "item 1 on rord: three" "$(sitrep reorder rord 2 1 --item three)"
+eq "top --item moves the item it names" "item 1 on rord: four" "$(sitrep top rord 4 --item four)"
+eq "the guarded moves gave this order" "four three one two" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
+eq "rm --item removes the item it names" "four" "$(sitrep rm rord 1 --item four)"
+sitrep add rord -x >/dev/null
+eq "rm --item takes text that starts with a dash" "-x" "$(sitrep rm rord 4 --item -x)"
+eq "and the queue is what is left" "three one two" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
 sitrep add inbox alpha >/dev/null; sitrep add inbox beta >/dev/null; sitrep top inbox 2 >/dev/null
 eq "top works on the inbox" beta "$(head -1 "$STATE/inbox.queue")"
 rm -f "$STATE/inbox.queue" "$STATE"/rord000*

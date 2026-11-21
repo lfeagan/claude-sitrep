@@ -32,6 +32,12 @@ strip() { perl -CSD -pe 's/(?!\n|\t)[\p{Cc}\p{Cf}]//g' 2>/dev/null; }           
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 tmpfile() { mktemp "$dir/.sitrep.XXXXXX"; }
 itemno() { [[ $1 =~ ^[1-9][0-9]*$ ]] || die "item must be a number"; }
+guarded() { # args: split a trailing `--item <text>` off; sets guard (0 or 1), want and GA, the other arguments
+  guard=0; want=; GA=("$@")
+  local pen=$(( $# - 1 )) last=$#
+  if [ $# -ge 2 ] && [ "${!pen}" = --item ]; then guard=1; want=${!last}; GA=("${@:1:$#-2}"); fi
+  local a; for a in "${GA[@]}"; do [ "$a" != --item ] || die "--item needs the text of the item, last"; done
+}
 cwd_of() { clean 2>/dev/null < "$dir/$1.cwd"; }
 
 resolve() { # prefix -> full session id; `inbox` is the queue of no session and matches exactly
@@ -73,7 +79,9 @@ reorder_q() { # id from to: move item `from` to position `to`
   itemno "$from"; itemno "$to"
   f=$(qf "$sid"); n=$(count "$sid")
   [ "$from" -le "$n" ] && [ "$to" -le "$n" ] || die "$(label "$sid") has $n items"
-  item=$(sed -n "${from}p" "$f"); t=$(tmpfile) || exit 1
+  item=$(sed -n "${from}p" "$f")
+  [ "$guard" = 0 ] || [ "$item" = "$want" ] || die "queue changed; run 'sitrep ls $(label "$sid")'"
+  t=$(tmpfile) || exit 1
   if E=$item awk -v f="$from" -v t="$to" '{ a[NR] = $0 }
       END { if (a[f] != ENVIRON["E"]) exit 1
             for (i = 1; i <= NR; i++) if (i != f) c[++k] = a[i]
@@ -309,7 +317,7 @@ usage: sitrep <command> [args]
 
   ls [id]                    list running sessions, or one queue
   add <id> <text>            append an item to a queue
-  rm <id> [n]                remove an item and print it
+  rm <id> [n]                remove an item and print it (--item <text> guards it)
   top <id> <n>               move an item to the front of a queue
   reorder <id> <from> <to>   move an item to another position
   move <from> <to> [n]       hand an item to another queue (--item <text> guards it)
@@ -356,22 +364,25 @@ text is cut. Quote text that holds shell characters such as ( ) ; or &.
 EOF
     ;;
     rm) cat <<'EOF'
-usage: sitrep rm <id> [n]
+usage: sitrep rm <id> [n] [--item <text>]
 
 Remove item n (default 1) from a queue and print it. It refuses when the queue
-changed after it was read, so it never removes a different item.
+changed after it was read, so it never removes a different item. With --item, it
+also refuses unless item n is exactly that text, for a program that showed a list.
 EOF
     ;;
     top) cat <<'EOF'
-usage: sitrep top <id> <n>
+usage: sitrep top <id> <n> [--item <text>]
 
-Move item n to the front of a queue, so that it is the next item.
+Move item n to the front of a queue, so that it is the next item. With --item, it
+refuses unless item n is exactly that text.
 EOF
     ;;
     reorder) cat <<'EOF'
-usage: sitrep reorder <id> <from> <to>
+usage: sitrep reorder <id> <from> <to> [--item <text>]
 
-Move the item at position from to position to. The other items keep their order.
+Move the item at position from to position to. The other items keep their order. With
+--item, it refuses unless the item at from is exactly that text.
 EOF
     ;;
     move) cat <<'EOF'
@@ -569,15 +580,16 @@ case "$cmd" in
         sid=$(resolve "$1") || exit 1; shift; item=$(printf '%s' "$*" | clean)
         [ -n "${item//[[:space:]]/}" ] || die "nothing to queue"
         printf '%s\n' "$item" >> "$(qf "$sid")"; echo "queued on $(label "$sid") (now $(count "$sid"))" ;;
-  rm)   [ $# -ge 1 ] || die "usage: sitrep rm <id> [item=1]"
+  rm)   guarded "$@"; set -- "${GA[@]}"; [ $# -ge 1 ] || die "usage: sitrep rm <id> [item=1] [--item <text>]"
         sid=$(resolve "$1") || exit 1; n=${2:-1}; itemno "$n"
         f=$(qf "$sid"); [ -s "$f" ] || die "queue empty"
         item=$(sed -n "${n}p" "$f"); [ -n "$item" ] || die "no item $n on $(label "$sid")"
+        [ "$guard" = 0 ] || [ "$item" = "$want" ] || die "queue changed; run 'sitrep ls $(label "$sid")'"
         t=$(without "$f" "$n" "$item") || die "queue changed; run 'sitrep ls $(label "$sid")'"
         mv "$t" "$f" && printf '%s\n' "$item" | strip ;;
-  top)  [ $# -ge 2 ] || die "usage: sitrep top <id> <n>"
+  top)  guarded "$@"; set -- "${GA[@]}"; [ $# -ge 2 ] || die "usage: sitrep top <id> <n> [--item <text>]"
         sid=$(resolve "$1") || exit 1; reorder_q "$sid" "$2" 1 ;;
-  reorder) [ $# -ge 3 ] || die "usage: sitrep reorder <id> <from> <to>"
+  reorder) guarded "$@"; set -- "${GA[@]}"; [ $# -ge 3 ] || die "usage: sitrep reorder <id> <from> <to> [--item <text>]"
         sid=$(resolve "$1") || exit 1; reorder_q "$sid" "$2" "$3" ;;
   pin) [ $# -ge 2 ] || die "usage: sitrep pin <id> <text>"
         sid=$(resolve "$1") || exit 1; shift; f="$dir/$sid.txt"
