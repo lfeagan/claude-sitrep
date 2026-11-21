@@ -169,9 +169,9 @@ Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the envi
 
 ## The History Log
 
-With `SITREP_LOG=on`, sitrep appends one line to `~/.claude/sitrep/log/<host>/current.jsonl` for each change it makes: a queue add, remove, edit, move or reorder, a pin or unpin, a snooze, an alias, a prune, and the start and end of a session. Reads and the summarizer's rewrites of the notes are not recorded. An entry says what happened, with the text of the item, so it still means something a week later. `sitrep top 3` is recorded as a reorder from 3 to 1.
+With `SITREP_LOG=on`, sitrep appends one line to `~/.claude/sitrep/log/current.jsonl` for each change it makes: a queue add, remove, edit, move or reorder, a pin or unpin, a snooze, an alias, a prune, and the start and end of a session. Reads and the summarizer's rewrites of the notes are not recorded. An entry says what happened, with the text of the item, so it still means something a week later. `sitrep top 3` is recorded as a reorder from 3 to 1.
 
-`sitrep log` shows the latest entries, and `--session`, `--op`, `--host`, `--since` and `-n` narrow them (`--json` prints one object per line). The log is a record beside the files and nothing replays it: the files stay the source of truth. It keeps two files per host (`current.jsonl` and `previous.jsonl`), so it holds at most `SITREP_LOG_MAX` megabytes and no entry older than `SITREP_LOG_DAYS` days. Each host writes only its own files, and `sitrep log` merges them by time. `sitrep log --clear` deletes the files of this host. Nothing sends the log anywhere. Because it keeps the text of your items, it is off until you turn it on.
+`sitrep log` shows the latest entries, and `--session`, `--op`, `--host`, `--since` and `-n` narrow them (`--json` prints one object per line). The log is a record beside the files and nothing replays it: the files stay the source of truth. It keeps two files (`current.jsonl` and `previous.jsonl`), so it holds at most `SITREP_LOG_MAX` megabytes and no entry older than `SITREP_LOG_DAYS` days. Each entry names its host, so logs from several machines (over ssh, as `docs/REMOTE.md` does for `ls`) can be told apart. `sitrep log --clear` deletes the files. Nothing sends the log anywhere. Because it keeps the text of your items, it is off until you turn it on.
 
 ## For Programs
 

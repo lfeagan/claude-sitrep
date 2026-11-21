@@ -97,18 +97,18 @@ prompt, or the end of the next turn. ` + "`" + `--off` + "`" + ` ends it at once
 Show the history log: a line for each change sitrep made to a queue, an Objective, an
 alias, a snooze or a session, newest last. It is off until you set SITREP_LOG=on in
 sitrep.conf (or in the environment). It keeps the text of items, in the state folder,
-in log/<host>/, and never sends it anywhere. Each host writes its own files, and this
-command shows them all together.
+in log/, and never sends it anywhere. Each entry names its host, and a machine's log is
+read on that machine (over ssh for a remote one).
 
   --session   only this session or queue (id, prefix, alias or inbox); a move shows for both
   --op        only this operation: queue.add, queue.rm, queue.edit, queue.move,
               queue.reorder, pin, unpin, snooze, unsnooze, alias, prune, session.start,
               session.end
-  --host      only this host
+  --host      only entries of this host
   --since     only entries newer than this: 90m, 36h, 2d, or a date such as 2026-11-21
   -n          show the latest this many (default 50; 0 shows all)
   --json      one JSON object per line
-  --clear     delete the log files of this host, and nothing else
+  --clear     delete the log files, and nothing else
 
 The log is kept to SITREP_LOG_MAX megabytes (default 10) and SITREP_LOG_DAYS days
 (default 30), whichever is reached first, so it shows recent history, not all of it.

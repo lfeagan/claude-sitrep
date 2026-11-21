@@ -67,7 +67,7 @@ type Log struct {
 	Now   func() time.Time
 }
 
-// Host makes a name for a machine that is safe as a folder name: letters, digits, underscore and hyphen, at most 64 of them.
+// Host makes a name for a machine that is safe to store and show: letters, digits, underscore and hyphen, at most 64 of them.
 func Host(name string) string {
 	var b strings.Builder
 	for _, r := range name {
@@ -86,11 +86,9 @@ func Host(name string) string {
 	return b.String()
 }
 
-func (l Log) hostDir() string { return filepath.Join(l.Dir, "log", l.Host) }
-func (l Log) current() string { return filepath.Join(l.hostDir(), "current.jsonl") }
-func (l Log) previous() string {
-	return filepath.Join(l.hostDir(), "previous.jsonl")
-}
+func (l Log) logDir() string   { return filepath.Join(l.Dir, "log") }
+func (l Log) current() string  { return filepath.Join(l.logDir(), "current.jsonl") }
+func (l Log) previous() string { return filepath.Join(l.logDir(), "previous.jsonl") }
 func (l Log) now() time.Time {
 	if l.Now != nil {
 		return l.Now()
@@ -155,19 +153,16 @@ func encode(ln line) []byte {
 	return buf.Bytes()
 }
 
-// ensure makes the folders, owner-only, and refuses a link or a file where a folder belongs. Each level is checked before the next is made, so
-// nothing is made through a link.
+// ensure makes the folder, owner-only, and refuses a link or a file where it belongs.
 func (l Log) ensure() error {
 	if err := os.MkdirAll(l.Dir, state.DirMode); err != nil {
 		return err
 	}
-	for _, d := range []string{filepath.Join(l.Dir, "log"), l.hostDir()} {
-		if err := os.Mkdir(d, state.DirMode); err != nil && !os.IsExist(err) {
-			return err
-		}
-		if fi, err := os.Lstat(d); err != nil || !fi.IsDir() {
-			return os.ErrInvalid
-		}
+	if err := os.Mkdir(l.logDir(), state.DirMode); err != nil && !os.IsExist(err) {
+		return err
+	}
+	if fi, err := os.Lstat(l.logDir()); err != nil || !fi.IsDir() {
+		return os.ErrInvalid
 	}
 	return nil
 }
@@ -179,7 +174,7 @@ func (l Log) rollIfDue(next int64) {
 	if !l.due(next) {
 		return
 	}
-	unlock, ok := state.TryLock(filepath.Join(l.hostDir(), "lock"))
+	unlock, ok := state.TryLock(filepath.Join(l.logDir(), "lock"))
 	if !ok {
 		return
 	}
@@ -254,20 +249,8 @@ type Query struct {
 }
 
 // Read returns the entries that match, oldest first. A line that does not parse is skipped, which covers a torn last line, and a line whose
-// entry id was already seen is a repeat and is dropped. It reads a host's previous file and then its current one.
+// entry id was already seen is a repeat and is dropped. It reads the previous file and then the current one.
 func Read(dir string, q Query) []Item {
-	hosts := []string{q.Host}
-	if q.Host == "" {
-		hosts = nil
-		entries, _ := os.ReadDir(filepath.Join(dir, "log"))
-		for _, e := range entries {
-			if e.IsDir() && Host(e.Name()) == e.Name() {
-				hosts = append(hosts, e.Name())
-			}
-		}
-	} else if Host(q.Host) != q.Host {
-		return nil
-	}
 	cutoff := q.Since
 	if q.Days > 0 {
 		if c := q.Now.Add(-time.Duration(q.Days) * 24 * time.Hour); c.After(cutoff) {
@@ -276,29 +259,27 @@ func Read(dir string, q Query) []Item {
 	}
 	seen := map[string]bool{}
 	var out []Item
-	for _, h := range hosts {
-		for _, name := range []string{"previous.jsonl", "current.jsonl"} {
-			b, err := state.ReadFile(filepath.Join(dir, "log", h, name), maxFile)
-			if err != nil {
+	for _, name := range []string{"previous.jsonl", "current.jsonl"} {
+		b, err := state.ReadFile(filepath.Join(dir, "log", name), maxFile)
+		if err != nil {
+			continue
+		}
+		for _, raw := range bytes.Split(b, []byte("\n")) {
+			if len(raw) > maxLine {
+				continue // no entry is this long
+			}
+			it, ok := parse(raw)
+			if !ok || seen[it.E] {
 				continue
 			}
-			for _, raw := range bytes.Split(b, []byte("\n")) {
-				if len(raw) > maxLine {
-					continue // no entry is this long
-				}
-				it, ok := parse(raw)
-				if !ok || it.Host != h || seen[it.E] {
-					continue
-				}
-				seen[it.E] = true
-				if !q.Now.IsZero() && it.Time.After(q.Now.Add(24*time.Hour)) {
-					continue // from the future: a clock that was wrong, or a forged line
-				}
-				if it.Time.Before(cutoff) || q.Op != "" && it.Op != q.Op || q.ID != "" && it.ID != q.ID && it.Dest != q.ID {
-					continue
-				}
-				out = append(out, it)
+			seen[it.E] = true
+			if !q.Now.IsZero() && it.Time.After(q.Now.Add(24*time.Hour)) {
+				continue // from the future: a clock that was wrong, or a forged line
 			}
+			if it.Time.Before(cutoff) || q.Host != "" && it.Host != q.Host || q.Op != "" && it.Op != q.Op || q.ID != "" && it.ID != q.ID && it.Dest != q.ID {
+				continue
+			}
+			out = append(out, it)
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Time.Before(out[j].Time) })
@@ -328,15 +309,14 @@ func parse(b []byte) (Item, bool) {
 		From: ln.From, To: ln.To, Dest: dest}, true
 }
 
-// Clear removes this host's files, each by its own path, and then its folder if that is now empty.
+// Clear removes the log files, each by its own path, and then the folder if that is now empty.
 func (l Log) Clear() error {
 	var first error
-	for _, p := range []string{l.current(), l.previous(), filepath.Join(l.hostDir(), "lock")} {
+	for _, p := range []string{l.current(), l.previous(), filepath.Join(l.logDir(), "lock")} {
 		if err := os.Remove(p); err != nil && !os.IsNotExist(err) && first == nil {
 			first = err
 		}
 	}
-	_ = os.Remove(l.hostDir())
-	_ = os.Remove(filepath.Join(l.Dir, "log"))
+	_ = os.Remove(l.logDir())
 	return first
 }

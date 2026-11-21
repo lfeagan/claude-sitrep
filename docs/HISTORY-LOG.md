@@ -1,6 +1,6 @@
 # History log -- an append-only record of changes
 
-Status: built (0.10.0). The settings are `SITREP_LOG`, `SITREP_LOG_MAX` (megabytes) and `SITREP_LOG_DAYS` in `sitrep.conf` or the environment, in the style of the other settings. A move names its queues in `id` and `dest`, and a reorder names its positions in `from` and `to`. The host name is made safe for a folder name (`mbp.local` becomes `mbp_local`). Session starts that come from a compaction are not recorded, and an unpin or an end of a snooze is recorded only when there was something to end.
+Status: built (0.10.0). The settings are `SITREP_LOG`, `SITREP_LOG_MAX` (megabytes) and `SITREP_LOG_DAYS` in `sitrep.conf` or the environment, in the style of the other settings. A move names its queues in `id` and `dest`, and a reorder names its positions in `from` and `to`. The files are flat, `log/current.jsonl` and `log/previous.jsonl`, and the host is a field of each entry (see `HOST-STATE.md`); its name is cleaned (`mbp.local` becomes `mbp_local`). Session starts that come from a compaction are not recorded, and an unpin or an end of a snooze is recorded only when there was something to end.
 
 ## Claim
 
@@ -28,20 +28,20 @@ An entry records the outcome, not the command, so that it still means something 
 
 - **Items by text, with positions as facts.** `queue.rm` carries the removed item's text. `queue.reorder` carries the text, `from` and `to`. `sitrep top 3` is recorded as a `queue.reorder` with `from` 3 and `to` 1, so it is still in the log, as what it did.
 - **One entry for one change.** `queue.move` is a single entry with both queues, `id` and `dest`, and not a removal followed by an addition, so a reader never sees an item vanish and appear. `queue.edit` carries the old and the new text, which lets a reader follow an item through an edit.
-- **A repeated entry is recognisable.** If an append fails partway and is retried, or a hook runs twice, the same line can appear twice. A reader drops a line whose `e` it has already seen. Each host has one writer per file, so sync cannot make a copy.
+- **A repeated entry is recognisable.** If an append fails partway and is retried, or a hook runs twice, the same line can appear twice. A reader drops a line whose `e` it has already seen. Each file has one writer, so sync cannot make a copy.
 - **Nothing is replayed.** The log is a history. No code applies its entries to state, so none of them needs to be safe to apply twice.
 
 The limit is that an item has no identity beyond its text. Two items with the same text look alike, and a reader following "how long did this wait in the inbox" matches on text and the edit chain, and can be wrong. Giving each item an id would fix it, but it changes the queue format, which is a bigger decision than this proposal should make.
 
 ## Where it lives
 
-Two files per host in the state folder: `log/<host>/current.jsonl` and `log/<host>/previous.jsonl`. A host appends to its own `current` only, so every file has one writer. That is the same rule the shared-folder proposal uses, and a reader on another machine can merge the hosts' files by time. Both names are fixed, so nothing walks the folder and invariant 5 (no recursion over the state folder) holds.
+Two files in the state folder: `log/current.jsonl` and `log/previous.jsonl`. A machine keeps its own state folder, so each file has one writer, and a reader that wants another machine runs `sitrep log --json` there over ssh and merges by time (see `HOST-STATE.md`). Both names are fixed, so nothing walks the folder and invariant 5 (no recursion over the state folder) holds.
 
 The files are `0600` in a `0700` folder (invariant 2), and are opened for append without following a link.
 
 ## Opt-in
 
-The log is off until the user turns it on with `SITREP_LOG=on` in `sitrep.conf` (or in the environment). While it is off nothing is written and no `log/` folder is made. `sitrep setup` does not turn it on, and `sitrep help log` says what the log keeps. Turning it off stops writing and leaves the files. `sitrep log --clear` removes the two files of this host, each by its own path.
+The log is off until the user turns it on with `SITREP_LOG=on` in `sitrep.conf` (or in the environment). While it is off nothing is written and no `log/` folder is made. `sitrep setup` does not turn it on, and `sitrep help log` says what the log keeps. Turning it off stops writing and leaves the files. `sitrep log --clear` removes the two files, each by its own path.
 
 ## Size
 

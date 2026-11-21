@@ -170,7 +170,7 @@ func TestLogClear(t *testing.T) {
 func TestLogTextIsClean(t *testing.T) {
 	home := logHome(t)
 	mustRun(t, home, "add", "inbox", "a\x1b[31mred‮")
-	b, _ := os.ReadFile(filepath.Join(state.Open(home).Dir, "log", "mbp_local", "current.jsonl"))
+	b, _ := os.ReadFile(filepath.Join(state.Open(home).Dir, "log", "current.jsonl"))
 	if strings.ContainsAny(string(b), "\x1b‮") || strings.Contains(string(b), `\u001b`) {
 		t.Fatalf("raw control text stored: %q", b)
 	}
@@ -227,7 +227,7 @@ func TestLogPruneEntry(t *testing.T) {
 func logItems(t *testing.T, dir string) []string {
 	t.Helper()
 	var ops []string
-	b, _ := os.ReadFile(filepath.Join(dir, "log", "mbp", "current.jsonl"))
+	b, _ := os.ReadFile(filepath.Join(dir, "log", "current.jsonl"))
 	for _, l := range strings.Split(strings.TrimSpace(string(b)), "\n") {
 		var m struct{ Op string }
 		if json.Unmarshal([]byte(l), &m) == nil && m.Op != "" {

@@ -65,7 +65,7 @@ func TestRecordAndRead(t *testing.T) {
 func TestModes(t *testing.T) {
 	l, _ := newLog(t)
 	l.Record(Entry{Op: Pin, ID: "c5d0", Text: txt("x")})
-	for p, want := range map[string]os.FileMode{filepath.Join(l.Dir, "log"): 0o700, l.hostDir(): 0o700, l.current(): 0o600} {
+	for p, want := range map[string]os.FileMode{l.logDir(): 0o700, l.current(): 0o600} {
 		fi, err := os.Stat(p)
 		if err != nil || fi.Mode().Perm() != want {
 			t.Fatalf("%s: %v %v", p, fi, err)
@@ -161,7 +161,7 @@ func TestRollSkippedWhenLocked(t *testing.T) {
 	if err := os.WriteFile(l.current(), []byte(strings.Repeat("x", 600<<10)+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	unlock, ok := state.TryLock(filepath.Join(l.hostDir(), "lock"))
+	unlock, ok := state.TryLock(filepath.Join(l.logDir(), "lock"))
 	if !ok {
 		t.Fatal("no lock")
 	}
@@ -196,9 +196,9 @@ func TestReaderSkipsBadLinesRepeatsAndOld(t *testing.T) {
 	old := `{"e":"bb","t":"2026-09-01T14:00:00Z","host":"mbp","id":"inbox","op":"queue.add","text":"old"}`
 	badID := `{"e":"cc","t":"2026-11-21T14:00:00Z","host":"mbp","id":"../x","op":"queue.add"}`
 	badOp := `{"e":"dd","t":"2026-11-21T14:00:00Z","host":"mbp","id":"inbox","op":"rm -rf"}`
-	otherHost := `{"e":"ee","t":"2026-11-21T14:00:00Z","host":"evil","id":"inbox","op":"queue.add"}`
+	badHost := `{"e":"ee","t":"2026-11-21T14:00:00Z","host":"../evil","id":"inbox","op":"queue.add"}`
 	torn := `{"e":"ff","t":"2026-11-21T14:00:0`
-	body := strings.Join([]string{old, "garbage", good, good, badID, badOp, otherHost, torn}, "\n")
+	body := strings.Join([]string{old, "garbage", good, good, badID, badOp, badHost, torn}, "\n")
 	if err := os.WriteFile(l.current(), []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -225,33 +225,26 @@ func TestReaderCleansText(t *testing.T) {
 
 func TestReadsHostsMergedAndOneHost(t *testing.T) {
 	a, now := newLog(t)
-	b := Log{Dir: a.Dir, Host: "desk", On: true, Now: func() time.Time { return now.Add(time.Minute) }}
+	b := a
+	b.Host, b.Now = "desk", func() time.Time { return now.Add(time.Minute) }
 	a.Record(Entry{Op: QueueAdd, ID: "inbox", Text: txt("from mbp")})
 	b.Record(Entry{Op: QueueAdd, ID: "inbox", Text: txt("from desk")})
 	if got := Read(a.Dir, Query{}); len(got) != 2 || got[0].Host != "mbp" || got[1].Host != "desk" {
-		t.Fatalf("merge: %+v", got)
+		t.Fatalf("all: %+v", got)
 	}
-	if got := Read(a.Dir, Query{Host: "desk"}); len(got) != 1 {
+	if got := Read(a.Dir, Query{Host: "desk"}); len(got) != 1 || got[0].Text.String() != "from desk" {
 		t.Fatalf("host: %+v", got)
-	}
-	if got := Read(a.Dir, Query{Host: "../x"}); got != nil {
-		t.Fatal("a bad host name was read")
 	}
 }
 
 func TestClear(t *testing.T) {
 	a, _ := newLog(t)
-	b := Log{Dir: a.Dir, Host: "desk", On: true, Now: a.Now}
 	a.Record(Entry{Op: QueueAdd, ID: "inbox", Text: txt("x")})
-	b.Record(Entry{Op: QueueAdd, ID: "inbox", Text: txt("y")})
 	if err := a.Clear(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(a.hostDir()); !os.IsNotExist(err) {
-		t.Fatal("host folder left")
-	}
-	if got := Read(a.Dir, Query{}); len(got) != 1 || got[0].Host != "desk" {
-		t.Fatalf("another host's log was touched: %+v", got)
+	if _, err := os.Stat(a.logDir()); !os.IsNotExist(err) {
+		t.Fatal("log folder left")
 	}
 	if err := a.Clear(); err != nil {
 		t.Fatalf("clearing nothing failed: %v", err)
