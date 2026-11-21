@@ -1,0 +1,141 @@
+package state
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestValidID(t *testing.T) {
+	for id, want := range map[string]bool{
+		"abc123": true, "A_b-9": true, "": false, "../evil": false, "a b": false, "a.b": false, "a\nb": false, "é": false, "inbox": true,
+	} {
+		if got := ValidID(id); got != want {
+			t.Errorf("ValidID(%q) = %v, want %v", id, got, want)
+		}
+	}
+	if SessionID("inbox") || !SessionID("inbox2") || SessionID("") {
+		t.Error("SessionID must refuse exactly the inbox and the empty id")
+	}
+}
+
+func TestOpenIgnoresConfigDir(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", "/elsewhere")
+	if got := Open("/home/u").Dir; got != "/home/u/.claude/sitrep" {
+		t.Errorf("Open().Dir = %q", got)
+	}
+	env := func(k string) string { return map[string]string{"CLAUDE_CONFIG_DIR": "/elsewhere"}[k] }
+	if got := ConfigDir(env, "/home/u"); got != "/elsewhere" {
+		t.Errorf("ConfigDir = %q", got)
+	}
+	if got := ConfigDir(func(string) string { return "" }, "/home/u"); got != "/home/u/.claude" {
+		t.Errorf("ConfigDir default = %q", got)
+	}
+}
+
+func newStore(t *testing.T) Store {
+	t.Helper()
+	s := Open(t.TempDir())
+	if err := s.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func TestEnsureTightensTheFolder(t *testing.T) {
+	s := Open(t.TempDir())
+	if err := os.MkdirAll(s.Dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(s.Dir); fi.Mode().Perm() != DirMode {
+		t.Errorf("mode %v, want %v", fi.Mode().Perm(), DirMode)
+	}
+}
+
+func TestPaths(t *testing.T) {
+	s := Store{Dir: "/d"}
+	if s.Path("abc", "txt") != "/d/abc.txt" || s.Hidden("abc", "state") != "/d/.abc.state" {
+		t.Errorf("Path %q, Hidden %q", s.Path("abc", "txt"), s.Hidden("abc", "state"))
+	}
+}
+
+func TestWriteFile(t *testing.T) {
+	s := newStore(t)
+	p := s.Path("abc", "txt")
+	for _, body := range []string{"first\n", "second\n"} {
+		if err := s.WriteFile(p, []byte(body)); err != nil {
+			t.Fatal(err)
+		}
+		if got, _ := os.ReadFile(p); string(got) != body {
+			t.Errorf("read %q, want %q", got, body)
+		}
+	}
+	if fi, _ := os.Stat(p); fi.Mode().Perm() != FileMode {
+		t.Errorf("mode %v, want %v", fi.Mode().Perm(), FileMode)
+	}
+	entries, _ := os.ReadDir(s.Dir)
+	if len(entries) != 1 {
+		t.Errorf("a temporary file was left behind: %v", entries)
+	}
+}
+
+func TestWriteFileFailureLeavesNothing(t *testing.T) {
+	s := newStore(t)
+	dir := s.Path("adir", "txt")
+	if err := os.Mkdir(dir, 0o700); err != nil { // renaming a file over a directory fails
+		t.Fatal(err)
+	}
+	if err := s.WriteFile(dir, []byte("x")); err == nil {
+		t.Fatal("want an error")
+	}
+	entries, _ := os.ReadDir(s.Dir)
+	if len(entries) != 1 {
+		t.Errorf("a temporary file was left behind: %v", entries)
+	}
+	if err := (Store{Dir: filepath.Join(s.Dir, "missing")}).WriteFile("x", nil); err == nil {
+		t.Error("want an error for a missing folder")
+	}
+}
+
+func TestResolve(t *testing.T) {
+	s := newStore(t)
+	for _, f := range []string{"15f1aaaa.txt", "15f2bbbb.txt", "9zzz0000.txt", "a.b.txt", "x.queue"} {
+		if err := os.WriteFile(filepath.Join(s.Dir, f), nil, FileMode); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(filepath.Join(s.Dir, "dirdirdir.txt"), DirMode); err != nil {
+		t.Fatal(err)
+	}
+	for in, want := range map[string]string{"9z": "9zzz0000", "15f1": "15f1aaaa", "inbox": "inbox", "9zzz0000": "9zzz0000"} {
+		if got, err := s.Resolve(in); err != nil || got != want {
+			t.Errorf("Resolve(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+	for in, msg := range map[string]string{
+		"15f":      "id '15f' matches 2; run 'sitrep ls'",
+		"nope":     "id 'nope' matches 0; run 'sitrep ls'",
+		"a":        "id 'a' matches 0; run 'sitrep ls'", // a.b.txt is not a session file
+		"dirdir":   "id 'dirdir' matches 0; run 'sitrep ls'",
+		"../evil":  "bad id '../evil'",
+		"x\033[31": "bad id 'x[31'",
+		"":         "bad id ''",
+	} {
+		if _, err := s.Resolve(in); err == nil || err.Error() != msg {
+			t.Errorf("Resolve(%q) error %v, want %q", in, err, msg)
+		}
+	}
+	if strings.Contains(func() string { _, e := s.Resolve("\u009bx"); return e.Error() }(), "\u009b") {
+		t.Error("an error message holds a control character")
+	}
+}
+
+func TestResolveWithoutFolder(t *testing.T) {
+	if _, err := Open(t.TempDir()).Resolve("abc"); err == nil || !strings.Contains(err.Error(), "matches 0") {
+		t.Errorf("error %v", err)
+	}
+}

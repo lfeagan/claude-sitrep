@@ -1,0 +1,125 @@
+// Package state is where sitrep keeps its files: the folder, the session ids that name them, and the way they are written.
+package state
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/lfeagan/claude-sitrep/internal/textsafe"
+)
+
+// Modes for everything sitrep writes (invariant 2): state holds prompt text, so it is owner-only. A Umask call does not reach in-process
+// tests, so the modes are always explicit.
+const (
+	FileMode os.FileMode = 0o600
+	DirMode  os.FileMode = 0o700
+)
+
+// Inbox is the queue of no session. It is reserved: no session id may be this.
+const Inbox = "inbox"
+
+// ValidID reports whether s can be part of a file name: letters, digits, underscore and hyphen, and nothing else (invariant 3).
+func ValidID(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-') {
+			return false
+		}
+	}
+	return true
+}
+
+// SessionID is ValidID for a real session: the inbox is not one.
+func SessionID(s string) bool { return ValidID(s) && s != Inbox }
+
+// ConfigDir is Claude Code's own folder. Only the transcripts and the live-session registry honor CLAUDE_CONFIG_DIR; sitrep's own state
+// never moves (see Open), and unifying the two would orphan existing state.
+func ConfigDir(getenv func(string) string, home string) string {
+	if d := getenv("CLAUDE_CONFIG_DIR"); d != "" {
+		return d
+	}
+	return filepath.Join(home, ".claude")
+}
+
+// Store is the state folder.
+type Store struct{ Dir string }
+
+// Open names the state folder, always ~/.claude/sitrep, whatever CLAUDE_CONFIG_DIR says. It creates nothing.
+func Open(home string) Store { return Store{Dir: filepath.Join(home, ".claude", "sitrep")} }
+
+// Ensure creates the folder if needed and makes it owner-only.
+func (s Store) Ensure() error {
+	if err := os.MkdirAll(s.Dir, DirMode); err != nil {
+		return err
+	}
+	return os.Chmod(s.Dir, DirMode)
+}
+
+// Path is the file for a session id and an extension without the dot: <id>.txt, <id>.queue, <id>.cwd.
+func (s Store) Path(id, ext string) string { return filepath.Join(s.Dir, id+"."+ext) }
+
+// Hidden is the dot file kept beside them: .<id>.state, .<id>.count, and so on.
+func (s Store) Hidden(id, ext string) string { return filepath.Join(s.Dir, "."+id+"."+ext) }
+
+// WriteFile replaces path with data in one step: a reader sees the old file or the new one, never a half. The temporary file has a
+// unique name in the same folder and is removed if anything fails.
+func (s Store) WriteFile(path string, data []byte) error {
+	f, err := os.CreateTemp(s.Dir, ".sitrep.*")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	fail := func(err error) error {
+		f.Close()
+		os.Remove(name)
+		return err
+	}
+	if err := f.Chmod(FileMode); err != nil {
+		return fail(err)
+	}
+	if _, err := f.Write(data); err != nil {
+		return fail(err)
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(name)
+		return err
+	}
+	if err := os.Rename(name, path); err != nil {
+		os.Remove(name)
+		return err
+	}
+	return nil
+}
+
+// Resolve turns a unique prefix of a session id into the full id. "inbox" matches exactly. The error text is safe to print.
+func (s Store) Resolve(prefix string) (string, error) {
+	if !ValidID(prefix) {
+		return "", fmt.Errorf("bad id '%s'", textsafe.Clean(prefix, 200))
+	}
+	if prefix == Inbox {
+		return Inbox, nil
+	}
+	entries, err := os.ReadDir(s.Dir)
+	if err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
+	var m []string
+	for _, e := range entries {
+		id, ok := strings.CutSuffix(e.Name(), ".txt")
+		if !ok || !SessionID(id) || !strings.HasPrefix(id, prefix) {
+			continue
+		}
+		if fi, err := os.Stat(filepath.Join(s.Dir, e.Name())); err != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		m = append(m, id)
+	}
+	if len(m) != 1 {
+		return "", fmt.Errorf("id '%s' matches %d; run 'sitrep ls'", prefix, len(m))
+	}
+	return m[0], nil
+}
