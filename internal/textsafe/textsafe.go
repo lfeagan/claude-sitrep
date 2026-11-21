@@ -110,3 +110,6 @@ func Fit(t Text, cols int) Text {
 
 // MarshalText lets a Text be a JSON string, and nothing else is accepted there.
 func (t Text) MarshalText() ([]byte, error) { return []byte(t.s), nil }
+
+// Truncate keeps at most max characters of t (a max below 1 means no limit), with no ellipsis.
+func Truncate(t Text, max int) Text { return Text{cut(t.s, max)} }

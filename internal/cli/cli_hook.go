@@ -11,6 +11,7 @@ import (
 
 	"github.com/lfeagan/claude-sitrep/internal/hook"
 	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/statusline"
 )
 
 func (e Env) hook() hook.Hook {
@@ -57,6 +58,18 @@ func cmdHookSummarize(e Env, args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer stop()
 	z.Do(ctx, state.ID(args[0]), args[1], o)
+	return nil
+}
+
+// cmdStatusline draws the status line for the session Claude Code describes on standard input.
+func cmdStatusline(e Env, args []string) error {
+	if e.Getenv("SITREP_RENDERING") != "" {
+		return nil // never render ourselves, even if the upstream command points back here
+	}
+	if e.Stdin == nil {
+		return nil
+	}
+	statusline.Line{Store: e.store(), Conf: e.conf(), Run: e.Runner, Env: os.Environ()}.Render(context.Background(), e.Stdin, e.Stdout)
 	return nil
 }
 

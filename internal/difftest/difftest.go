@@ -74,8 +74,11 @@ func Oracle(t testing.TB) Runner {
 		t.Helper()
 		env, stdin, rest := split(args)
 		cmd := exec.Command("bash", append([]string{script}, rest...)...)
-		if len(rest) == 1 && rest[0] == "hook" { // the hook was its own script
+		if len(rest) == 1 && rest[0] == "hook" { // the hook and the status line were their own scripts
 			cmd = exec.Command("bash", filepath.Join(dir, "hooks", "sitrep-hook.sh"))
+		}
+		if len(rest) == 1 && rest[0] == "statusline" {
+			cmd = exec.Command("bash", filepath.Join(dir, "statusline", "statusline.sh"))
 		}
 		return run(t, home, env, stdin, cmd)
 	}
