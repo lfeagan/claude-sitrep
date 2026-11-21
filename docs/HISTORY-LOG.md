@@ -26,7 +26,7 @@ The operations are the ones that change state: `queue.add`, `queue.rm`, `queue.e
 
 An entry records the outcome, not the command, so that it still means something a week later and does not depend on the state it was written against. A command such as `top 3` or `rm 2` names a position, and a position is only meaningful at that moment.
 
-- **Items by text, with positions as facts.** `queue.rm` carries the removed item's text. `queue.reorder` carries the text, `from` and `to`. `sitrep top` is a reorder to position 1, so it has no operation of its own.
+- **Items by text, with positions as facts.** `queue.rm` carries the removed item's text. `queue.reorder` carries the text, `from` and `to`. `sitrep top 3` is recorded as a `queue.reorder` with `from` 3 and `to` 1, so it is still in the log, as what it did.
 - **One entry for one change.** `queue.move` is a single entry with both queues, `from` and `to`, and not a removal followed by an addition, so a reader never sees an item vanish and appear. `queue.edit` carries the old and the new text, which lets a reader follow an item through an edit.
 - **A repeated entry is recognisable.** If an append fails partway and is retried, or a hook runs twice, the same line can appear twice. A reader drops a line whose `e` it has already seen. Each host has one writer per file, so sync cannot make a copy.
 - **Nothing is replayed.** The log is a history. No code applies its entries to state, so none of them needs to be safe to apply twice.
