@@ -47,6 +47,13 @@ const Examples = `# Uncomment a line and change it to use it. The environment wi
 # The dashboard without any key that changes state, and without the bell when a session needs you.
 # SITREP_TUI_READONLY=1
 # SITREP_TUI_BELL=0
+#
+# A history of every change sitrep makes (queues, pins, aliases), in the state folder. Off by default.
+# It keeps the text of items. Read it with 'sitrep log'; 'sitrep log --clear' deletes it.
+# SITREP_LOG=on
+# The most megabytes it may hold, and the most days an entry is kept. Whichever is reached first wins.
+# SITREP_LOG_MAX=10
+# SITREP_LOG_DAYS=30
 `
 
 // block is Examples with its two marker lines.

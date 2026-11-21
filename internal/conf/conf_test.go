@@ -339,3 +339,33 @@ func TestTUIInterval(t *testing.T) {
 		t.Errorf("from the file: %v", fc.TUIInterval())
 	}
 }
+
+func TestLogSettings(t *testing.T) {
+	env := map[string]string{}
+	c := Conf{File: filepath.Join(t.TempDir(), "sitrep.conf"), Getenv: func(k string) string { return env[k] }}
+	if c.LogOn() || c.LogMaxMB() != 10 || c.LogDays() != 30 {
+		t.Fatal("wrong defaults")
+	}
+	for _, v := range []string{"1", "on", "ON", "true", "yes"} {
+		env["SITREP_LOG"] = v
+		if !c.LogOn() {
+			t.Errorf("SITREP_LOG=%s is not on", v)
+		}
+	}
+	for _, v := range []string{"0", "off", "no", "banana"} {
+		env["SITREP_LOG"] = v
+		if c.LogOn() {
+			t.Errorf("SITREP_LOG=%s is on", v)
+		}
+	}
+	env["SITREP_LOG_MAX"], env["SITREP_LOG_DAYS"] = "50", "7"
+	if c.LogMaxMB() != 50 || c.LogDays() != 7 {
+		t.Fatal("limits not read")
+	}
+	for _, v := range []string{"0", "-3", "x", "99999"} {
+		env["SITREP_LOG_MAX"], env["SITREP_LOG_DAYS"] = v, v
+		if c.LogMaxMB() != 10 || c.LogDays() != 30 {
+			t.Errorf("bad limit %q not defaulted", v)
+		}
+	}
+}

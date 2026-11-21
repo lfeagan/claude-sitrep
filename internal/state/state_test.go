@@ -399,3 +399,20 @@ func TestLocateRefusesTheConfigFolderWhereverItIs(t *testing.T) {
 		t.Errorf("a folder beside it: %q %v", s.Dir, err)
 	}
 }
+
+func TestTryLock(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "lock")
+	unlock, ok := TryLock(p)
+	if !ok {
+		t.Fatal("free lock not taken")
+	}
+	if _, ok := TryLock(p); ok {
+		t.Fatal("a held lock was taken")
+	}
+	unlock()
+	if u, ok := TryLock(p); !ok {
+		t.Fatal("released lock not taken")
+	} else {
+		u()
+	}
+}

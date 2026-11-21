@@ -87,6 +87,34 @@ func (c Conf) CheckUpdates() bool {
 	return true
 }
 
+// Defaults of the history log.
+const (
+	DefaultLogMaxMB = 10
+	DefaultLogDays  = 30
+)
+
+// LogOn says whether the history log is on (SITREP_LOG): it is off unless this is 1, on, true or yes.
+func (c Conf) LogOn() bool {
+	switch strings.ToLower(c.Get("SITREP_LOG")) {
+	case "1", "on", "true", "yes":
+		return true
+	}
+	return false
+}
+
+// LogMaxMB is the most megabytes the two files of the log hold together (SITREP_LOG_MAX); 0 or a bad value is the default.
+func (c Conf) LogMaxMB() int { return c.positive("SITREP_LOG_MAX", DefaultLogMaxMB, 1024) }
+
+// LogDays is the age in days after which an entry is dropped (SITREP_LOG_DAYS); 0 or a bad value is the default.
+func (c Conf) LogDays() int { return c.positive("SITREP_LOG_DAYS", DefaultLogDays, 3650) }
+
+func (c Conf) positive(name string, def, max int) int {
+	if n := c.number(name, def); n >= 1 && n <= max {
+		return n
+	}
+	return def
+}
+
 // DefaultTUIInterval is how often the dashboard refreshes when nothing says otherwise.
 const DefaultTUIInterval = 3 * time.Second
 
