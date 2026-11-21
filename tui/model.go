@@ -66,8 +66,15 @@ type model struct {
 	quitJump  bool   // leave the dashboard after a good jump, for a popup
 	msg       string // the last thing an action said
 	msgAt     time.Time
-	detail    bool // the detail pane is open for the selected session
-	scroll    int  // the top line of the detail pane
+	detail    bool   // the detail pane is open for the selected session
+	inbox     bool   // the inbox view is open
+	inboxSel  int    // the selected inbox item, by position,
+	inboxText string // and by text, so it stays on the same item when the list changes
+	inboxTo   string // the session `t` hands items to: the one selected when the view opened
+	asking    bool   // the take question is open
+	askN      int    // the item it is about, by position,
+	askItem   string // and by text, so the move refuses if the inbox changed
+	scroll    int    // the top line of the detail pane
 	sortBy    int
 	help      bool
 	isDark    bool
@@ -402,11 +409,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.snap, m.haveSnap, m.err, m.lastOK = msg.snap, true, nil, m.now()
 		m.fixSel()
 		m.clampScroll()
+		m.inboxRefresh()
 		if ring {
 			return m, tea.Raw("\a")
 		}
 	case pruneMsg:
 		return m.pruneResult(msg)
+	case takeMsg:
+		m.acting = false
+		if msg.err != nil {
+			m.say("take: " + msg.err.Error())
+		} else if lines := pruneLines(msg.text); len(lines) > 0 {
+			m.say(lines[len(lines)-1])
+		}
+		if !m.fetching { // show the change without waiting for the next tick
+			m.fetching, m.started = true, m.started+1
+			return m, m.fetchCmd()
+		}
+		return m, nil
 	case snoozeMsg:
 		m.acting = false
 		if msg.err != nil {
@@ -449,6 +469,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.prune != pruneNone {
 			return m.pruneKey(msg)
 		}
+		if m.inbox {
+			return m.inboxKey(msg)
+		}
 		if m.detail {
 			return m.detailKey(msg)
 		}
@@ -490,6 +513,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.detail && !m.help {
 				m.filtering = true
 			}
+		case "i":
+			return m.inboxOpen()
 		case "esc":
 			if m.filter != "" { // a filter left on is cleared by esc
 				m.filter = ""
@@ -538,6 +563,8 @@ func (m model) View() tea.View {
 	switch {
 	case m.prune != pruneNone:
 		body = pruneScreen(m.pruneText, m.prune, m.width, m.height, theme)
+	case m.inbox:
+		body = inboxScreen(m.snap.Inbox.Items, m.snap.Inbox.Count, m.inboxIndex(), m.inboxTarget(), m.asking, m.askN, m.statusText(), m.readOnly, m.width, m.height, theme)
 	case m.detail && m.selected() != nil:
 		body = detailScreen(*m.selected(), m.width, m.height, m.scroll, theme)
 	case m.help:
