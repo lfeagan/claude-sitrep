@@ -1,4 +1,4 @@
-package main
+package tui
 
 import (
 	"errors"
@@ -128,15 +128,6 @@ func TestTheBellRingsOnceForANewWaitingSession(t *testing.T) {
 	m.bell = false
 	if _, cmd = m.Update(snapMsg{snap: waiting(base, "b1fb", true)}); cmd != nil {
 		t.Errorf("--no-bell silences it")
-	}
-}
-
-func TestEnvOff(t *testing.T) {
-	for v, want := range map[string]bool{"": false, "1": false, "yes": false, "0": true, "false": true, "No": true} {
-		t.Setenv("SITREP_TUI_TEST_BELL", v)
-		if got := envOff("SITREP_TUI_TEST_BELL"); got != want {
-			t.Errorf("%q: got %v, want %v", v, got, want)
-		}
 	}
 }
 

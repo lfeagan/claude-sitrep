@@ -16,21 +16,6 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install shellcheck jq
       - run: make lint test
-  tui:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: tui/go.mod
-          cache-dependency-path: tui/go.sum
-      - name: Install jq (macOS)
-        if: runner.os == 'macOS'
-        run: brew install jq
-      - run: make tui-test
   go:
     strategy:
       matrix:

@@ -81,6 +81,54 @@ The three options exclude one another.
 It reads Claude Code's live-session registry and changes nothing if it cannot. It never
 touches a running session or one under two minutes old, and never deletes a queue.
 `,
+	"watch": `usage: sitrep watch [--tab watch|top] [--interval 3s] [--once] [--width n] [--quit-on-jump]
+                    [--read-only] [--no-bell]
+
+A live full-screen dashboard of the sessions, with a Watch tab and a Top tab and a status bar.
+It reads the sessions itself and changes nothing except through the same fixed commands this
+program has (prune, snooze and the queue edits), after a preview or a question. Without a
+terminal it prints one frame, as ` + "`sitrep status`" + ` does.
+
+Keys: up, down, j and k move the selection; enter jumps to the session's tmux pane or cmux
+surface; d or space opens the session in full; tab, shift-tab, left, right, 1 and 2 switch
+tabs; a shows or hides ended sessions; s sorts Top; y or Y copies the session id or its
+resume command; z snoozes a session until it changes; / filters the sessions (enter keeps the
+filter, esc clears it); i opens the inbox and e the selected session's queue: there a adds an
+item (typed), x removes one after a y or n, K and J move it up and down, T moves it to the front,
+P pins the Objective and U unpins it, and in the inbox t takes the selected item into the session
+that was selected, after a y or n, to the end of its queue; p prunes sessions that are gone,
+after a preview and a y or n; r refreshes; ? lists the keys; q quits.
+
+--once prints one frame as plain text and exits, --quit-on-jump leaves the dashboard after
+a good jump, for a tmux popup, --read-only (or SITREP_TUI_READONLY) turns off p, z and every
+other key that changes state, and --no-bell (or SITREP_TUI_BELL=0) stops the bell that rings
+when a session starts needing you.
+`,
+	"status": `usage: sitrep status [--tab watch|top] [--width n] [-a]
+
+Print one frame of the dashboard as plain text: for a script, a pipe or a quick look. -a includes
+ended sessions.
+`,
+	"setup": `usage: sitrep setup [--remove]
+
+Put the sitrep block on Claude Code's status line, keeping a status line that is already there
+(such as Claude HUD) above it, and link sitrep into BIN_DIR (default ~/bin). It writes
+~/.claude/settings.json, after a backup, and changes nothing when that cannot be done safely.
+--remove takes it off again and restores the status line it wrapped. State in ~/.claude/sitrep is
+kept. The plugin brings the hooks and the skill.
+`,
+	"hook": `usage: sitrep hook
+
+Handle one Claude Code hook event, read as JSON from standard input: SessionStart,
+UserPromptSubmit, Stop or SessionEnd. It keeps each session's Objective, Progress, Now and state,
+answers the + commands (+pin, +, +inbox, +take) and starts the summarizer. It never fails and
+prints nothing but a block answer. The plugin runs it; you do not.
+`,
+	"statusline": `usage: sitrep statusline
+
+Print the sitrep block of the status line for the session Claude Code describes as JSON on
+standard input, after the output of the status line saved by setup, if any. Claude Code runs it.
+`,
 	"help": `usage: sitrep help [command]
 
 List the commands, or show the details of one. ` + "`sitrep <command> --help`" + ` shows the same.
@@ -100,6 +148,9 @@ const helpAll = `usage: sitrep <command> [args]
   unpin <id>                 let the summarizer rewrite the Objective
   snooze [--off] <id>        mute the needs-you state of a session until it changes
   prune                      clear out sessions that are gone
+  watch                      live full-screen dashboard of the sessions
+  status                     print one frame of the dashboard as text
+  setup [--remove]           put sitrep on the status line, or take it off
   help [command]             this list, or the details of one command
 
 An <id> is a unique prefix of a session id, or "inbox".

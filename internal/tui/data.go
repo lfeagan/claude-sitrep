@@ -1,17 +1,12 @@
-package main
+package tui
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
-	"time"
 )
 
 // supportedVersion is the highest `sitrep ls --json` version this build understands.
@@ -154,65 +149,7 @@ func (l *limitedBuffer) Write(p []byte) (int, error) {
 	return l.buf.Write(p)
 }
 
-// fetch runs `sitrep ls --json -a` and decodes it. The arguments are a slice, never a
-// shell line, and the call is cut off after timeout.
-func fetch(ctx context.Context, bin string, timeout time.Duration) (Snapshot, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "ls", "--json", "-a", "--full") // every queue item: the views cap what they list
-	out := &limitedBuffer{max: maxOutput}
-	errs := &keepFirst{max: 4096}
-	cmd.Stdout, cmd.Stderr = out, errs
-	cmd.WaitDelay = time.Second
-	confine(cmd)
-	if err := cmd.Run(); err != nil {
-		switch {
-		case out.over: // the child usually dies of SIGPIPE once the pipe is closed, so look here first
-			return Snapshot{}, errors.New("sitrep printed too much")
-		case errors.Is(ctx.Err(), context.DeadlineExceeded):
-			return Snapshot{}, fmt.Errorf("sitrep took longer than %s", timeout)
-		}
-		msg := strings.TrimSpace(clean(firstLine(errs.buf.String())))
-		if msg == "" {
-			msg = err.Error()
-		}
-		return Snapshot{}, fmt.Errorf("sitrep failed: %s", msg)
-	}
-	return decode(&out.buf)
-}
-
 func firstLine(s string) string {
 	line, _, _ := strings.Cut(s, "\n")
 	return line
 }
-
-// findSitrep locates the sitrep command: $SITREP_BIN, then the one next to this program,
-// then PATH. It never looks in the current directory.
-func findSitrep() (string, error) {
-	if p := os.Getenv("SITREP_BIN"); p != "" {
-		if !isExecutable(p) {
-			return "", fmt.Errorf("SITREP_BIN %q is not an executable file", p)
-		}
-		return p, nil
-	}
-	if exe, err := os.Executable(); err == nil {
-		if real, err := filepath.EvalSymlinks(exe); err == nil {
-			exe = real
-		}
-		if p := filepath.Join(filepath.Dir(exe), "sitrep"); isExecutable(p) {
-			return p, nil
-		}
-	}
-	p, err := exec.LookPath("sitrep")
-	if err != nil {
-		return "", errors.New("cannot find the sitrep command: put it on PATH, or set SITREP_BIN")
-	}
-	return p, nil
-}
-
-func isExecutable(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0o111 != 0
-}
-
-func nilContext() context.Context { return context.Background() }

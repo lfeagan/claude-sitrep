@@ -73,7 +73,7 @@ var commands map[string]command
 func init() {
 	commands = map[string]command{
 		"add": cmdAdd, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
-		"setup": cmdSetup, "hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
+		"setup": cmdSetup, "watch": cmdWatch, "status": cmdStatus, "hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
 	}
 }
 

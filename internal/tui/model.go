@@ -1,7 +1,8 @@
-package main
+package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -54,13 +55,14 @@ type model struct {
 	height    int
 	tab       int
 	showEnded bool
-	selID     string // the selected session, by id, so a refresh or a re-sort does not move it
-	filter    string // only sessions that contain this text are listed
-	filtering bool   // keys type into the filter
-	run       runner // runs tmux, ps, cmux and sitrep; tests replace it
-	readOnly  bool   // no key changes any state
-	bell      bool   // ring the terminal bell when a session starts needing the user
-	prune     int    // the phase of the prune screen
+	selID     string                                      // the selected session, by id, so a refresh or a re-sort does not move it
+	filter    string                                      // only sessions that contain this text are listed
+	filtering bool                                        // keys type into the filter
+	run       runner                                      // runs tmux, ps, cmux and sitrep; tests replace it
+	fetcher   func(ctx context.Context) (Snapshot, error) // reads the sessions
+	readOnly  bool                                        // no key changes any state
+	bell      bool                                        // ring the terminal bell when a session starts needing the user
+	prune     int                                         // the phase of the prune screen
 	pruneText []string
 	acting    bool   // a jump is running, so another is ignored
 	quitJump  bool   // leave the dashboard after a good jump, for a popup
@@ -90,9 +92,14 @@ func newModel(bin string, interval time.Duration, tab int) model {
 }
 
 func (m model) fetchCmd() tea.Cmd {
-	bin := m.bin
+	fetch := m.fetcher
 	return func() tea.Msg {
-		snap, err := fetch(context.Background(), bin, fetchTimeout)
+		if fetch == nil {
+			return snapMsg{err: errors.New("no source of sessions")}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+		defer cancel()
+		snap, err := fetch(ctx)
 		return snapMsg{snap: snap, err: err}
 	}
 }

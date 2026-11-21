@@ -9,17 +9,6 @@ lint:
 test:
 	bash tests/run.sh
 
-# The optional Go dashboard (needs Go 1.26 or newer). `make lint test` stays Go-free.
-.PHONY: tui
-tui:
-	cd tui && go build -o ../bin/sitrep-tui .
-
-.PHONY: tui-test
-tui-test:
-	cd tui && test -z "$$(gofmt -l .)" && go vet ./... && go test -race -count=1 ./...
-	cd tui && go build -o ../bin/sitrep-tui .
-	h=$$(mktemp -d); HOME=$$h SITREP_BIN=$(CURDIR)/bin/sitrep bin/sitrep-tui --once | grep -q Watch; r=$$?; rmdir "$$h"; exit $$r
-
 # The Go port (see docs/GO-PORT.md). The differential tests need git, jq, perl and the bash-final tag; they skip without them, and fail when CI is set.
 .PHONY: go-test
 go-test:
