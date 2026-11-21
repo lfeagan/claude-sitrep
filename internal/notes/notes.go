@@ -70,3 +70,27 @@ func (n Notes) Unsnooze(id state.ID) error {
 	}
 	return nil
 }
+
+// Get is the value of the first "<key>:" line of the session's notes, without the spaces after the colon; empty when there is none. The text
+// is raw: it came from a file, so it goes through textsafe before it is shown or stored again.
+func (n Notes) Get(id state.ID, key string) string {
+	b, err := state.ReadFile(n.Store.Path(id, "txt"), 1<<20)
+	if err != nil {
+		return ""
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		if rest, ok := strings.CutPrefix(l, key+":"); ok {
+			return strings.TrimLeft(rest, " ")
+		}
+	}
+	return ""
+}
+
+// Write replaces the notes with the three lines the hook keeps.
+func (n Notes) Write(id state.ID, objective, progress, now textsafe.Text) error {
+	if err := n.Store.Ensure(); err != nil {
+		return err
+	}
+	body := "Objective: " + objective.String() + "\nProgress:  " + progress.String() + "\nNow:       " + now.String() + "\n"
+	return n.Store.WriteFile(n.Store.Path(id, "txt"), []byte(body))
+}
