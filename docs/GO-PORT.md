@@ -1,6 +1,6 @@
 # Porting sitrep to Go
 
-Status: draft 2, after the first review. Nothing here is built.
+Status: built. The phases below are done; see Results at the end. Phase designs are in `GO-PORT-HOOK.md` and `GO-PORT-SETUP.md`.
 
 ## Purpose
 
@@ -161,3 +161,12 @@ Rollback cost of Phase 8: revert commit (c) and (d) and publish a patch release,
 
 1. Hook latency for `UserPromptSubmit`, bash today against Go, over 100 runs, as numbers.
 2. Binary size with Bubble Tea linked in, and the hook's startup time with it. The rule is set now: if the p95 of a hook call is over 30 ms, the fix is in the one binary (lazy initialization, fewer package-level initializers, trimmed imports on the hook path), and it is never a second binary.
+
+## Results
+
+1. **Hook latency**, `UserPromptSubmit`, 100 runs on the author's Mac: the Go hook takes 3.3 ms median and 4.6 ms at p95; the bash hook took 36.7 ms and 37.8 ms. The status line takes 2.5 ms against 12.7 ms. The rule from "Measurements to Take" (p95 under 30 ms, in one binary) holds with room to spare.
+2. **Size.** The one binary is 7.5 MB, with the dashboard linked in.
+3. **Tests.** The bash suite counted 708 checks. The Go tests run with `-race` and include the differential tests against the tag `bash-final` (queues, snapshots, listings, hook events, the exact summarizer call, the status line), a perl comparison of every Unicode code point, and a bash comparison of the conf quoting.
+4. **Deliberate differences** from the bash are listed in the commit messages and in the phase documents: stricter file names and ids, JSON for non-ASCII not escaped, text from sessions rendered from the cleaned snapshot, a lock on queue changes, atomic state writes, and no watch loop of its own.
+5. **Not done:** the plugin flow has been run end to end only against a scratch `$HOME`, not inside Claude Code. CI has not run on the Go code, and needs the tags pushed (`git push origin bash-final v0.3.0`).
+
