@@ -12,7 +12,6 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/live"
 	"github.com/lfeagan/claude-sitrep/internal/migrate"
 	"github.com/lfeagan/claude-sitrep/internal/prune"
-	"github.com/lfeagan/claude-sitrep/internal/queue"
 	"github.com/lfeagan/claude-sitrep/internal/render"
 	"github.com/lfeagan/claude-sitrep/internal/snapshot"
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -121,17 +120,17 @@ func cmdSnooze(e Env, args []string) error {
 		if err := e.notes().Unsnooze(id); err != nil {
 			return err
 		}
-		fmt.Fprintf(e.Stdout, "%s is no longer snoozed\n", queue.Label(id))
+		fmt.Fprintf(e.Stdout, "%s is no longer snoozed\n", e.label(id))
 		return nil
 	}
 	changed, ok := live.Changed(e.store(), string(id))
 	if !ok {
-		return fmt.Errorf("cannot read when %s last changed", queue.Label(id))
+		return fmt.Errorf("cannot read when %s last changed", e.label(id))
 	}
 	if err := e.notes().Snooze(id, changed); err != nil {
-		return fmt.Errorf("cannot snooze %s", queue.Label(id))
+		return fmt.Errorf("cannot snooze %s", e.label(id))
 	}
-	fmt.Fprintf(e.Stdout, "snoozed %s until it changes\n", queue.Label(id))
+	fmt.Fprintf(e.Stdout, "snoozed %s until it changes\n", e.label(id))
 	return nil
 }
 
@@ -173,7 +172,7 @@ func cmdPrune(e Env, args []string) error {
 	}
 	marked, moved, asked := 0, 0, 0
 	for _, a := range actions {
-		who := fmt.Sprintf("%s (%s)", queue.Label(a.ID), a.Dir)
+		who := fmt.Sprintf("%s (%s)", e.label(a.ID), a.Dir)
 		if a.Mark {
 			if dry {
 				fmt.Fprintf(e.Stdout, "would mark %s ended\n", who)
@@ -261,7 +260,11 @@ func (e Env) lsQueue(prefix string) error {
 			suffix = "  (" + label + ")"
 		}
 		cwd, _ := state.ReadFile(st.Path(id, "cwd"), 64<<10)
-		fmt.Fprintf(e.Stdout, "Session %s  %s%s\n", queue.Label(id), textsafe.Clean(string(cwd), 200), suffix)
+		who := e.label(id)
+		if a := st.Alias(id); a != "" {
+			who += " (" + string(id[:min(len(id), 4)]) + ")" // the alias, and the id that is its stable name
+		}
+		fmt.Fprintf(e.Stdout, "Session %s  %s%s\n", who, textsafe.Clean(string(cwd), 200), suffix)
 		notes, _ := state.ReadFile(st.Path(id, "notes"), 1<<20)
 		for _, l := range strings.Split(string(notes), "\n") {
 			if rest, ok := strings.CutPrefix(l, "Objective: "); ok {

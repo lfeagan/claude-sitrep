@@ -211,3 +211,27 @@ func TestBashScript(t *testing.T) {
 		}
 	}
 }
+
+func TestCompleteAliases(t *testing.T) {
+	e := completionEnv(t)
+	ctx := context.Background()
+	st := state.Open(e.Home)
+	if _, err := st.SetAlias("zzzz3333-z", "work"); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range [][]string{{"ls", ""}, {"add", ""}, {"pin", ""}, {"alias", ""}, {"move", "abcd1", ""}} {
+		got := e.complete(ctx, c)
+		if !contains(got, "work") || !contains(got, "zzzz") {
+			t.Errorf("%v: %v", c, got)
+		}
+	}
+	if got := e.complete(ctx, []string{"alias", "zzzz", ""}); len(got) != 0 {
+		t.Errorf("alias takes a name, which is not completed: %v", got)
+	}
+	if got := e.complete(ctx, []string{"alias", "--"}); !contains(got, "--off") {
+		t.Errorf("alias flags: %v", got)
+	}
+	if got := e.complete(ctx, []string{""}); !contains(got, "alias") {
+		t.Errorf("commands: %v", got)
+	}
+}

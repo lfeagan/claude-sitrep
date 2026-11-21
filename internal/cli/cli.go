@@ -73,7 +73,7 @@ var commands map[string]command
 
 func init() {
 	commands = map[string]command{
-		"add": cmdAdd, "edit": cmdEdit, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
+		"add": cmdAdd, "alias": cmdAlias, "edit": cmdEdit, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
 		"setup": cmdSetup, "migrate": cmdMigrate, "version": cmdVersion, "completion": cmdCompletion, "__complete": cmdComplete, "watch": cmdWatch, "status": cmdStatus, "hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "update-check": cmdUpdateCheck, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
 	}
 }
@@ -150,6 +150,9 @@ func guarded(args []string) (rest []string, guard *string, err error) {
 	return rest, guard, nil
 }
 
+// label is the name a person is shown for a queue: its alias, or the first four characters of its id.
+func (e Env) label(id state.ID) string { return queue.LabelFor(e.store(), id) }
+
 func (e Env) resolve(prefix string) (state.ID, error) { return e.store().Resolve(prefix) }
 
 func cmdAdd(e Env, args []string) error {
@@ -164,7 +167,7 @@ func cmdAdd(e Env, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(e.Stdout, "queued on %s (now %d)\n", queue.Label(id), n)
+	fmt.Fprintf(e.Stdout, "queued on %s (now %d)\n", e.label(id), n)
 	return nil
 }
 
@@ -218,7 +221,7 @@ func cmdEdit(e Env, args []string) error {
 	if _, err := e.queue().Edit(id, no, text, guard); err != nil {
 		return err
 	}
-	fmt.Fprintf(e.Stdout, "item %d on %s: %s\n", no, queue.Label(id), text)
+	fmt.Fprintf(e.Stdout, "item %d on %s: %s\n", no, e.label(id), text)
 	return nil
 }
 
@@ -261,7 +264,7 @@ func (e Env) reorder(prefix, from, to string, guard *string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(e.Stdout, "item %d on %s: %s\n", t, queue.Label(id), item)
+	fmt.Fprintf(e.Stdout, "item %d on %s: %s\n", t, e.label(id), item)
 	return nil
 }
 
@@ -305,7 +308,7 @@ func cmdMove(e Env, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(e.Stdout, "moved to %s: %s\n", queue.Label(to), item)
+	fmt.Fprintf(e.Stdout, "moved to %s: %s\n", e.label(to), item)
 	return nil
 }
 
@@ -335,7 +338,7 @@ func cmdPin(e Env, args []string) error {
 	if err := e.notes().Pin(id, textsafe.Clean(strings.Join(args[1:], " "), queue.MaxItem)); err != nil {
 		return err
 	}
-	fmt.Fprintf(e.Stdout, "objective set on %s\n", queue.Label(id))
+	fmt.Fprintf(e.Stdout, "objective set on %s\n", e.label(id))
 	return nil
 }
 
@@ -353,7 +356,7 @@ func cmdUnpin(e Env, args []string) error {
 	if err := e.notes().Unpin(id); err != nil {
 		return err
 	}
-	fmt.Fprintf(e.Stdout, "objective on %s will be summarized again\n", queue.Label(id))
+	fmt.Fprintf(e.Stdout, "objective on %s will be summarized again\n", e.label(id))
 	return nil
 }
 

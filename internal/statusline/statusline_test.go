@@ -129,3 +129,24 @@ func TestNoticeOfANewerRelease(t *testing.T) {
 		}
 	}
 }
+
+func TestAliasAfterTheId(t *testing.T) {
+	s := state.Open(t.TempDir())
+	s.Ensure()
+	s.WriteFile(s.Path("abcdef", "notes"), []byte("Objective: x\n"))
+	if _, err := s.SetAlias("abcdef", "work"); err != nil {
+		t.Fatal(err)
+	}
+	l := Line{Store: s, Conf: conf.Conf{File: filepath.Join(s.Dir, "sitrep.conf"), Getenv: func(string) string { return "" }}, Run: &runner.Fake{}}
+	var out bytes.Buffer
+	l.Render(context.Background(), strings.NewReader(`{"session_id":"abcdef"}`), &out)
+	if !strings.HasSuffix(out.String(), "Queue [id abcd work]: empty\n") {
+		t.Errorf("%q", out.String())
+	}
+	os.WriteFile(s.Path("abcdef", "alias"), []byte("bad\x1b[31m\n"), 0o600) // a hand-edited file that is no alias
+	out.Reset()
+	l.Render(context.Background(), strings.NewReader(`{"session_id":"abcdef"}`), &out)
+	if strings.ContainsAny(out.String(), "\x1b") || !strings.HasSuffix(out.String(), "Queue [id abcd]: empty\n") {
+		t.Errorf("%q", out.String())
+	}
+}

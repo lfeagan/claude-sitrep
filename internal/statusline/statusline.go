@@ -78,7 +78,11 @@ func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 		inbox = fmt.Sprintf("  Inbox: %d", c)
 	}
 	// the id comes first, so a terminal that cuts a long line cuts the next item and not the id
-	fmt.Fprintf(out, "Queue [id %s]: %s%s\n", queue.Label(id), summary, inbox)
+	name := queue.Label(id)
+	if a := l.Store.Alias(id); a != "" {
+		name += " " + a // the id stays: it is the stable name, and a name that moves must not mislead
+	}
+	fmt.Fprintf(out, "Queue [id %s]: %s%s\n", name, summary, inbox)
 	if l.Version != "" {
 		if n := update.Notice(l.Store, l.Version); n != "" {
 			fmt.Fprintln(out, n)

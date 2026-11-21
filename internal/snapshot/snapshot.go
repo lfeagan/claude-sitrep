@@ -62,6 +62,7 @@ type Queue struct {
 type Session struct {
 	ID           state.ID      `json:"id"`
 	Short        string        `json:"short"`
+	Alias        string        `json:"alias"` // the name the user gave the session, or empty
 	Running      bool          `json:"running"`
 	State        string        `json:"state"`
 	StateLabel   string        `json:"state_label"`
@@ -80,6 +81,14 @@ type Session struct {
 	Progress     textsafe.Text `json:"progress"`
 	Now          textsafe.Text `json:"now"`
 	Queue        Queue         `json:"queue"`
+}
+
+// Label is the name a person is shown for the session: its alias, or the Short.
+func (s Session) Label() string {
+	if s.Alias != "" {
+		return s.Alias
+	}
+	return s.Short
 }
 
 // Builder makes snapshots.
@@ -128,7 +137,7 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 			continue
 		}
 		age := now - f.changed
-		s := Session{ID: id, Short: shortOf(f.id), Running: !dead, State: word, Age: age, StateChanged: f.changed}
+		s := Session{ID: id, Short: shortOf(f.id), Alias: b.Store.Alias(id), Running: !dead, State: word, Age: age, StateChanged: f.changed}
 		var quiet int64
 		var hasQuiet bool
 		if dead {

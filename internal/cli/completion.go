@@ -22,6 +22,7 @@ type spec struct {
 var specs = map[string]spec{
 	"ls":      {flags: []string{"-a", "--all", "-v", "-n", "--json", "--full"}, values: map[string][]string{"-n": nil}, ids: []int{0}, noIDWith: "--json"},
 	"add":     {ids: []int{0}},
+	"alias":   {flags: []string{"--off"}, ids: []int{0}, noInbox: true},
 	"edit":    {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
 	"rm":      {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
 	"top":     {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
@@ -129,10 +130,14 @@ func (e Env) candidates(ctx context.Context, words []string) []string {
 func (e Env) completeIDs(ctx context.Context, withInbox bool) []string {
 	snap := e.builder().Build(ctx, snapshot.Options{All: true, Cap: 0})
 	ids := make([]string, 0, len(snap.Sessions))
+	var names []string
 	for _, s := range snap.Sessions {
 		ids = append(ids, string(s.ID))
+		if s.Alias != "" {
+			names = append(names, s.Alias)
+		}
 	}
-	out := shortestPrefixes(ids)
+	out := append(shortestPrefixes(ids), names...)
 	if withInbox {
 		out = append(out, "inbox")
 	}

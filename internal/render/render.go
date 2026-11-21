@@ -29,6 +29,14 @@ func (o Opts) Cap() int {
 	return 1 // the next item
 }
 
+// MaxLabelWidth is the widest the first column grows for an alias; a longer alias is cut with an ellipsis.
+const MaxLabelWidth = 16
+
+// idCell is a session's label cut to the column and padded to its width.
+func idCell(label string, w int) string {
+	return pad(textsafe.Fit(text(label), w), w)
+}
+
 // pad pads t with spaces to n columns.
 func pad(t textsafe.Text, n int) string {
 	return t.String() + strings.Repeat(" ", max(0, n-textsafe.Width(t)))
@@ -76,8 +84,9 @@ func fit(s string, cols int) string { return textsafe.Fit(text(s), cols).String(
 
 // Frame draws the listing, one string per line. It is empty when there is nothing to show.
 func Frame(snap snapshot.Snapshot, o Opts) []string {
-	dirW, stateW := 9, 5
+	dirW, stateW, idW := 9, 5, 4
 	for _, s := range snap.Sessions {
+		idW = min(max(idW, textsafe.Width(text(s.Label()))), MaxLabelWidth)
 		stateW = max(stateW, textsafe.Width(text(s.StateLabel)))
 		dirW = max(dirW, textsafe.Width(s.Dir))
 	}
@@ -93,11 +102,11 @@ func Frame(snap snapshot.Snapshot, o Opts) []string {
 		}
 	}
 	if len(snap.Sessions) > 0 {
-		out = append(out, fmt.Sprintf("%-4s  %s  %s  %s", "ID", pad(text("DIRECTORY"), dirW), pad(text("STATE"), stateW), "QUEUE"))
+		out = append(out, fmt.Sprintf("%s  %s  %s  %s", idCell("ID", idW), pad(text("DIRECTORY"), dirW), pad(text("STATE"), stateW), "QUEUE"))
 	}
-	avail := max(10, o.Cols-dirW-stateW-10)
+	avail := max(10, o.Cols-idW-dirW-stateW-6)
 	for _, s := range snap.Sessions {
-		out = append(out, fmt.Sprintf("%-4s  %s  %s  %s", s.Short, pad(s.Dir, dirW), pad(text(s.StateLabel), stateW), fit(summary(s.Queue, o.List()), avail)))
+		out = append(out, fmt.Sprintf("%s  %s  %s  %s", idCell(s.Label(), idW), pad(s.Dir, dirW), pad(text(s.StateLabel), stateW), fit(summary(s.Queue, o.List()), avail)))
 		out = append(out, "    Objective: "+s.Objective.String())
 		if o.Verbose {
 			out = append(out, "    Progress:  "+s.Progress.String())

@@ -3,6 +3,7 @@ package render
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/lfeagan/claude-sitrep/internal/snapshot"
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
@@ -130,5 +131,33 @@ func TestEveryLineIsClean(t *testing.T) {
 func TestOptsCap(t *testing.T) {
 	if (Opts{Verbose: true, Items: 7}).Cap() != 7 || (Opts{Verbose: true, Items: 0}).Cap() != 1 || (Opts{Items: 7}).Cap() != 1 {
 		t.Error("Cap is wrong")
+	}
+}
+
+func TestAliasWidensTheFirstColumn(t *testing.T) {
+	a, b, c := session("aaaa", "proj", "working", queueOf()), session("bbbb", "proj", "working", queueOf()), session("cccc", "proj", "working", queueOf())
+	b.Alias = "sitrep"
+	c.Alias = "a-name-that-is-much-too-long-for-the-column"
+	got := Frame(snapshot.Snapshot{Sessions: []snapshot.Session{a, b, c}}, Opts{Cols: 100})
+	var rows []string
+	for _, l := range got {
+		if !strings.HasPrefix(l, "    ") && !strings.HasPrefix(l, "+") {
+			rows = append(rows, l)
+		}
+	}
+	if len(rows) != 4 {
+		t.Fatalf("rows %q", rows)
+	}
+	for _, r := range rows {
+		if i := strings.Index(r, "proj"); i >= 0 && utf8.RuneCountInString(r[:i]) != 18 {
+			t.Errorf("the second column starts at %d in %q", utf8.RuneCountInString(r[:i]), r)
+		}
+	}
+	if !strings.HasPrefix(rows[2], "sitrep  ") || !strings.HasPrefix(rows[3], "a-name-that-is-…  ") || !strings.HasPrefix(rows[1], "aaaa  ") {
+		t.Errorf("rows %q", rows)
+	}
+	// without an alias the column is four wide, as before
+	if got := Frame(snapshot.Snapshot{Sessions: []snapshot.Session{a}}, Opts{Cols: 100}); !strings.HasPrefix(got[0], "ID    DIRECTORY") {
+		t.Errorf("%q", got)
 	}
 }

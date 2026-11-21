@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -22,6 +21,14 @@ func Label(id state.ID) string {
 		return string(id)
 	}
 	return string(id[:4])
+}
+
+// LabelFor is the name a person is shown for a queue: the session's alias when it has one, and Label otherwise.
+func LabelFor(st state.Store, id state.ID) string {
+	if a := st.Alias(id); a != "" {
+		return a
+	}
+	return Label(id)
 }
 
 // ChangedError says the queue is no longer what the caller saw.
@@ -112,10 +119,7 @@ func (q Queue) item(id state.ID, lines []string, n int, guard *string) (string, 
 // lock takes the lock every change to a queue takes, so that an append, a removal, a move and a reorder cannot lose one another's work. One
 // lock covers the whole folder, which keeps a move between two queues free of ordering problems.
 func (q Queue) lock() (func(), error) {
-	if _, err := os.Stat(q.Store.Dir); os.IsNotExist(err) {
-		return func() {}, nil // nothing exists yet, so there is nothing to protect
-	}
-	return state.Lock(filepath.Join(q.Store.Dir, ".queue.lock"))
+	return q.Store.Lock()
 }
 
 // Add appends an item and returns how many items the queue now holds.

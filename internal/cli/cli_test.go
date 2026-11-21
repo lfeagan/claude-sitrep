@@ -18,7 +18,7 @@ import (
 func run(t *testing.T, home string, args ...string) (int, string, string) {
 	t.Helper()
 	var out, errb bytes.Buffer
-	e := Env{Home: home, Getenv: func(string) string { return "" }, Stdout: &out, Stderr: &errb}
+	e := Env{Home: home, Getenv: func(string) string { return "" }, Stdout: &out, Stderr: &errb, Clock: clock.Real{}}
 	code := Run(args, e)
 	return code, out.String(), errb.String()
 }
@@ -238,5 +238,49 @@ func TestEditCommand(t *testing.T) {
 	}
 	if code, _, errs := run(t, home, "edit", "inbox", "9", "x"); code != 1 || errs != "sitrep: no item 9 on inbox\n" {
 		t.Errorf("item 9: %d %q", code, errs)
+	}
+}
+
+func TestAliasCommand(t *testing.T) {
+	home := t.TempDir()
+	st := state.Open(home)
+	for _, id := range []string{"c5d05701", "dfc08fd7"} {
+		if err := st.WriteFile(st.Path(state.ID(id), "notes"), []byte("Objective: x\n")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st.WriteFile(st.Path("c5d05701", "cwd"), []byte("/work/claude-sitrep\n"))
+	if code, out, _ := run(t, home, "alias", "c5d0", "sitrep"); code != 0 || out != "c5d0 is now called sitrep\n" {
+		t.Errorf("set: %d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "alias", "sitrep", "sitrep"); code != 0 || out != "c5d0 is already called sitrep\n" {
+		t.Errorf("again: %d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "add", "sitrep", "an", "item"); code != 0 || out != "queued on sitrep (now 1)\n" {
+		t.Errorf("add by alias: %d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "ls", "sitrep"); code != 0 || !strings.HasPrefix(out, "Session sitrep (c5d0)  /work/claude-sitrep") || !strings.Contains(out, "1. an item") {
+		t.Errorf("ls by alias: %d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "alias"); code != 0 || out != "sitrep  c5d0  claude-sitrep\n" {
+		t.Errorf("list: %d %q", code, out)
+	}
+	if code, _, errs := run(t, home, "alias", "dfc0", "sitrep"); code != 1 || !strings.Contains(errs, "already the alias of c5d0") {
+		t.Errorf("taken: %d %q", code, errs)
+	}
+	if code, _, errs := run(t, home, "alias", "inbox", "x"); code != 1 || errs == "" {
+		t.Errorf("inbox: %d %q", code, errs)
+	}
+	if code, _, errs := run(t, home, "alias", "c5d0"); code != 1 || !strings.HasPrefix(errs, "sitrep: usage: sitrep alias") {
+		t.Errorf("usage: %d %q", code, errs)
+	}
+	if code, out, _ := run(t, home, "alias", "c5d0", "--off"); code != 0 || out != "c5d0 is no longer called sitrep\n" {
+		t.Errorf("off: %d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "alias", "c5d0", "--off"); code != 0 || out != "c5d0 has no alias\n" {
+		t.Errorf("off again: %d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "add", "c5d0", "x"); code != 0 || out != "queued on c5d0 (now 2)\n" {
+		t.Errorf("add by id after: %d %q", code, out)
 	}
 }

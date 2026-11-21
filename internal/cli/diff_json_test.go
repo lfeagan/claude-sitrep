@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -15,9 +16,12 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/difftest"
 )
 
+var emptyAlias = regexp.MustCompile(`"alias":\s*"",\s*`)
+
 // jsonNorm blanks what changes between two runs a second apart (the time, ages, quiet times), and appends the order of every key, so a
 // change of the document's field order is a difference too.
 func jsonNorm(r difftest.Result) difftest.Result {
+	r.Stdout = emptyAlias.ReplaceAllString(r.Stdout, "") // a field the bash version never had; no scenario sets an alias
 	if !strings.HasPrefix(strings.TrimSpace(r.Stdout), "{") {
 		return r
 	}

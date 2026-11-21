@@ -175,7 +175,7 @@ func (s Store) WriteFile(path string, data []byte) error {
 	return nil
 }
 
-// Resolve turns a unique prefix of a session id into the full id. "inbox" matches exactly. The error text is safe to print.
+// Resolve turns a unique prefix of a session id, or an alias, into the full id. "inbox" matches exactly. The error text is safe to print.
 //
 // It is stricter than the bash it replaces: only session folders with a valid id count.
 func (s Store) Resolve(prefix string) (ID, error) {
@@ -190,6 +190,16 @@ func (s Store) Resolve(prefix string) (ID, error) {
 	for _, c := range s.Sessions() {
 		if strings.HasPrefix(string(c), prefix) {
 			m = append(m, c)
+		}
+	}
+	if len(m) == 0 && ValidAlias(prefix) { // an id beats an alias, so only a word that starts no id is looked up as one
+		for _, c := range s.Sessions() {
+			if s.Alias(c) == prefix {
+				m = append(m, c)
+			}
+		}
+		if len(m) > 1 {
+			return "", fmt.Errorf("alias '%s' is held by %d sessions; run 'sitrep ls'", prefix, len(m))
 		}
 	}
 	if len(m) != 1 {
