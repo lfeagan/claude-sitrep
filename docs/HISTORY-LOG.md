@@ -15,12 +15,23 @@ We looked at SQLite for history and queries and decided against it as the store:
 One line of JSON per change, written after the change succeeded:
 
 ```
-{"t":"2026-11-21T14:03:09Z","host":"mbp","id":"c5d0...","op":"queue.add","text":"fix the flaky test"}
+{"e":"9f3a1c20","t":"2026-11-21T14:03:09Z","host":"mbp","id":"c5d0...","op":"queue.add","text":"fix the flaky test"}
 ```
 
-The operations are the ones that change state: `queue.add`, `queue.rm`, `queue.edit`, `queue.move` (with both queues), `queue.top`, `queue.reorder`, `pin`, `unpin`, `snooze`, `alias`, `prune`. A session's start and end are worth recording as well. The summarizer's rewrites of notes are not, because they are frequent and say little.
+The operations are the ones that change state: `queue.add`, `queue.rm`, `queue.edit`, `queue.move`, `queue.reorder`, `pin`, `unpin`, `snooze`, `alias`, `prune`. A session's start and end are worth recording as well. The summarizer's rewrites of notes are not, because they are frequent and say little.
 
-`id` is a `state.ID`, or `inbox`. `text` has already been cleaned (invariant 1), and is cut at the same 200 characters as an item.
+`id` is a `state.ID`, or `inbox`. `text` has already been cleaned (invariant 1), and is cut at the same 200 characters as an item. `e` is a short random id for the entry.
+
+## Entries describe what happened
+
+An entry records the outcome, not the command, so that it still means something a week later and does not depend on the state it was written against. A command such as `top 3` or `rm 2` names a position, and a position is only meaningful at that moment.
+
+- **Items by text, with positions as facts.** `queue.rm` carries the removed item's text. `queue.reorder` carries the text, `from` and `to`. `sitrep top` is a reorder to position 1, so it has no operation of its own.
+- **One entry for one change.** `queue.move` is a single entry with both queues, `from` and `to`, and not a removal followed by an addition, so a reader never sees an item vanish and appear. `queue.edit` carries the old and the new text, which lets a reader follow an item through an edit.
+- **A repeated entry is recognisable.** If an append fails partway and is retried, or a hook runs twice, the same line can appear twice. A reader drops a line whose `e` it has already seen. Each host has one writer per file, so sync cannot make a copy.
+- **Nothing is replayed.** The log is a history. No code applies its entries to state, so none of them needs to be safe to apply twice.
+
+The limit is that an item has no identity beyond its text. Two items with the same text look alike, and a reader following "how long did this wait in the inbox" matches on text and the edit chain, and can be wrong. Giving each item an id would fix it, but it changes the queue format, which is a bigger decision than this proposal should make.
 
 ## Where it lives
 
