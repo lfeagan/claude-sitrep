@@ -79,6 +79,10 @@ Inside a session, four prefixes work on the prompt itself, and none of them is s
 
 The text forms apply only to a single line of at most 200 characters, and `+take` accepts only an optional number. Anything else goes to Claude as written, so a pasted list, or a prompt such as "+take care of the rest", never gets swallowed. So does a prefix with a leading space, and a `+take` that cannot succeed, such as one on an empty inbox.
 
+## Shell Completion
+
+`eval "$(sitrep completion bash)"` in `~/.bashrc` completes command names, flags, the values of `--tab`, and session ids: the shortest prefix of at least four characters that no other session shares, which is how the status line shows them, and `inbox` where the command takes it. The script asks the program itself what to offer, so it cannot go out of date, and it works in the bash 3.2 that macOS ships.
+
 ## Listing Sessions
 
 `sitrep ls` prints a table of the running sessions: id, directory, state and queue, then Objective and Now, newest first by when the state last changed. `-v` adds the Progress line and lists each queue (and the inbox) under its session, at most 5 items each and then `+N more`. `-n <items>` changes the limit for one run and implies `-v`, and `-n 0` returns to the compact form. `SITREP_QUEUE_ITEMS` sets the default.

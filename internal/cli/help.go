@@ -133,6 +133,15 @@ standard input, after the output of the status line saved by setup, if any. Clau
 
 Print the version of this program. It matches the version of the plugin that shipped its source.
 `,
+	"completion": `usage: sitrep completion bash
+
+Print a bash completion script. Add this to ~/.bashrc:
+
+  eval "$(sitrep completion bash)"
+
+It completes command names, flags, the values of --tab, and session ids (the shortest unique prefix
+of at least four characters, and inbox where the command takes it).
+`,
 	"help": `usage: sitrep help [command]
 
 List the commands, or show the details of one. ` + "`sitrep <command> --help`" + ` shows the same.
@@ -156,6 +165,7 @@ const helpAll = `usage: sitrep <command> [args]
   status                     print one frame of the dashboard as text
   setup [--remove]           put sitrep on the status line, or take it off
   version                    print the version of this program
+  completion bash            print a bash completion script
   help [command]             this list, or the details of one command
 
 An <id> is a unique prefix of a session id, or "inbox".
