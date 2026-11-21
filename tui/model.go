@@ -66,15 +66,17 @@ type model struct {
 	quitJump  bool   // leave the dashboard after a good jump, for a popup
 	msg       string // the last thing an action said
 	msgAt     time.Time
-	detail    bool   // the detail pane is open for the selected session
-	inbox     bool   // the inbox view is open
-	inboxSel  int    // the selected inbox item, by position,
-	inboxText string // and by text, so it stays on the same item when the list changes
-	inboxTo   string // the session `t` hands items to: the one selected when the view opened
-	asking    bool   // the take question is open
-	askN      int    // the item it is about, by position,
-	askItem   string // and by text, so the move refuses if the inbox changed
-	scroll    int    // the top line of the detail pane
+	detail    bool         // the detail pane is open for the selected session
+	queue     bool         // the queue view is open
+	qKind     int          // qInbox or qSession
+	qTo       string       // the session it shows, or for the inbox the one `t` hands items to
+	qSel      int          // the selected item, by position,
+	qText     string       // and by text, so it stays on the same item when the list changes
+	pendSel   int          // the item to select when the running change worked, or -1
+	refetch   bool         // a change finished while a fetch was running: that fetch is stale
+	ask       *askState    // the open question, if any
+	prompt    *promptState // the open line of typing, if any
+	scroll    int          // the top line of the detail pane
 	sortBy    int
 	help      bool
 	isDark    bool
@@ -240,12 +242,7 @@ const maxFilter = 64
 
 // typeFilter adds text to the filter, cleaned and on one line, up to a limit.
 func (m *model) typeFilter(text string) {
-	text = strings.TrimSuffix(clean(text+"|"), "|") // the mark keeps clean from trimming a typed space
-	if r := []rune(m.filter + text); len(r) > maxFilter {
-		m.filter = string(r[:maxFilter])
-	} else {
-		m.filter = string(r)
-	}
+	m.filter = addText(m.filter, text, maxFilter)
 	m.fixSel()
 }
 
@@ -401,6 +398,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.isDark = msg.IsDark()
 	case snapMsg:
 		m.fetching = false
+		if m.refetch { // this fetch began before a change finished, so it may show the old queue
+			m.refetch, m.fetching, m.started = false, true, m.started+1
+			return m, m.fetchCmd()
+		}
 		if msg.err != nil {
 			m.err = msg.err // the last good snapshot stays on screen
 			return m, nil
@@ -409,24 +410,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.snap, m.haveSnap, m.err, m.lastOK = msg.snap, true, nil, m.now()
 		m.fixSel()
 		m.clampScroll()
-		m.inboxRefresh()
+		m.queueRefresh()
 		if ring {
 			return m, tea.Raw("\a")
 		}
 	case pruneMsg:
 		return m.pruneResult(msg)
-	case takeMsg:
-		m.acting = false
-		if msg.err != nil {
-			m.say("take: " + msg.err.Error())
-		} else if lines := pruneLines(msg.text); len(lines) > 0 {
-			m.say(lines[len(lines)-1])
-		}
-		if !m.fetching { // show the change without waiting for the next tick
-			m.fetching, m.started = true, m.started+1
-			return m, m.fetchCmd()
-		}
-		return m, nil
+	case queueMsg:
+		return m.queueResult(msg)
 	case snoozeMsg:
 		m.acting = false
 		if msg.err != nil {
@@ -459,8 +450,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 	case tea.PasteMsg:
-		if m.filtering { // pasted text goes into the filter, cleaned
+		switch {
+		case m.filtering: // pasted text goes into the filter, cleaned
 			m.typeFilter(msg.Content)
+		case m.prompt != nil:
+			p := *m.prompt
+			p.text = addText(p.text, msg.Content, maxPrompt)
+			m.prompt = &p
 		}
 	case tea.KeyPressMsg:
 		if m.filtering {
@@ -469,8 +465,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.prune != pruneNone {
 			return m.pruneKey(msg)
 		}
-		if m.inbox {
-			return m.inboxKey(msg)
+		if m.prompt != nil {
+			return m.promptKey(msg)
+		}
+		if m.queue {
+			return m.queueKey(msg)
 		}
 		if m.detail {
 			return m.detailKey(msg)
@@ -514,7 +513,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.filtering = true
 			}
 		case "i":
-			return m.inboxOpen()
+			return m.queueOpen(qInbox)
+		case "e":
+			return m.queueOpen(qSession)
 		case "esc":
 			if m.filter != "" { // a filter left on is cleared by esc
 				m.filter = ""
@@ -563,8 +564,8 @@ func (m model) View() tea.View {
 	switch {
 	case m.prune != pruneNone:
 		body = pruneScreen(m.pruneText, m.prune, m.width, m.height, theme)
-	case m.inbox:
-		body = inboxScreen(m.snap.Inbox.Items, m.snap.Inbox.Count, m.inboxIndex(), m.inboxTarget(), m.asking, m.askN, m.statusText(), m.readOnly, m.width, m.height, theme)
+	case m.queue:
+		body = queueScreen(m.queueView(), m.width, m.height, theme)
 	case m.detail && m.selected() != nil:
 		body = detailScreen(*m.selected(), m.width, m.height, m.scroll, theme)
 	case m.help:

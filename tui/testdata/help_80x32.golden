@@ -8,8 +8,9 @@ Keys
   a                              show or hide ended sessions
   s                              cycle the Top sort: activity, state, dir, queue
   /                              filter the sessions; enter keeps it, esc clear…
-  i                              the inbox, with the items nobody has taken yet
-  t                              in the inbox: take the item into the selected …
+  i, e                           the inbox, or the selected session's queue
+  a x K J T                      add, remove (asks), up, down, top
+  t, P, U                        take an inbox item; pin or unpin the Objective
   z                              snooze it until it changes; z again ends it
   p                              prune the sessions that are gone (asks first)
   r                              refresh now
@@ -28,5 +29,4 @@ Colours
   purple       the session changed in the last minute
 
 Any key closes this list.
-
  keys                                                                           
