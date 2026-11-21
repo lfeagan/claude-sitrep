@@ -214,13 +214,21 @@ func (m model) queueKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.selectQueue(i + 1)
 	case "home":
 		m.selectQueue(0)
-	case "end":
+	case "end", "G":
 		m.selectQueue(last)
+	case "pgdown", "ctrl+d":
+		m.selectQueue(i + max(m.height-3, 1))
+	case "pgup", "ctrl+u":
+		m.selectQueue(i - max(m.height-3, 1))
+	case "?":
+		m.help = true
+	case "enter":
+		return m.editOpen()
 	case "t":
 		if m.qKind == qInbox {
 			return m.takeStart()
 		}
-	case "a":
+	case "a", "o": // o is vi's open a line; a stays, so what was learned still works
 		return m.promptOpen("add")
 	case "E":
 		return m.editOpen()
@@ -577,17 +585,19 @@ func queueScreen(v queueView, width, height int, th Theme) string {
 	for height > 0 && len(view) < body {
 		view = append(view, "")
 	}
-	hint := " q back  up/down  a add  E edit  x remove  K J T move  "
+	// the most useful keys first: a narrow screen drops from the end, and never the help
+	var hints []string
 	switch {
 	case v.ReadOnly:
-		hint = " esc back  up/down  (read-only) "
+		hints = []string{"q back", "j/k move", "(read-only)", "? help"}
 	case v.Inbox && v.Target != "":
-		hint += "t take into " + v.Target + " "
+		hints = []string{"q back", "t take into " + v.Target, "o add", "enter edit", "x remove", "K J T move", "? help"}
 	case v.Inbox:
-		hint += "(no session to take into) "
+		hints = []string{"q back", "o add", "enter edit", "x remove", "K J T move", "(no session to take into)", "? help"}
 	default:
-		hint += "P pin  U unpin "
+		hints = []string{"q back", "o add", "enter edit", "x remove", "K J T move", "P pin", "U unpin", "? help"}
 	}
+	hint := fitHints(hints, width)
 	switch {
 	case v.Prompt != "":
 		hint = " " + v.Prompt + ": " + v.Typed + "▏"

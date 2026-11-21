@@ -109,15 +109,18 @@ It reads the sessions itself and changes nothing except through the same fixed c
 program has (prune, snooze and the queue edits), after a preview or a question. Without a
 terminal it prints one frame, as ` + "`sitrep status`" + ` does.
 
-Keys: up, down, j and k move the selection; enter jumps to the session's tmux pane or cmux
-surface; d or space opens the session in full; tab, shift-tab, left, right, 1 and 2 switch
-tabs; a shows or hides ended sessions; s sorts Top; y or Y copies the session id or its
-resume command; z snoozes a session until it changes; / filters the sessions (enter keeps the
-filter, esc clears it); i opens the inbox and e the selected session's queue: there a adds an
-item (typed), x removes one after a y or n, K and J move it up and down, T moves it to the front,
-P pins the Objective and U unpins it, and in the inbox t takes the selected item into the session
-that was selected, after a y or n, to the end of its queue; p prunes sessions that are gone,
-after a preview and a y or n; r refreshes; ? lists the keys; q quits.
+Keys: up, down, j and k move the selection, gg and G go to the first and last session, and
+ctrl+d, ctrl+u, pgdn and pgup move by a page; enter jumps to the session's tmux pane or cmux
+surface; d or space opens the session in full; tab, shift-tab, h, l, left, right, 1 and 2
+switch tabs; a shows or hides ended sessions; s sorts Top; n names the session (an alias); y or
+Y copies the session id or its resume command; z snoozes a session until it changes; / filters
+the sessions (enter keeps the filter, esc clears it); i opens the inbox and e the selected
+session's queue: there o (or a) adds an item (typed), enter (or E) edits the selected one, x
+removes one after a y or n, K and J move it up and down, T moves it to the front, P pins the
+Objective and U unpins it, and in the inbox t takes the selected item into the session that was
+selected, after a y or n, to the end of its queue; p prunes sessions that are gone, after a
+preview and a y or n; r refreshes; ? lists the keys on every screen; q goes back from a screen
+and quits from the tabs, and ctrl+c quits from anywhere.
 
 --once prints one frame as plain text and exits, --quit-on-jump leaves the dashboard after
 a good jump, for a tmux popup, --read-only (or SITREP_TUI_READONLY) turns off p, z and every

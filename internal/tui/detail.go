@@ -96,15 +96,24 @@ func detailMax(x Session, width, height int) int {
 
 // detailScreen draws the title, the visible part of the detail, and a bar with the keys.
 func detailScreen(x Session, width, height, scroll int, th Theme) string {
+	return detailScreenKeys(x, width, height, scroll, false, th)
+}
+
+// detailScreenKeys is detailScreen, and says on the bar that a g is waiting for its second key when pending is set.
+func detailScreenKeys(x Session, width, height, scroll int, pending bool, th Theme) string {
 	lines := detailLines(x, width)
 	body := detailBody(height)
 	scroll = min(max(scroll, 0), max(len(lines)-body, 0))
 	end := min(scroll+body, len(lines))
 	view := append([]string{}, lines[scroll:end]...)
 	title := th.Label.Render(ansi.Truncate(fmt.Sprintf(" %s  %s", x.Label(), x.Dir), max(width, 1), "…"))
-	hint := " esc back  up/down session  pgup/pgdn scroll "
+	hints := []string{"q back", "j/k session", "space/b scroll", "gg/G ends", "? help"}
 	if len(lines) > body {
-		hint = fmt.Sprintf(" lines %d-%d of %d  esc back  up/down  space/b scroll ", scroll+1, end, len(lines))
+		hints = append([]string{fmt.Sprintf("lines %d-%d of %d", scroll+1, end, len(lines))}, hints...)
+	}
+	hint := fitHints(hints, max(width, 1))
+	if pending {
+		hint = " g- "
 	}
 	for i, l := range view {
 		view[i] = ansi.Truncate(l, max(width, 1), "…")

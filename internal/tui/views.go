@@ -500,12 +500,16 @@ func tabBar(active, width int, th Theme) []string {
 
 // statusBar shows the counts on the left and the keys on the right. A failed refresh
 // replaces the counts with the error, so the last good data stays on screen.
-func statusBar(s Snapshot, width int, errText string, th Theme) string {
+func statusBar(s Snapshot, width int, errText string, tab int, th Theme) string {
 	left := " " + shortSummary(s)
 	if errText != "" {
 		left = " " + errText
 	}
-	right := "q quit  tab  a ended  s sort  ? help "
+	hints := []string{"q quit", "enter jump", "/ filter", "n name", "a ended", "tab switch", "? help"}
+	if tab == tabTop { // only the Top view has a sort
+		hints = []string{"q quit", "enter jump", "s sort", "/ filter", "n name", "a ended", "tab switch", "? help"}
+	}
+	right := fitHints(hints, width-ansi.StringWidth(left)-1)
 	gap := width - ansi.StringWidth(left) - ansi.StringWidth(right)
 	if gap < 1 {
 		right, gap = "", width-ansi.StringWidth(left)
@@ -514,27 +518,42 @@ func statusBar(s Snapshot, width int, errText string, th Theme) string {
 	return th.Status.Width(width).Render(line)
 }
 
+// fitHints joins the key hints of a footer, most important first, with the last one (the help) always kept: the ones that do not fit in
+// width are dropped from the end, so a narrow screen loses the least useful hint and never the way to the help. It returns "" when not even
+// the last one fits.
+func fitHints(hints []string, width int) string {
+	last := hints[len(hints)-1]
+	for n := len(hints) - 1; n >= 0; n-- {
+		line := " " + strings.Join(append(append([]string{}, hints[:n]...), last), "  ") + " "
+		if ansi.StringWidth(line) <= width {
+			return line
+		}
+	}
+	return ""
+}
+
 // helpScreen is the key list: the keys, what the tabs show, and what the colours mean.
 func helpScreen(width, height int, readOnly bool, th Theme) string {
 	lines := []string{
 		"Keys",
 		"",
-		"  up, down, j, k, home, end      move the selection (the \u25b6 arrow and bar)",
+		"  j, k, gg, G, ctrl+d, ctrl+u    move the selection (the \u25b6 arrow and bar)",
+		"  arrows, home, end, pgup, pgdn  the same, as in vi and top",
 		"  enter                          jump to its tmux pane or cmux surface",
 		"  y, Y                           copy the id, or its claude --resume command",
 		"  d, space                       the selected session in full (esc closes)",
-		"  tab, shift+tab, left, right    switch tab (also 1 and 2)",
+		"  tab, shift+tab, h, l, 1, 2     switch tab (left and right too)",
 		"  a                              show or hide ended sessions",
 		"  s                              cycle the Top sort: activity, state, dir, queue",
 		"  /                              filter the sessions; enter keeps it, esc clears it",
 		"  i, e                           the inbox, or the selected session's queue",
-		"  a E x K J T                    add, edit, remove (asks), up, down, top",
+		"  o, enter, x, K J T             add, edit, remove (asks), move up, down, top",
 		"  t, P, U                        take an inbox item; pin or unpin the Objective",
 		"  n                              name the selected session (an alias); empty clears it",
 		"  z                              snooze it until it changes; z again ends it",
 		"  p                              prune the sessions that are gone (asks first)",
 		"  r                              refresh now",
-		"  ?                              this list",
+		"  ?                              this list, from any screen",
 		"  q                              back; quit on the tabs (ctrl+c: anywhere)",
 		"",
 		"Tabs",
@@ -553,7 +572,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 	if readOnly { // the keys that change state are off, so they are not listed
 		kept := lines[:0]
 		for _, l := range lines {
-			if !strings.HasPrefix(l, "  p ") && !strings.HasPrefix(l, "  z ") && !strings.HasPrefix(l, "  t, ") && !strings.HasPrefix(l, "  a E x ") && !strings.HasPrefix(l, "  n ") {
+			if !strings.HasPrefix(l, "  p ") && !strings.HasPrefix(l, "  z ") && !strings.HasPrefix(l, "  t, ") && !strings.HasPrefix(l, "  o, enter, x") && !strings.HasPrefix(l, "  n ") {
 				kept = append(kept, l)
 			}
 		}
@@ -594,7 +613,7 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 	for len(body) < bodyOpts.Height { // pad, so the status bar sits on the last row
 		body = append(body, "")
 	}
-	lines := append(append(bar, body...), statusBar(s, o.Width, errText, o.Theme))
+	lines := append(append(bar, body...), statusBar(s, o.Width, errText, tab, o.Theme))
 	if o.Height > 0 && len(lines) > o.Height { // a tiny screen: keep the status bar, drop from the top
 		lines = append(lines[:o.Height-1], lines[len(lines)-1])
 	}

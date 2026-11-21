@@ -330,19 +330,40 @@ func TestStatusBarHints(t *testing.T) {
 		lines := strings.Split(render(loadFixture(t), tabWatch, "", opts(w, 20)), "\n")
 		return lines[len(lines)-1]
 	}
-	if got := last(80); !strings.Contains(got, "s sort") || !strings.Contains(got, "? help") || !strings.Contains(got, "● 1 need you") {
-		t.Errorf("at 80 columns the bar keeps who needs you and the key hints: %q", got)
+	if got := last(80); !strings.Contains(got, "enter jump") || !strings.Contains(got, "? help") || !strings.Contains(got, "● 1 need you") || strings.Contains(got, "s sort") {
+		t.Errorf("at 80 columns the Watch bar keeps who needs you and the key hints, and has no sort: %q", got)
+	}
+	top := strings.Split(render(loadFixture(t), tabTop, "", opts(80, 20)), "\n")
+	if got := top[len(top)-1]; !strings.Contains(got, "s sort") || !strings.Contains(got, "? help") {
+		t.Errorf("the Top bar has the sort: %q", got)
+	}
+}
+
+func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
+	hints := []string{"q quit", "enter jump", "/ filter", "n name", "? help"}
+	for w, want := range map[int]string{60: " q quit  enter jump  / filter  n name  ? help ", 30: " q quit  enter jump  ? help ", 20: " q quit  ? help ", 12: " ? help ", 8: " ? help ", 6: ""} {
+		if got := fitHints(hints, w); got != want {
+			t.Errorf("width %d: %q, want %q", w, got, want)
+		}
+	}
+	for _, tab := range []int{tabWatch, tabTop} {
+		for w := 1; w <= 120; w++ {
+			last := func(out string) string { l := strings.Split(out, "\n"); return l[len(l)-1] }
+			if got := last(render(loadFixture(t), tab, "", opts(w, 12))); ansi.StringWidth(got) > w {
+				t.Fatalf("tab %d width %d: the bar is %d wide: %q", tab, w, ansi.StringWidth(got), got)
+			}
+		}
 	}
 }
 
 func TestHelpScreen(t *testing.T) {
-	out := helpScreen(80, 33, false, plainTheme())
+	out := helpScreen(80, 34, false, plainTheme())
 	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Top sort", "refresh", "quit", "Watch", "Top ", "pink-red", "purple", "Any key closes"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the help should mention %q", want)
 		}
 	}
-	golden(t, "help_80x33", out)
+	golden(t, "help_80x34", out)
 	for w := 1; w <= 100; w += 7 {
 		for h := 1; h <= 40; h += 3 {
 			lines := strings.Split(helpScreen(w, h, false, plainTheme()), "\n")

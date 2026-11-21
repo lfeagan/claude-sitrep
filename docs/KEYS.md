@@ -1,6 +1,6 @@
 # Dashboard keys, version 0.7.0
 
-Status: design, reviewed once, not built. `q` going back from a sub-screen is already done (0.6.0). Changes from the review: `ctrl+f` and `ctrl+b` are dropped (tmux takes `ctrl+b`), `O`, `dd` and `yy` wait, `ctrl+d` keeps the page size it has, per-screen help is a later round, and the first round is the five items under First Round.
+Status: first round built (0.7.0), later rounds not. Reviewed once. `q` going back from a sub-screen is already done (0.6.0). Changes from the review: `ctrl+f` and `ctrl+b` are dropped (tmux takes `ctrl+b`), `O`, `dd` and `yy` wait, `ctrl+d` keeps the page size it has, per-screen help is a later round, and the first round is the five items under First Round.
 
 ## Purpose
 

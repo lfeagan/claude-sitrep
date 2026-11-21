@@ -82,6 +82,7 @@ type model struct {
 	scroll    int          // the top line of the detail pane
 	sortBy    int
 	help      bool
+	pendingG  bool // a g was pressed and waits for its second key (gg goes to the first row)
 	isDark    bool
 	now       func() time.Time
 }
@@ -240,6 +241,9 @@ func (m *model) jumpCmd() tea.Cmd {
 // statusText is what the status bar says instead of the counts: a fresh message from an
 // action, else the last refresh error.
 func (m model) statusText() string {
+	if m.pendingG {
+		return "g-"
+	}
 	if m.msg != "" && m.now().Sub(m.msgAt) < messageTTL {
 		return m.msg
 	}
@@ -347,10 +351,33 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.scroll = max(m.scroll-page, 0)
 	case "home":
 		m.scroll = 0
-	case "end":
+	case "end", "G":
 		m.scroll = maxScroll
+	case "?":
+		m.help = true
 	}
 	return m, nil
+}
+
+// goTop is gg: the first row of the list on screen, or the top of the detail view.
+func (m *model) goTop() {
+	switch {
+	case m.queue:
+		m.selectQueue(0)
+	case m.detail:
+		m.scroll = 0
+	default:
+		m.moveSelTo(0)
+	}
+}
+
+// listPage is how many sessions ctrl+d and ctrl+u move: about a screen less a line, as the detail view pages. A session takes a few lines
+// on the Watch tab and one on the Top tab.
+func (m model) listPage() int {
+	if m.tab == tabTop {
+		return max(m.height-5, 1)
+	}
+	return max((m.height-5)/6, 1)
 }
 
 // visible is the ids on the current tab, in drawing order.
@@ -477,25 +504,41 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.prompt != nil {
 			return m.promptKey(msg)
 		}
-		if m.queue {
-			return m.queueKey(msg)
-		}
-		if m.detail {
-			return m.detailKey(msg)
-		}
-		if m.help { // any key closes the key list; ctrl+c still quits
+		if m.help { // any key closes the key list, and what was open is open again; ctrl+c still quits
 			if msg.String() == "ctrl+c" {
 				return m, tea.Quit
 			}
 			m.help = false
 			return m, nil
 		}
+		// one place holds a g for its second key, on every screen with a list: gg goes to the first row, and any other key is swallowed
+		// (g then x does nothing), as in vim. esc clears it too, and so does anything else, as the next key always clears it.
+		if m.pendingG {
+			m.pendingG = false
+			switch msg.String() {
+			case "ctrl+c":
+				return m, tea.Quit
+			case "g":
+				m.goTop()
+			}
+			return m, nil
+		}
+		if msg.String() == "g" && m.ask == nil {
+			m.pendingG = true
+			return m, nil
+		}
+		if m.queue {
+			return m.queueKey(msg)
+		}
+		if m.detail {
+			return m.detailKey(msg)
+		}
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
-		case "tab", "right":
+		case "tab", "right", "l":
 			m.tab = (m.tab + 1) % tabCount
-		case "shift+tab", "left":
+		case "shift+tab", "left", "h":
 			m.tab = (m.tab + tabCount - 1) % tabCount
 		case "1":
 			m.tab = tabWatch
@@ -507,8 +550,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveSel(1)
 		case "home":
 			m.moveSelTo(0)
-		case "end":
+		case "end", "G":
 			m.moveSelTo(-1)
+		case "pgdown", "ctrl+d":
+			m.moveSel(m.listPage())
+		case "pgup", "ctrl+u":
+			m.moveSel(-m.listPage())
 		case "enter":
 			if cmd := m.jumpCmd(); cmd != nil {
 				return m, cmd
@@ -575,12 +622,12 @@ func (m model) View() tea.View {
 	switch {
 	case m.prune != pruneNone:
 		body = pruneScreen(m.pruneText, m.prune, m.width, m.height, theme)
+	case m.help:
+		body = helpScreen(m.width, m.height, m.readOnly, theme)
 	case m.queue:
 		body = queueScreen(m.queueView(), m.width, m.height, theme)
 	case m.detail && m.selected() != nil:
-		body = detailScreen(*m.selected(), m.width, m.height, m.scroll, theme)
-	case m.help:
-		body = helpScreen(m.width, m.height, m.readOnly, theme)
+		body = detailScreenKeys(*m.selected(), m.width, m.height, m.scroll, m.pendingG, theme)
 	case m.haveSnap || m.err != nil:
 		status := m.statusText()
 		if m.prompt != nil && m.prompt.verb == "alias" {
