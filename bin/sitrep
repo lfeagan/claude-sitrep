@@ -312,7 +312,7 @@ usage: sitrep <command> [args]
   rm <id> [n]                remove an item and print it
   top <id> <n>               move an item to the front of a queue
   reorder <id> <from> <to>   move an item to another position
-  move <from> <to> [n]       hand an item to another queue
+  move <from> <to> [n]       hand an item to another queue (--item <text> guards it)
   pin <id> <text>            fix a session's Objective
   unpin <id>                 let the summarizer rewrite the Objective
   snooze [--off] <id>        mute the needs-you state of a session until it changes
@@ -375,11 +375,12 @@ Move the item at position from to position to. The other items keep their order.
 EOF
     ;;
     move) cat <<'EOF'
-usage: sitrep move <from> <to> [n]
+usage: sitrep move <from> <to> [n] [--item <text>]
 
 Hand item n (default 1) from one queue to another. Either side may be inbox. The item
 is added to the destination before it leaves the source, so a failure can leave a
-duplicate but never lose it.
+duplicate but never lose it. With --item, it refuses unless item n is exactly that
+text, so a program that showed a list never moves a different item.
 EOF
     ;;
     pin) cat <<'EOF'
@@ -588,10 +589,15 @@ case "$cmd" in
         sid=$(resolve "$1") || exit 1; [ "$sid" != inbox ] || die "inbox has no objective"
         rm -f "$dir/.$sid.pinned"
         echo "objective on ${sid:0:4} will be summarized again" ;;
-  move) [ $# -ge 2 ] || die "usage: sitrep move <from> <to> [item=1]"
-        from=$(resolve "$1") || exit 1; to=$(resolve "$2") || exit 1; n=${3:-1}; itemno "$n"
+  move) [ $# -ge 2 ] || die "usage: sitrep move <from> <to> [item=1] [--item <text>]"
+        from=$(resolve "$1") || exit 1; to=$(resolve "$2") || exit 1; shift 2; n=1; want=; guard=0
+        [[ ${1:-} =~ ^[0-9]+$ ]] && { n=$1; shift; }
+        if [ "${1:-}" = --item ]; then [ $# -eq 2 ] || die "usage: sitrep move <from> <to> [item=1] [--item <text>]"; guard=1; want=$2; shift 2; fi
+        [ $# -eq 0 ] || die "usage: sitrep move <from> <to> [item=1] [--item <text>]"
+        itemno "$n"
         [ "$from" != "$to" ] || die "from and to are the same queue"
         f=$(qf "$from"); item=$(sed -n "${n}p" "$f" 2>/dev/null); [ -n "$item" ] || die "no item $n on $(label "$from")"
+        [ "$guard" = 0 ] || [ "$item" = "$want" ] || die "queue changed; run 'sitrep ls $(label "$from")'"
         t=$(without "$f" "$n" "$item") || die "queue changed; run 'sitrep ls $(label "$from")'"
         # append first, then swap the source in: a crash leaves a duplicate, never a lost item
         printf '%s\n' "$item" >> "$(qf "$to")" || { rm -f "$t"; die "could not queue on $(label "$to")"; }

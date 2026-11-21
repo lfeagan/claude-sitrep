@@ -50,7 +50,7 @@ Claude HUD is optional. With no existing status line, only the sitrep block is s
 2. `sitrep add <id> <text>` appends an item.
 3. `sitrep pin <id> <text>` pins that session's Objective, and `sitrep unpin <id>` lets the summarizer rewrite it again.
 4. `sitrep rm <id> [n]` removes item `n` (default 1) and prints it.
-5. `sitrep move <from> <to> [n]` hands an item to another queue.
+5. `sitrep move <from> <to> [n]` hands an item to another queue. With `--item <text>` it refuses unless item `n` is exactly that text, so a program that showed a list cannot move a different item.
 6. `sitrep top <id> <n>` moves item `n` to the front, and `sitrep reorder <id> <from> <to>` moves an item to any position. The status line and `sitrep ls` show the first item as the next one.
 
 The inbox is a queue that belongs to no session, for work you have not yet matched to one. Address it as `inbox` in any command that takes an id: `sitrep add inbox <text>`, `sitrep ls inbox`, `sitrep rm inbox [n]`, and `sitrep move inbox <id>` when you pick the item up. It has no Objective, so `pin` and `unpin` do not apply. `sitrep ls` prints an `Inbox:` line above the table when it holds anything, and the status line appends `Inbox: N` to the Queue line. From inside a Claude Code session, `+inbox <text>` adds to it and `+take` pulls from it (see below). The inbox is one file that every session can append to, so two commands that rewrite it in the same instant can lose an append. `rm` and `move` refuse to delete an item that changed after they read it, but an `add` that lands while a `move` is rewriting the source queue can still be lost.
