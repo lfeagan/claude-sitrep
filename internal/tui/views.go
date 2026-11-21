@@ -519,7 +519,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 	lines := []string{
 		"Keys",
 		"",
-		"  up, down, j, k, home, end      move the selection (the \u25b8 marker)",
+		"  up, down, j, k, home, end      move the selection (the \u25b6 arrow and bar)",
 		"  enter                          jump to its tmux pane or cmux surface",
 		"  y, Y                           copy the id, or its claude --resume command",
 		"  d, space                       the selected session in full (esc closes)",
@@ -530,6 +530,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  i, e                           the inbox, or the selected session's queue",
 		"  a x K J T                      add, remove (asks), up, down, top",
 		"  t, P, U                        take an inbox item; pin or unpin the Objective",
+		"  n                              name the selected session (an alias); empty clears it",
 		"  z                              snooze it until it changes; z again ends it",
 		"  p                              prune the sessions that are gone (asks first)",
 		"  r                              refresh now",
@@ -552,7 +553,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 	if readOnly { // the keys that change state are off, so they are not listed
 		kept := lines[:0]
 		for _, l := range lines {
-			if !strings.HasPrefix(l, "  p ") && !strings.HasPrefix(l, "  z ") && !strings.HasPrefix(l, "  t, ") && !strings.HasPrefix(l, "  a x ") {
+			if !strings.HasPrefix(l, "  p ") && !strings.HasPrefix(l, "  z ") && !strings.HasPrefix(l, "  t, ") && !strings.HasPrefix(l, "  a x ") && !strings.HasPrefix(l, "  n ") {
 				kept = append(kept, l)
 			}
 		}

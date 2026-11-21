@@ -337,6 +337,47 @@ func (m model) promptOpen(verb string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// aliasOpen starts typing a name for the selected session, with the name it has already. It works on an ended session too: the name is
+// a file, and nothing about the session needs to be alive.
+func (m model) aliasOpen() (tea.Model, tea.Cmd) {
+	x := m.selected()
+	if x == nil {
+		return m.refuse("alias", "no session is selected")
+	}
+	if why := m.aliasCheck(x); why != "" {
+		return m.refuse("alias", why)
+	}
+	m.msg = ""
+	m.prompt = &promptState{verb: "alias", qid: x.ID, text: x.Alias}
+	return m, nil
+}
+
+// aliasCheck says why a session cannot be named now, or "".
+func (m model) aliasCheck(x *Session) string {
+	switch {
+	case x == nil:
+		return "the session is gone"
+	case m.acting:
+		return "busy"
+	case m.settling:
+		return "refreshing"
+	case m.readOnly:
+		return "the dashboard is read-only"
+	case !idRe.MatchString(x.ID):
+		return "this session's id looks unusual, so it is left alone"
+	}
+	return ""
+}
+
+// aliasStatus is the line shown while a name is typed.
+func (m model) aliasStatus() string {
+	label := m.prompt.qid
+	if x := m.session(m.prompt.qid); x != nil {
+		label = x.Label()
+	}
+	return fmt.Sprintf("name for %s: %s▏  enter sets, empty clears, esc cancels", label, m.prompt.text)
+}
+
 // promptKey handles keys while text is being typed. Printable keys are text, even the ones that
 // are commands otherwise.
 func (m model) promptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -368,6 +409,21 @@ func (m model) promptSubmit() (tea.Model, tea.Cmd) {
 	p := *m.prompt
 	m.prompt = nil
 	text := strings.TrimSpace(p.text)
+	if p.verb == "alias" {
+		x := m.session(p.qid)
+		if why := m.aliasCheck(x); why != "" {
+			return m.refuse("alias", why)
+		}
+		switch {
+		case strings.ContainsAny(text, " \t"):
+			return m.refuse("alias", "a name has no spaces")
+		case text == "" && x.Alias == "":
+			return m.refuse("alias", "nothing to set")
+		case text == "":
+			return m.queueRun("alias", -1, "alias", p.qid, "--off")
+		}
+		return m.queueRun("alias", -1, "alias", p.qid, text)
+	}
 	switch {
 	case text == "":
 		return m.refuse(p.verb, "nothing to "+p.verb)

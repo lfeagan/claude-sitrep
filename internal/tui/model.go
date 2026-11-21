@@ -521,6 +521,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.detail && !m.help {
 				m.filtering = true
 			}
+		case "n":
+			return m.aliasOpen()
 		case "i":
 			return m.queueOpen(qInbox)
 		case "e":
@@ -581,6 +583,9 @@ func (m model) View() tea.View {
 		body = helpScreen(m.width, m.height, m.readOnly, theme)
 	case m.haveSnap || m.err != nil:
 		status := m.statusText()
+		if m.prompt != nil && m.prompt.verb == "alias" {
+			status = m.aliasStatus()
+		}
 		if status == "" && (m.filtering || m.filter != "") {
 			status = m.filterStatus()
 		}

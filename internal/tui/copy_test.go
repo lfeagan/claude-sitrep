@@ -235,3 +235,110 @@ func TestACommandGetsTheIdNeverTheAlias(t *testing.T) {
 		t.Errorf("calls %v, want the id %q", f.calls, id)
 	}
 }
+
+func aliasModel(t *testing.T) (model, *fake) {
+	t.Helper()
+	m := loaded(t, tabWatch)
+	m.bin = "/x/sitrep"
+	f := &fake{answer: map[string]string{"/x/sitrep alias": "15f1 is now called work\n"}}
+	m.run = f.run
+	return m, f
+}
+
+func TestNKeyNamesTheSelectedSession(t *testing.T) {
+	m, f := aliasModel(t)
+	id := m.selID
+	m, _ = press(t, m, "n")
+	if m.prompt == nil || m.prompt.verb != "alias" || m.prompt.qid != id || m.prompt.text != "" {
+		t.Fatalf("n opens a prompt for the session: %+v", m.prompt)
+	}
+	if v := m.View().Content; !strings.Contains(v, "name for ") || !strings.Contains(v, "empty clears") {
+		t.Errorf("the prompt is on the status line:\n%s", v)
+	}
+	m = typed(t, m, "work")
+	m, cmd := press(t, m, "enter")
+	if cmd == nil {
+		t.Fatalf("enter runs the command")
+	}
+	m = feed(t, m, cmd)
+	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep alias "+id+" work" {
+		t.Errorf("the one fixed command: %v", f.calls)
+	}
+	if m.prompt != nil || m.statusText() != "15f1 is now called work" || !m.fetching {
+		t.Errorf("the answer is shown and the screen refreshes: %q fetching %v", m.statusText(), m.fetching)
+	}
+}
+
+func TestNKeyEditsAndClearsAnExistingName(t *testing.T) {
+	m, f := aliasModel(t)
+	snap := loadFixture(t)
+	snap.Sessions[0].Alias = "old"
+	next, _ := m.Update(snapMsg{snap: snap})
+	m = next.(model)
+	m, _ = press(t, m, "n")
+	if m.prompt == nil || m.prompt.text != "old" {
+		t.Fatalf("the prompt starts with the name it has: %+v", m.prompt)
+	}
+	for i := 0; i < 3; i++ {
+		m, _ = press(t, m, "backspace")
+	}
+	m, cmd := press(t, m, "enter")
+	m = feed(t, m, cmd)
+	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep alias "+snap.Sessions[0].ID+" --off" {
+		t.Errorf("an empty name clears it: %v", f.calls)
+	}
+}
+
+func TestNKeyRefusals(t *testing.T) {
+	// nothing to clear
+	m, f := aliasModel(t)
+	m, _ = press(t, m, "n")
+	m, cmd := press(t, m, "enter")
+	if cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "nothing to set") {
+		t.Errorf("empty with no name: %v %q", f.calls, m.statusText())
+	}
+	// a space cannot be in a name
+	m, _ = press(t, m, "n")
+	m = typed(t, m, "two words")
+	m, cmd = press(t, m, "enter")
+	if cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "no spaces") {
+		t.Errorf("spaces: %v %q", f.calls, m.statusText())
+	}
+	// esc cancels
+	m, _ = press(t, m, "n")
+	m = typed(t, m, "abc")
+	m, cmd = press(t, m, "esc")
+	if m.prompt != nil || cmd != nil || len(f.calls) != 0 {
+		t.Errorf("esc: %+v %v", m.prompt, f.calls)
+	}
+	// read-only
+	m, f = aliasModel(t)
+	m.readOnly = true
+	m, _ = press(t, m, "n")
+	if m.prompt != nil || !strings.Contains(m.statusText(), "read-only") || len(f.calls) != 0 {
+		t.Errorf("read-only: %+v %q", m.prompt, m.statusText())
+	}
+}
+
+func TestNKeyWorksOnAnEndedSession(t *testing.T) {
+	m, f := aliasModel(t)
+	m.showEnded = true
+	snap := loadFixture(t)
+	var ended string
+	for _, x := range snap.Sessions {
+		if !x.Running {
+			ended = x.ID
+		}
+	}
+	if ended == "" {
+		t.Skip("the fixture has no ended session")
+	}
+	m.selID = ended
+	m, _ = press(t, m, "n")
+	m = typed(t, m, "old-one")
+	m, cmd := press(t, m, "enter")
+	m = feed(t, m, cmd)
+	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep alias "+ended+" old-one" {
+		t.Errorf("calls %v", f.calls)
+	}
+}

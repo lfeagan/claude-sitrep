@@ -1,6 +1,6 @@
 Keys
 
-  up, down, j, k, home, end      move the selection (the ▸ marker)
+  up, down, j, k, home, end      move the selection (the ▶ arrow and bar)
   enter                          jump to its tmux pane or cmux surface
   y, Y                           copy the id, or its claude --resume command
   d, space                       the selected session in full (esc closes)
@@ -11,6 +11,7 @@ Keys
   i, e                           the inbox, or the selected session's queue
   a x K J T                      add, remove (asks), up, down, top
   t, P, U                        take an inbox item; pin or unpin the Objective
+  n                              name the selected session (an alias); empty cl…
   z                              snooze it until it changes; z again ends it
   p                              prune the sessions that are gone (asks first)
   r                              refresh now

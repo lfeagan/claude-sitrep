@@ -141,9 +141,10 @@ Keys:
 5. `/` filters the sessions by a case-insensitive match in their id, directory, state, Objective, Progress and Now. What you type is text, `enter` keeps the filter and `esc` clears it.
 6. `y` copies the selected session's id and `Y` its `claude --resume <id>` command, through the terminal's clipboard escape (OSC 52); the status bar shows the text as well. An id with unusual characters is never copied.
 7. `i` opens the inbox and `e` the selected session's queue, as one list. In a queue, `a` types a new item, `x` removes the selected one after a `y` or `n`, `K` and `J` move it up and down, `T` moves it to the front, `P` types the Objective to pin and `U` unpins it. In the inbox, `t` takes the selected item into the session that was selected when you pressed `i`, after a `y` or `n`. The keys that act on an item pass its text, so they refuse, and say so, if the queue changed since the list was drawn.
-8. `z` snoozes the selected session: it is drawn with a hollow `○` and no colour, and drops out of the count of those that need you, until it changes by itself (the next prompt, or the end of the next turn). `z` again ends it at once.
-9. `p` prunes the sessions that are gone: it shows what `sitrep prune --dry-run` would do and asks. `y` moves their queue items to the inbox, `n` leaves the items, and `esc` cancels. It will not run without the live-session registry.
-10. `r` refreshes, `?` lists the keys and colours, and `q` quits.
+8. `n` names the selected session: a line opens in the status bar with its current name, `enter` sets it, an empty line clears it, and `esc` cancels. It runs `sitrep alias`, so the same rules apply, and an ended session can be named too.
+9. `z` snoozes the selected session: it is drawn with a hollow `○` and no colour, and drops out of the count of those that need you, until it changes by itself (the next prompt, or the end of the next turn). `z` again ends it at once.
+10. `p` prunes the sessions that are gone: it shows what `sitrep prune --dry-run` would do and asks. `y` moves their queue items to the inbox, `n` leaves the items, and `esc` cancels. It will not run without the live-session registry.
+11. `r` refreshes, `?` lists the keys and colours, and `q` quits.
 
 The terminal bell rings once when a session starts needing you. It stays quiet on the first load and for a snoozed session. `--no-bell` or `SITREP_TUI_BELL=0` turns it off. `--read-only` or `SITREP_TUI_READONLY` turns off every key that changes state. `--interval` sets the refresh (default 3s), and `--tab top` opens on the Top tab.
 
