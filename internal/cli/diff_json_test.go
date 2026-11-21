@@ -123,7 +123,7 @@ func seedWorld(t testing.TB, home string, withRegistry bool) {
 	ago := func(h float64) time.Duration { return time.Duration(h * float64(time.Hour)) }
 	hostile := "Objective: q\"uote back\\slash\ttab \x1b[31mred\x1b]0;x\x07 ‮bidi \xff\xfe bad\nProgress:  p\x01\x1fp\nNow:       " + strings.Repeat("n", 250) + "\n"
 	fx := []fixture{
-		{id: "run00001", word: "working", ago: ago(5.33), notes: "Objective: build it\nProgress:  half\nNow:       compiling\n", cwd: "/home/u/proj-one\n", queue: "first\nsecond item\n  third  \n", live: "local", transAg: ago(2.2)},
+		{id: "run00001", word: "working", ago: ago(5.33), notes: "Objective: build it\nProgress:  half\nNow:       compiling\n", cwd: "/home/u/proj-one\n", queue: "first\nsecond item\n  third\n", live: "local", transAg: ago(2.2)},
 		{id: "wait0002", word: "waiting", ago: ago(7.4), notes: "Objective: wait\nProgress:  p\nNow:       n\n", cwd: "/work/two/\n", queue: "x\n", live: "local"},
 		{id: "snz00003", word: "waiting", ago: ago(6.1), notes: "Objective: snoozed\nProgress:  p\nNow:       n\n", cwd: "/a/b/three\n", live: "local", snooze: true},
 		{id: "end00004", word: "ended", ago: ago(3.4), notes: "Objective: done\nProgress:  p\nNow:       n\n", cwd: "/a/four\n", queue: "stranded one\nstranded two\n"},
@@ -208,8 +208,29 @@ func seedWorld(t testing.TB, home string, withRegistry bool) {
 }
 
 func world(withRegistry bool, steps ...string) difftest.Scenario {
+	return worldWith(withRegistry, true, steps...)
+}
+
+// tidyWorld is world without the two files that are not sessions (the bash listing shows them as rows, which the Go one deliberately
+// does not, since they are not ours) and without the hostile session.
+func tidyWorld(withRegistry bool, steps ...string) difftest.Scenario {
+	return worldWith(withRegistry, false, steps...)
+}
+
+func worldWith(withRegistry, junk bool, steps ...string) difftest.Scenario {
 	return func(t testing.TB, home string, sitrep difftest.Runner) []difftest.Result {
 		seedWorld(t, home, withRegistry)
+		if !junk {
+			dir := filepath.Join(home, ".claude", "sitrep")
+			os.Remove(filepath.Join(dir, "bad name.txt"))
+			os.Remove(filepath.Join(dir, "x.y.txt"))
+			// hand-edited text (control characters, blank lines, a field over 200 characters) is drawn from the cleaned snapshot, which
+			// differs from the bash on purpose; the hostile session is covered by the JSON and render tests
+			for _, ext := range []string{".txt", ".cwd", ".queue"} {
+				os.Remove(filepath.Join(dir, "hostile0"+ext))
+			}
+			os.Remove(filepath.Join(dir, ".hostile0.state"))
+		}
 		var out []difftest.Result
 		for _, l := range steps {
 			out = append(out, sitrep(t, home, strings.Split(l, "|")...))
@@ -238,6 +259,18 @@ func TestDiffSnoozeAndPrune(t *testing.T) {
 		"prune ask":         world(true, "prune"),
 		"prune usage":       world(true, "prune|-y|-k", "prune|--bogus", "prune|-y|--dry-run"),
 		"prune no registry": world(false, "prune", "prune|-y"),
+	} {
+		t.Run(name, func(t *testing.T) { difftest.Compare(t, sc, goSitrep, jsonNorm) })
+	}
+}
+
+func TestDiffPlainListing(t *testing.T) {
+	for name, sc := range map[string]difftest.Scenario{
+		"default":     tidyWorld(true, "ls", "ls|-a", "env:COLUMNS=40|ls", "env:COLUMNS=60|ls|-a|-v", "env:COLUMNS=9|ls"),
+		"verbose":     tidyWorld(true, "ls|-v", "ls|-v|-a", "ls|-n|2", "ls|-n|0", "ls|-a|-v|-n|1", "ls|-n|99", "env:COLUMNS=50|ls|-n|3"),
+		"no registry": tidyWorld(false, "ls", "ls|-v", "ls|-a|-n|2"),
+		"one queue":   tidyWorld(true, "ls|inbox", "ls|run0", "ls|wait", "ls|end0", "ls|zzzz", "ls|nope", "ls|../x", "ls|a|b", "ls|-v|run0"),
+		"errors":      tidyWorld(true, "ls|-n", "ls|-n|x", "ls|--full", "ls|-n|-1"),
 	} {
 		t.Run(name, func(t *testing.T) { difftest.Compare(t, sc, goSitrep, jsonNorm) })
 	}

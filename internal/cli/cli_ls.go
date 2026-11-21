@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -12,8 +13,10 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/live"
 	"github.com/lfeagan/claude-sitrep/internal/prune"
 	"github.com/lfeagan/claude-sitrep/internal/queue"
+	"github.com/lfeagan/claude-sitrep/internal/render"
 	"github.com/lfeagan/claude-sitrep/internal/snapshot"
 	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/textsafe"
 )
 
 func (e Env) conf() conf.Conf {
@@ -35,12 +38,12 @@ func (e Env) builder() snapshot.Builder {
 func cmdLs(e Env, args []string) error {
 	const usage = "usage: sitrep ls [-a] [-v] [-n items] [--json [--full]] [id]"
 	var items string
-	var all, asJSON, full bool
+	var all, asJSON, full, verbose bool
 loop:
 	for len(args) > 0 {
 		switch args[0] {
 		case "-v":
-			args = args[1:]
+			verbose, args = true, args[1:]
 		case "--json":
 			asJSON, args = true, args[1:]
 		case "--full":
@@ -51,7 +54,7 @@ loop:
 			if len(args) < 2 {
 				return usageError(usage)
 			}
-			items, args = args[1], args[2:]
+			items, args, verbose = args[1], args[2:], true
 		default:
 			break loop
 		}
@@ -70,13 +73,25 @@ loop:
 			return errors.New("--json goes before an id, and takes none")
 		}
 	}
+	n, _ := strconv.Atoi(items) // all digits, so only a number too big for an int fails; it then lists everything
+	if n == 0 && items != "0" {
+		n = int(^uint(0) >> 1)
+	}
 	if !asJSON {
-		return errors.New("ls: the plain listing is not ported yet")
+		if len(args) > 0 {
+			return e.lsQueue(args[0])
+		}
+		o := render.Opts{Verbose: verbose, Items: n, Cols: e.cols()}
+		snap := e.builder().Build(context.Background(), snapshot.Options{All: all, Cap: o.Cap()})
+		for _, l := range render.Frame(snap, o) {
+			fmt.Fprintln(e.Stdout, l)
+		}
+		return nil
 	}
 	if len(args) > 0 {
 		return usageError("usage: sitrep ls --json [-a] [-n items | --full]")
 	}
-	cap, _ := strconv.Atoi(items)
+	cap := n
 	if full {
 		cap = -1
 	}
@@ -202,6 +217,68 @@ func cmdPrune(e Env, args []string) error {
 		fmt.Fprintf(e.Stdout, "would mark %d ended, would ask about %d item(s)\n", marked, asked)
 	} else {
 		fmt.Fprintf(e.Stdout, "%d marked ended, %d item(s) moved to the inbox\n", marked, moved)
+	}
+	return nil
+}
+
+// cols is the width of the terminal: COLUMNS, then the terminal itself, then 100. Anything below 10 is not a width.
+func (e Env) cols() int {
+	cols, _ := strconv.Atoi(e.Getenv("COLUMNS"))
+	if cols < 1 && e.TermSize != nil {
+		if _, c, ok := e.TermSize(); ok {
+			cols = c
+		}
+	}
+	if cols < 10 {
+		return 100
+	}
+	return cols
+}
+
+// lsQueue lists one queue: the inbox, or a session with its Objective and state, then its items numbered.
+func (e Env) lsQueue(prefix string) error {
+	id, err := e.resolve(prefix)
+	if err != nil {
+		return err
+	}
+	st := e.store()
+	if id == state.Inbox {
+		fmt.Fprintln(e.Stdout, "Inbox")
+	} else {
+		now := e.Clock.Now().Unix()
+		changed, _ := live.Changed(st, string(id))
+		quiet, hasQuiet := int64(0), false
+		word := live.Word(st, string(id))
+		if word == "working" {
+			quiet, hasQuiet = live.Quiet(e.configDir(), string(id), now)
+		}
+		label := live.Label(word, changed, now, quiet, hasQuiet)
+		suffix := ""
+		if label != "-" {
+			suffix = "  (" + label + ")"
+		}
+		cwd, _ := os.ReadFile(st.Path(id, "cwd"))
+		fmt.Fprintf(e.Stdout, "Session %s  %s%s\n", queue.Label(id), textsafe.Clean(string(cwd), 200), suffix)
+		notes, _ := os.ReadFile(st.Path(id, "txt"))
+		for _, l := range strings.Split(string(notes), "\n") {
+			if rest, ok := strings.CutPrefix(l, "Objective: "); ok {
+				fmt.Fprintln(e.Stdout, "  Objective: "+textsafe.Strip(rest).String())
+			}
+		}
+	}
+	b, _ := os.ReadFile(st.Path(id, "queue"))
+	if len(b) == 0 {
+		fmt.Fprintln(e.Stdout, "  (queue empty)")
+		return nil
+	}
+	n := 0
+	for _, l := range strings.Split(strings.TrimSuffix(string(b), "\n"), "\n") {
+		if l == "" {
+			fmt.Fprintln(e.Stdout)
+			continue
+		}
+		n++
+		fmt.Fprintf(e.Stdout, "%2d. %s\n", n, textsafe.Strip(l))
 	}
 	return nil
 }

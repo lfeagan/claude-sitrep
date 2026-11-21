@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/term"
+
 	"github.com/lfeagan/claude-sitrep/internal/clock"
 	"github.com/lfeagan/claude-sitrep/internal/notes"
 	"github.com/lfeagan/claude-sitrep/internal/queue"
@@ -20,21 +22,27 @@ import (
 
 // Env is everything a command touches outside its arguments, so tests can replace it.
 type Env struct {
-	Home   string
-	Getenv func(string) string
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
-	Clock  clock.Clock
-	Runner runner.Runner
-	TTY    func() (io.ReadCloser, error) // the controlling terminal, for questions; nil or an error means there is none
-	Alive  func(pid int) bool            // whether a process exists; nil means ask the system
+	Home     string
+	Getenv   func(string) string
+	Stdin    io.Reader
+	Stdout   io.Writer
+	Stderr   io.Writer
+	Clock    clock.Clock
+	Runner   runner.Runner
+	TTY      func() (io.ReadCloser, error)    // the controlling terminal, for questions; nil or an error means there is none
+	Alive    func(pid int) bool               // whether a process exists; nil means ask the system
+	TermSize func() (rows, cols int, ok bool) // the size of the terminal on standard output; nil or !ok means there is none
 }
 
 // OSEnv is the real process environment.
 func OSEnv() Env {
 	home, _ := os.UserHomeDir()
-	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}, TTY: openTTY}
+	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}, TTY: openTTY, TermSize: termSize}
+}
+
+func termSize() (int, int, bool) {
+	w, h, err := term.GetSize(int(os.Stdout.Fd()))
+	return h, w, err == nil
 }
 
 func openTTY() (io.ReadCloser, error) { return os.Open("/dev/tty") }
