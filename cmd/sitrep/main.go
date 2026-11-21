@@ -1,4 +1,4 @@
-// Command sitrep is the Go port of the sitrep shell scripts. Commands arrive phase by phase; see docs/GO-PORT.md.
+// Command sitrep is sitrep: per-session queues, the status line, the hook and the dashboard for Claude Code sessions, in one program.
 package main
 
 import (

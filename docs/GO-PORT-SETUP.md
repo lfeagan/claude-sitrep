@@ -10,7 +10,7 @@ Status: draft 2, after review, and built. It follows `docs/GO-PORT.md`, which dr
 
 1. `~/.claude/settings.json`: only `statusLine`. The new command is `"$HOME/.claude/sitrep/bin/sitrep" statusline # claude-sitrep`. The trailing tag is how any clone's wrapper is recognised as ours (invariant 6). `$HOME` is expanded by the shell when Claude Code runs it, not by setup.
 2. `~/.claude/sitrep/sitrep.conf`: only the line `SITREP_HUD_CMD=...`, which holds the upstream status line. Every other line is the user's and is kept. The file is removed when nothing else is left.
-3. `~/.claude/sitrep/bin/sitrep`: the binary. When setup runs from another path (for example after `go install`), it copies itself there (temporary file, mode 0700, rename). The skill that builds from the plugin checkout writes straight to this path.
+3. `~/.claude/sitrep/bin/sitrep`: the binary. When setup runs from another path (for example after `go install`), it copies itself there (temporary file, mode 0700, rename). The setup skill builds from the plugin checkout into `~/.claude/sitrep/sitrep.new` and runs that; setup copies it in with a rename, so a running hook never sees half a file, and removes `sitrep.new`.
 4. `BIN_DIR/sitrep` (default `~/bin`): a symlink to the binary, left alone with a note when something else is already there.
 
 ## Settings edits

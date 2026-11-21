@@ -43,9 +43,15 @@ The first line adds this repository as a marketplace and installs the plugin, wh
 2. It points the status line at `"$HOME/.claude/sitrep/bin/sitrep" statusline`. An existing status line, such as Claude HUD, is saved as `SITREP_HUD_CMD` in `~/.claude/sitrep/sitrep.conf` and runs first.
 3. It links `sitrep` into `~/bin` (`BIN_DIR` changes the folder), unless something else is there.
 
-Run `/sitrep:setup` again after every plugin update, so that the program matches the new plugin. Until then the hooks run the older program. If you have no plugin, `go install github.com/lfeagan/claude-sitrep/cmd/sitrep@latest` builds the same program, and `sitrep setup` then puts it in place, wraps the status line and links the command; the hooks come only with the plugin.
+Run `/sitrep:setup` again after every plugin update, so that the program matches the new plugin (`sitrep version` prints the version of the program, and `.claude-plugin/plugin.json` the version of the plugin). Until then the hooks run the older program, and between an update and the first setup they name a program that does not exist yet, so each hook ends with a non-blocking error and a `+` prompt goes to Claude as written. If you have no plugin, `go install github.com/lfeagan/claude-sitrep/cmd/sitrep@latest` builds the same program (from a version tag that holds the Go code), and `sitrep setup` then puts it in place, wraps the status line and links the command; the hooks come only with the plugin.
 
 `sitrep setup` backs up `~/.claude/settings.json` (to `settings.json.bak.<time>`, owner-only, never over an earlier backup) and checks the edit before it writes anything. It changes only the `statusLine` key and leaves the rest of the file as it was, a symlinked file included. If it finds an install from a checkout of the old shell version, it stops, changes nothing, and names what to take out by hand.
+
+sitrep runs on macOS and Linux; it uses file locks and process groups, so there is no Windows build.
+
+### Upgrading from 0.3.x
+
+The shell versions left a status line, hooks or links that setup will not run beside. Setup stops, changes nothing, and names them. For the 0.3.x plugin setup that is the status line `bash "$HOME/.claude/sitrep/statusline.sh" # claude-sitrep`: put back the status line you had before (the command saved in `~/.claude/sitrep/sitrep.conf` as `SITREP_HUD_CMD`), or delete the `statusLine` key, and run `/sitrep:setup` again. For an install from a checkout (`./install.sh`), remove its four hooks and its status line from `~/.claude/settings.json` the same way, and delete the links `~/bin/sitrep` and `~/.claude/skills/sitrep-queue`. State is kept, and its files have the same names.
 
 To take sitrep out, run `/sitrep:setup remove` (it restores the saved upstream status line and removes the program and its links), then `/plugin uninstall sitrep`. State in `~/.claude/sitrep` stays. If Claude HUD's setup runs after sitrep's, it replaces the status line and the sitrep block disappears: run `/sitrep:setup` again.
 

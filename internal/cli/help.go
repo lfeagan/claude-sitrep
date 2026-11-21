@@ -129,6 +129,10 @@ prints nothing but a block answer. The plugin runs it; you do not.
 Print the sitrep block of the status line for the session Claude Code describes as JSON on
 standard input, after the output of the status line saved by setup, if any. Claude Code runs it.
 `,
+	"version": `usage: sitrep version
+
+Print the version of this program. It matches the version of the plugin that shipped its source.
+`,
 	"help": `usage: sitrep help [command]
 
 List the commands, or show the details of one. ` + "`sitrep <command> --help`" + ` shows the same.
@@ -151,6 +155,7 @@ const helpAll = `usage: sitrep <command> [args]
   watch                      live full-screen dashboard of the sessions
   status                     print one frame of the dashboard as text
   setup [--remove]           put sitrep on the status line, or take it off
+  version                    print the version of this program
   help [command]             this list, or the details of one command
 
 An <id> is a unique prefix of a session id, or "inbox".

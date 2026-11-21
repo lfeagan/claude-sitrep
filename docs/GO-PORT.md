@@ -125,7 +125,7 @@ The setup skill runs the `go` command first and then `sitrep setup`, so its allo
 What this costs, plainly:
 
 1. **A missing binary is noisy.** After the plugin updates and before `/sitrep:setup` runs, each hook exits 127, which Claude Code reports as a non-blocking error. Until then `+ text` and `+pin` are not intercepted and go to Claude as real prompts. This is a short window and a single user, so I accept it, and the setup skill says to run it after every update.
-2. **The binary does not follow the plugin.** The stable path means nothing upgrades the binary. The status line prints a one-line notice when `sitrep version` differs from the version in the plugin's `plugin.json`.
+2. **The binary does not follow the plugin.** The stable path means nothing upgrades the binary. `sitrep version` prints the version of the program, and a test keeps it equal to the version in the plugin's `plugin.json`. A notice on the status line when the two differ was designed and not built.
 3. **Rollback needs one step.** The 0.3.x `setup.sh` refuses when the status line ends in `# claude-sitrep` and is not its own command, so a downgrade starts with `sitrep setup --remove`. No tags exist yet; Phase 0 creates `bash-final` (and `v0.3.0` on the same commit), and the version stays 0.3.0 until the cutover, so users of the plugin cache are not moved early.
 
 ## Test Strategy
@@ -151,7 +151,7 @@ Each phase runs the loop: design check, build with tests, fresh review, fix. Pha
 | 3 | `live`, `snapshot`, `ls --json`, prune, snooze | decoded JSON equals the bash output on every fixture |
 | 4 | `render`: `ls` and `ls -v` only | text equals the bash text, except the listed width cases |
 | 5 | `hook`, with the detached summarizer and the debounce | the hook cases pass, and a test shows the hook returning at once |
-| 6 | `statusline`, with the version notice | the status line cases pass |
+| 6 | `statusline` (the version notice was not built) | the status line cases pass |
 | 7 | `settings` and `setup`, with `--remove`, and the frozen outputs | the settings cases pass: order, symlink, bad JSON, failure before any write, modes |
 | 8 | Cutover, in four commits: (a) `tui` into the root module as a library, calling `queue` and `live` directly, named `sitrep watch`, with `sitrep status`, Makefile and CI following; (b) `flock`; (c) `hooks.json`, manifests, the setup skill, version 0.4.0; (d) delete the bash and `tests/run.sh`, CI without shellcheck, README and `AGENTS.md` | CI is green on Ubuntu and macOS, a clean `$HOME` setup works end to end, and the 0.3.x clean-up and the upgrade were run by hand |
 

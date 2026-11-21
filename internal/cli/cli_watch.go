@@ -39,17 +39,31 @@ func (e Env) tuiEngine() tui.Engine {
 			return e.builder().Build(ctx, snapshot.Options{All: true, Cap: -1}), nil
 		},
 		Command: func(ctx context.Context, args ...string) (string, error) {
-			var out, errb bytes.Buffer
-			c := e
-			c.Stdout, c.Stderr, c.Stdin, c.TTY = &out, &errb, nil, nil
-			if code := Run(args, c); code != 0 {
-				line, _, _ := strings.Cut(errb.String(), "\n")
-				if line = strings.TrimSpace(strings.TrimPrefix(line, "sitrep: ")); line == "" {
-					line = fmt.Sprintf("failed with status %d", code)
-				}
-				return "", errors.New(line)
+			type result struct {
+				out string
+				err error
 			}
-			return out.String(), nil
+			done := make(chan result, 1)
+			go func() {
+				var out, errb bytes.Buffer
+				c := e
+				c.Stdout, c.Stderr, c.Stdin, c.TTY = &out, &errb, nil, nil
+				if code := Run(args, c); code != 0 {
+					line, _, _ := strings.Cut(errb.String(), "\n")
+					if line = strings.TrimSpace(strings.TrimPrefix(line, "sitrep: ")); line == "" {
+						line = fmt.Sprintf("failed with status %d", code)
+					}
+					done <- result{err: errors.New(line)}
+					return
+				}
+				done <- result{out: out.String()}
+			}()
+			select {
+			case r := <-done:
+				return r.out, r.err
+			case <-ctx.Done(): // the dashboard's own time limit: the call finishes on its own, unheard
+				return "", fmt.Errorf("took longer than the dashboard waits")
+			}
 		},
 	}
 }

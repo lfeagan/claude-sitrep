@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -257,16 +256,16 @@ func (e Env) lsQueue(prefix string) error {
 		if label != "-" {
 			suffix = "  (" + label + ")"
 		}
-		cwd, _ := os.ReadFile(st.Path(id, "cwd"))
+		cwd, _ := state.ReadFile(st.Path(id, "cwd"), 64<<10)
 		fmt.Fprintf(e.Stdout, "Session %s  %s%s\n", queue.Label(id), textsafe.Clean(string(cwd), 200), suffix)
-		notes, _ := os.ReadFile(st.Path(id, "txt"))
+		notes, _ := state.ReadFile(st.Path(id, "txt"), 1<<20)
 		for _, l := range strings.Split(string(notes), "\n") {
 			if rest, ok := strings.CutPrefix(l, "Objective: "); ok {
 				fmt.Fprintln(e.Stdout, "  Objective: "+textsafe.Strip(rest).String())
 			}
 		}
 	}
-	b, _ := os.ReadFile(st.Path(id, "queue"))
+	b, _ := state.ReadFile(st.Path(id, "queue"), 8<<20)
 	if len(b) == 0 {
 		fmt.Fprintln(e.Stdout, "  (queue empty)")
 		return nil

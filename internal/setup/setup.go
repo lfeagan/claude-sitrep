@@ -100,11 +100,16 @@ func (f file) write(d settings.Doc) error {
 func (s Setup) install(doc settings.Doc, f file) int {
 	path := f.path
 	if found := s.checkoutInstall(doc); len(found) > 0 {
-		s.warn("Found an install from a checkout of claude-sitrep. Its hooks would run twice beside the plugin's:")
+		s.warn("Found an earlier install of sitrep (from a checkout, or the 0.3.x plugin setup) that would run beside this one:")
 		for _, line := range found {
 			s.warn("  - %s", line.text)
 		}
 		s.warn("Nothing was changed. Take it out first, then run this setup again:")
+		for _, line := range found {
+			if line.hint != "" {
+				s.warn("  %s", line.hint)
+			}
+		}
 		for _, r := range uniqueRoots(found) {
 			if _, err := os.Stat(filepath.Join(r, "uninstall.sh")); err == nil {
 				s.warn("  bash %s", show(shellWord(filepath.Join(r, "uninstall.sh"))))
@@ -147,7 +152,8 @@ func (s Setup) install(doc settings.Doc, f file) int {
 		return 1
 	}
 	var backup string
-	if f.exists {
+	unchanged := f.exists && string(f.raw) == f.bom+string(newDoc)
+	if f.exists && !unchanged {
 		if backup, err = settings.Backup(path, f.raw, s.Now()); err != nil {
 			s.warn("cannot back up %s: %v; nothing was changed.", show(path), err)
 			return 1
@@ -159,9 +165,11 @@ func (s Setup) install(doc settings.Doc, f file) int {
 			return 1
 		}
 	}
-	if err := f.write(newDoc); err != nil {
-		s.warn("cannot write %s: %v; nothing was changed.", show(path), err)
-		return 1
+	if !unchanged {
+		if err := f.write(newDoc); err != nil {
+			s.warn("cannot write %s: %v; nothing was changed.", show(path), err)
+			return 1
+		}
 	}
 	// From here the settings are written. If the program cannot be put where the status line runs it, the settings are put back.
 	st := s.store()
@@ -197,8 +205,23 @@ func (s Setup) install(doc settings.Doc, f file) int {
 		s.say("Wrapping the existing status line (it renders first): %s", show(old))
 	}
 	s.link()
+	s.removeBuildCopy(exe)
 	s.say("Set up. Restart Claude Code sessions to pick up the status line.")
 	return 0
+}
+
+// BuildName is the file the setup skill builds the program into, beside the stable path. Setup copies it into place and removes it.
+const BuildName = "sitrep.new"
+
+// removeBuildCopy removes the program setup ran from when that was the skill's build copy, which has served its purpose. It names exactly
+// that one file in the state folder and nothing else.
+func (s Setup) removeBuildCopy(exe string) {
+	named := filepath.Join(s.store().Dir, BuildName)
+	if a, err := os.Stat(exe); err == nil {
+		if b, err := os.Lstat(named); err == nil && b.Mode().IsRegular() && os.SameFile(a, b) {
+			_ = os.Remove(named)
+		}
+	}
 }
 
 // rollback puts the settings back as they were read, when nothing else has written them since.
@@ -339,7 +362,11 @@ func (s Setup) remove(doc settings.Doc, f file) int {
 type leftover struct {
 	text string
 	root string
+	hint string // what to do, when there is no checkout to name
 }
+
+// legacyPluginCommand is the status line that setup of the 0.3.x plugin wrote.
+const legacyPluginCommand = `bash "$HOME/.claude/sitrep/statusline.sh" ` + settings.Tag
 
 func uniqueRoots(found []leftover) []string {
 	seen := map[string]bool{}
@@ -362,18 +389,21 @@ func (s Setup) checkoutInstall(doc settings.Doc) []leftover {
 		if strings.Contains(c, "hooks/sitrep-hook.sh") || strings.Contains(c, "hooks/notes-hook.sh") {
 			root := strings.TrimPrefix(c, "bash ")
 			root, _, _ = strings.Cut(root, "/hooks/")
-			found = append(found, leftover{"a hook in settings.json: " + show(c), unescape(root)})
+			found = append(found, leftover{text: "a hook in settings.json: " + show(c), root: unescape(root)})
 		}
 	}
-	if sl, _ := doc.StatusLine(); sl != "" && sl != Command && (settings.Ours(sl) || strings.Contains(sl, "claude-sitrep/statusline/statusline.sh")) {
+	if sl, _ := doc.StatusLine(); sl == legacyPluginCommand {
+		found = append(found, leftover{text: "the status line of the 0.3.x plugin setup: " + show(sl),
+			hint: "restore the status line you had before sitrep (the command saved in ~/.claude/sitrep/sitrep.conf as SITREP_HUD_CMD), or delete the statusLine key"})
+	} else if sl != "" && sl != Command && (settings.Ours(sl) || strings.Contains(sl, "claude-sitrep/statusline/statusline.sh")) {
 		root := strings.TrimPrefix(sl, "bash ")
 		root, _, _ = strings.Cut(root, "/statusline/statusline.sh")
-		found = append(found, leftover{"the status line: " + show(sl), unescape(root)})
+		found = append(found, leftover{text: "the status line: " + show(sl), root: unescape(root)})
 	}
 	sk := filepath.Join(s.skillsDir(), "sitrep-queue")
 	if t, err := os.Readlink(sk); err == nil && strings.HasSuffix(t, "/skills/sitrep-queue") {
 		if _, serr := os.Stat(filepath.Join(t, "SKILL.md")); serr == nil || strings.Contains(t, "claude-sitrep") {
-			found = append(found, leftover{fmt.Sprintf("the skill link %s -> %s", show(sk), show(t)), strings.TrimSuffix(t, "/skills/sitrep-queue")})
+			found = append(found, leftover{text: fmt.Sprintf("the skill link %s -> %s", show(sk), show(t)), root: strings.TrimSuffix(t, "/skills/sitrep-queue")})
 		}
 	}
 	entries, _ := os.ReadDir(s.binDir())
@@ -385,7 +415,7 @@ func (s Setup) checkoutInstall(doc settings.Doc) []leftover {
 		}
 		root := strings.TrimSuffix(t, "/bin/sitrep")
 		if _, serr := os.Stat(filepath.Join(root, "hooks", "sitrep-hook.sh")); serr == nil || strings.Contains(t, "claude-sitrep") {
-			found = append(found, leftover{fmt.Sprintf("the link %s -> %s", show(l), show(t)), root})
+			found = append(found, leftover{text: fmt.Sprintf("the link %s -> %s", show(l), show(t)), root: root})
 		}
 	}
 	return found

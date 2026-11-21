@@ -18,6 +18,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/runner"
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
+	"github.com/lfeagan/claude-sitrep/internal/version"
 )
 
 // Env is everything a command touches outside its arguments, so tests can replace it.
@@ -73,7 +74,7 @@ var commands map[string]command
 func init() {
 	commands = map[string]command{
 		"add": cmdAdd, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
-		"setup": cmdSetup, "watch": cmdWatch, "status": cmdStatus, "hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
+		"setup": cmdSetup, "version": cmdVersion, "watch": cmdWatch, "status": cmdStatus, "hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
 	}
 }
 
@@ -344,5 +345,10 @@ func cmdHelp(e Env, args []string) error {
 		}
 		fmt.Fprint(e.Stdout, text)
 	}
+	return nil
+}
+
+func cmdVersion(e Env, args []string) error {
+	fmt.Fprintln(e.Stdout, version.Version)
 	return nil
 }

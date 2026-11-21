@@ -268,7 +268,7 @@ func TestCheckoutInstallsStopSetup(t *testing.T) {
 		"hook":                   {`{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash /x/claude-sitrep/hooks/sitrep-hook.sh"}]}]}}`, nil, "a hook in settings.json: bash /x/claude-sitrep/hooks/sitrep-hook.sh"},
 		"old hook":               {`{"hooks":{"SessionStart":[{"hooks":[{"command":"bash /x/hooks/notes-hook.sh"}]}]}}`, nil, "a hook in settings.json"},
 		"status line":            {`{"statusLine":{"command":"bash /x/claude-sitrep/statusline/statusline.sh # claude-sitrep"}}`, nil, "the status line: bash /x/claude-sitrep/statusline/statusline.sh # claude-sitrep"},
-		"old plugin status line": {`{"statusLine":{"command":"bash \"$HOME/.claude/sitrep/statusline.sh\" # claude-sitrep"}}`, nil, "the status line:"},
+		"old plugin status line": {`{"statusLine":{"command":"bash \"$HOME/.claude/sitrep/statusline.sh\" # claude-sitrep"}}`, nil, "the status line of the 0.3.x plugin setup"},
 		"untagged status line":   {`{"statusLine":{"command":"bash /x/claude-sitrep/statusline/statusline.sh"}}`, nil, "the status line:"},
 		"skill link": {`{}`, func(e *env) {
 			os.MkdirAll(e.skills, 0o755)
@@ -648,5 +648,40 @@ func TestUpstreamWithAmpersandsAndUnicodeRoundTrips(t *testing.T) {
 	e.run(true)
 	if got := gjson.Get(e.read(e.settings()), "statusLine.command").String(); got != up {
 		t.Errorf("restored %q, want %q", got, up)
+	}
+}
+
+func TestTheSkillsBuildCopyIsCopiedInAndRemoved(t *testing.T) {
+	e := newEnv(t)
+	build := filepath.Join(e.nd(), BuildName)
+	e.write(build, "#!/bin/sh\necho built\n")
+	os.Chmod(build, 0o755)
+	e.exe = build
+	e.write(e.settings(), `{}`)
+	if code := e.run(false); code != 0 {
+		t.Fatal(e.err.String())
+	}
+	if e.exists(build) {
+		t.Error("the build copy was left behind")
+	}
+	if e.read(filepath.Join(e.nd(), "bin", "sitrep")) != "#!/bin/sh\necho built\n" {
+		t.Error("the program was not installed from the build copy")
+	}
+	// any other program is never removed
+	e2 := newEnv(t)
+	e2.run(false)
+	if !e2.exists(e2.exe) {
+		t.Error("setup removed the program it ran from")
+	}
+}
+
+func TestSetupThatChangesNothingMakesNoBackup(t *testing.T) {
+	e := newEnv(t)
+	e.write(e.settings(), `{"a":1}`)
+	e.run(false)
+	before, backups := e.read(e.settings()), len(e.backups())
+	e.run(false)
+	if e.read(e.settings()) != before || len(e.backups()) != backups {
+		t.Errorf("a second run changed the file or made %d more backups", len(e.backups())-backups)
 	}
 }
