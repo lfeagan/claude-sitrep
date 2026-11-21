@@ -176,19 +176,28 @@ func Normalize(r Result, home string) Result {
 // Scenario drives a Runner in a fresh HOME and returns everything it saw: each result, then the state files.
 type Scenario func(t testing.TB, home string, sitrep Runner) []Result
 
-// Compare runs the scenario against the oracle and the Go binary and fails on any difference.
-func Compare(t *testing.T, scenario Scenario, goRunner Runner) {
+// Compare runs the scenario against the oracle and the Go binary and fails on any difference. A norm function makes results comparable
+// (for example by blanking the time) before they are compared.
+func Compare(t *testing.T, scenario Scenario, goRunner Runner, norm ...func(Result) Result) {
 	t.Helper()
-	for _, d := range Diff(t, scenario, Oracle(t), goRunner) {
+	for _, d := range Diff(t, scenario, Oracle(t), goRunner, norm...) {
 		t.Error(d)
 	}
 }
 
 // Diff runs the scenario with each runner in its own fresh HOME, and describes every difference in exit status, output or state files.
-func Diff(t testing.TB, scenario Scenario, a, b Runner) []string {
+func Diff(t testing.TB, scenario Scenario, a, b Runner, norm ...func(Result) Result) []string {
 	t.Helper()
 	homeA, homeB := Home(t), Home(t)
 	ra, rb := scenario(t, homeA, a), scenario(t, homeB, b)
+	for _, n := range norm {
+		for i := range ra {
+			ra[i] = n(ra[i])
+		}
+		for i := range rb {
+			rb[i] = n(rb[i])
+		}
+	}
 	if len(ra) != len(rb) {
 		return []string{fmt.Sprintf("the scenario gave %d results and %d results", len(ra), len(rb))}
 	}
@@ -196,7 +205,7 @@ func Diff(t testing.TB, scenario Scenario, a, b Runner) []string {
 	for i := range ra {
 		x, y := Normalize(ra[i], homeA), Normalize(rb[i], homeB)
 		if x != y {
-			diffs = append(diffs, fmt.Sprintf("step %d differs\n  first:  %+v\n  second: %+v", i, x, y))
+			diffs = append(diffs, fmt.Sprintf("step %d differs: %s", i, describe(x, y)))
 		}
 	}
 	sa, sb := State(t, homeA), State(t, homeB)
@@ -225,4 +234,23 @@ func repoRoot() (string, error) {
 		return "", errors.New("not inside the repository")
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// describe says what differs between two results: the exit status, or the first place two outputs part, with some context.
+func describe(x, y Result) string {
+	if x.Code != y.Code {
+		return fmt.Sprintf("exit status %d against %d (stderr %q against %q)", x.Code, y.Code, x.Stderr, y.Stderr)
+	}
+	for _, p := range []struct{ name, a, b string }{{"stdout", x.Stdout, y.Stdout}, {"stderr", x.Stderr, y.Stderr}} {
+		if p.a == p.b {
+			continue
+		}
+		i := 0
+		for i < len(p.a) && i < len(p.b) && p.a[i] == p.b[i] {
+			i++
+		}
+		from := max(0, i-60)
+		return fmt.Sprintf("%s parts at byte %d\n  first:  %q\n  second: %q", p.name, i, p.a[from:min(len(p.a), i+100)], p.b[from:min(len(p.b), i+100)])
+	}
+	return "equal"
 }
