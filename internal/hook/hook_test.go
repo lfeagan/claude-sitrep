@@ -564,3 +564,34 @@ func TestUpdateCheckFailureDoesNotFailTheHook(t *testing.T) {
 		t.Errorf("out %q", r.out.String())
 	}
 }
+
+func TestANotificationDoesNotBecomeNow(t *testing.T) {
+	r := newRig(t)
+	r.fire(`{"session_id":"sess8","hook_event_name":"UserPromptSubmit","prompt":"fix the build"}`)
+	for _, p := range []string{
+		`<task-notification>\n<task-id>bm0uk1g13</task-id>`,
+		`  <agent-message from=\"ae18\"> [Subagent hand-back]`,
+		`&lt;task-notification&gt; done`,
+	} {
+		r.fire(`{"session_id":"sess8","hook_event_name":"UserPromptSubmit","prompt":"` + p + `"}`)
+		n := r.file("sess8.txt")
+		if !strings.Contains(n, "Objective: fix the build") || !strings.Contains(n, "Now:       fix the build") || strings.Contains(n, "<") || strings.Contains(n, "&lt;") {
+			t.Fatalf("after %q the notes are %q", p, n)
+		}
+	}
+	if got := strings.TrimSpace(r.file(".sess8.state")); got != "working" {
+		t.Errorf("state %q: a notification starts a turn", got)
+	}
+	r.fire(`{"session_id":"sess8","hook_event_name":"UserPromptSubmit","prompt":"now the tests"}`)
+	if n := r.file("sess8.txt"); !strings.Contains(n, "Now:       now the tests") {
+		t.Errorf("a real prompt after it: %q", n)
+	}
+}
+
+func TestANotificationAsTheFirstPromptLeavesNoTagInTheNotes(t *testing.T) {
+	r := newRig(t)
+	r.fire(`{"session_id":"sess9","hook_event_name":"UserPromptSubmit","prompt":"<task-notification> x"}`)
+	if n := r.file("sess9.txt"); strings.Contains(n, "<") || !strings.Contains(n, "Objective: -") || !strings.Contains(n, "Now:       -") {
+		t.Errorf("notes %q", n)
+	}
+}

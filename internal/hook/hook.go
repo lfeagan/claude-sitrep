@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/lfeagan/claude-sitrep/internal/clock"
@@ -155,10 +156,21 @@ func (s *session) prompt() {
 	if obj == "" {
 		obj = textsafe.Sane(transcript.FirstPrompt(s.tp), 160).String()
 	}
+	if wrapped(prompt) { // a notification Claude Code sent, not something the user said: it says nothing about what is happening
+		_ = s.write(orDash(obj), orDash(s.prog), orDash(s.now))
+		return
+	}
 	if obj == "" {
 		obj = textsafe.Sane(prompt, 160).String()
 	}
 	_ = s.write(obj, orDash(s.prog), textsafe.Sane(prompt, 140).String())
+}
+
+// wrapped says a prompt starts with a tag, as the task notifications, agent hand-backs and command wrappers that Claude Code sends do. The
+// transcript scan skips the same messages.
+func wrapped(prompt string) bool {
+	head := strings.TrimLeftFunc(prompt, unicode.IsSpace)
+	return strings.HasPrefix(head, "<") || strings.HasPrefix(head, "&lt;")
 }
 
 // plus handles +pin, +, +inbox and +take, and says whether the prompt was answered here. Anything that is not a short single line, or whose
