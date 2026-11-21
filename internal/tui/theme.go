@@ -61,7 +61,9 @@ func themeFor(isDark bool, st Settings) Theme {
 	if hot, ok := sgrString(st.HighlightSGR); ok && st.HighlightSGR != "48;5;238" {
 		p.hot = [2]string{hot, hot}
 	}
+	custom := map[string]bool{} // a background the user chose gets text that reads on it; the built-in ones keep the terminal's own
 	for name, v := range parseColors(st.Colors) {
+		custom[name] = true
 		switch name {
 		case "accent":
 			p.accent = v
@@ -92,9 +94,17 @@ func themeFor(isDark bool, st Settings) Theme {
 		Err:       lipgloss.NewStyle().Foreground(pick(p.errc)).Bold(true),
 		Status:    lipgloss.NewStyle().Foreground(on).Background(accent),
 		StatusKey: lipgloss.NewStyle().Foreground(on).Background(accent).Bold(true),
-		Hot:       lipgloss.NewStyle().Background(pick(p.hot)),
-		Attn:      lipgloss.NewStyle().Background(pick(p.attn)),
+		Hot:       withText(lipgloss.NewStyle().Background(pick(p.hot)), custom["hot"], p.hot[side]),
+		Attn:      withText(lipgloss.NewStyle().Background(pick(p.attn)), custom["attn"], p.attn[side]),
 	}
+}
+
+// withText sets the text colour that reads on bg, when the background is one the user chose.
+func withText(st lipgloss.Style, custom bool, bg string) lipgloss.Style {
+	if !custom {
+		return st
+	}
+	return st.Foreground(lipgloss.Color(onColor(bg)))
 }
 
 // monoTheme uses no colour: bold for activity, reverse video for what needs the user and for the bars.

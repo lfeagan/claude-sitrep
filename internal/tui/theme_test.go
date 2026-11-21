@@ -138,3 +138,19 @@ func TestSettingsFromTheDocumentAreCleaned(t *testing.T) {
 		t.Errorf("%+v", s.Settings)
 	}
 }
+
+func TestTextReadsOnAChosenBackground(t *testing.T) {
+	pink := themeFor(true, Settings{HighlightSGR: "48;5;238", Colors: "attn=#ffd1dc"})
+	if got := pink.Attn.Render("x"); !strings.Contains(got, "48;2;255;209;220") || !strings.Contains(got, "38;2;16;16;20") {
+		t.Errorf("dark text on pastel pink: %q", got)
+	}
+	night := themeFor(false, Settings{HighlightSGR: "48;5;238", Colors: "hot=#101040"})
+	if got := night.Hot.Render("x"); !strings.Contains(got, "38;2;255;255;255") {
+		t.Errorf("light text on a dark highlight: %q", got)
+	}
+	// the built-in backgrounds keep the terminal's own text colour
+	def := themeFor(true, Settings{HighlightSGR: "48;5;238"})
+	if strings.Contains(def.Attn.Render("x"), "38;") || strings.Contains(def.Hot.Render("x"), "38;") {
+		t.Errorf("the default theme sets text colours: %q %q", def.Attn.Render("x"), def.Hot.Render("x"))
+	}
+}
