@@ -34,9 +34,11 @@ The log is off until the user turns it on with `log = on` in `sitrep.conf` (or `
 
 ## Size
 
-The log has a hard limit, so it can never grow without bound. When `current` reaches a cap (1 MiB by default, `log_max` in `sitrep.conf`), it is renamed over `previous` and a new `current` begins. Two files of at most the cap are all a host ever holds, so with entries of a few hundred bytes the log keeps the last few thousand changes and never more than twice the cap. Old entries fall off the end, and a reader sees a window of recent history, not all of it.
+The log has two limits, a size and an age, and the one reached first wins: 10 MB or 30 days by default (`log_max` and `log_days` in `sitrep.conf`). Each file may hold half of each limit. When `current` reaches 5 MB, or its first entry is 15 days old, it is renamed over `previous` and a new `current` begins. The two files together then never hold more than 10 MB, and never an entry older than 30 days. Old entries fall off the end, and a reader sees a window of recent history, not all of it.
 
-Rolling over happens under a lock with a bounded wait, taken only when the size is over the cap, and the size is checked again once the lock is held. If the lock is busy the entry is appended anyway and the roll happens on a later call, so a hook never waits for it. A reader may find `current` replaced between two reads, and treats that as normal.
+The age is checked only when something is appended, so a log that sits idle keeps what it has until the next change. A reader therefore ignores entries older than `log_days`, and `sitrep log --clear` is the way to remove them from disk at once.
+
+Rolling over happens under a lock with a bounded wait, taken only when a limit is reached, and the limit is checked again once the lock is held. If the lock is busy the entry is appended anyway and the roll happens on a later call, so a hook never waits for it. A reader may find `current` replaced between two reads, and treats that as normal.
 
 ## Writing
 
@@ -50,8 +52,8 @@ Reading goes through `state.ReadFile` and takes each line as untrusted (invarian
 
 ## Questions
 
-- The default cap. 1 MiB is a guess, and we should measure how many entries a heavy week produces before settling on it.
-- Whether a window of two files is enough history. If it is not, the cap can be raised, and a longer record would need a different design.
+- The defaults. 10 MB and 30 days are the user's choice, and we should measure how many entries a heavy week produces to see which limit is reached first.
+- Whether a window of two files is enough history. If it is not, the limits can be raised, and a longer record would need a different design.
 - Whether `sitrep prune` and the dashboard keys write the same entries. They run `sitrep` commands, so they should, with nothing extra.
 - Whether the drop box in `SHARED-STATE.md` writes an entry on receipt, naming the sender's host, which would give us a trail of where an item came from.
 
