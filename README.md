@@ -106,7 +106,8 @@ The state comes from the hooks:
 
 1. `working` from the moment a prompt goes to Claude.
 2. `waiting` when Claude has stopped and it is your turn.
-3. `ended` when the session exits.
+3. `blocked` while a working session waits at a permission dialog. The `PermissionRequest` hook records it, and it ends by itself once Claude writes to the transcript again, which it does when you answer (and the next prompt, `Stop` or exit remove the record). The state stays `working` in the JSON, with `needs_input` true and `blocked` set to `permission`. It is shown only for the default permission mode and the others that ask: in `auto` mode there is no dialog.
+4. `ended` when the session exits.
 
 The number after the state is how long ago it changed. Claude Code fires no hook when you interrupt a turn, so a `working` session whose transcript has been quiet for ten minutes shows as `idle?` with how long it has been quiet. A session with no state file shows `-`.
 
@@ -132,7 +133,7 @@ The two tabs are:
 1. **Watch** shows Objective, Progress, Now and the queue of each session, wrapped with a hanging indent.
 2. **Top** is a summary line (`3 running: 1 working, 1 waiting, 1 idle?, 2 ended`) and one line per session, with its state, queue size, the share of its context window left (CTX) and what it is doing now. CTX is `62%`, drawn as `!9%` at 10% or less (and bold at 20% or less) so the plain text carries the warning, and `-` where the session has not said (a background session with no status line, or one that has not drawn it yet under 0.8). It is dropped on a narrow screen before the text of NOW is cut. The numbers come from the status line: Claude Code gives `sitrep statusline` the window size and what is in it, and it records them in `sessions/<id>/context`.
 
-A session that waits for you, meaning Claude has stopped and the next move is yours, is drawn with a soft pink-red background and a `●` before its state, until you send it a prompt. The status bar then leads with `● 2 need you`. The rule is the `needs_input` field of `sitrep ls --json`.
+A session that waits for you, meaning Claude has stopped and the next move is yours, is drawn with a soft pink-red background and a `●` before its state, until you send it a prompt. A session stopped at a permission dialog counts too, and its state reads `blocked`, until you answer. The status bar then leads with `● 2 need you`. The rule is the `needs_input` field of `sitrep ls --json`.
 
 Keys:
 
@@ -227,7 +228,7 @@ Each session has these fields:
 | `state_label`, `age` | The text the listing shows, such as `working 1m` or `idle? 25m`, and the seconds since the state changed. |
 | `state_changed` | When the state changed, in epoch seconds. |
 | `quiet_secs`, `idle` | `quiet_secs` is how long the transcript has been quiet, and null unless the session is working. `idle` is true when that is over ten minutes. |
-| `needs_input`, `snoozed` | `needs_input` is true for a running session in the `waiting` state: Claude has stopped, and the next move is the user's. It stays true until the user sends a prompt, unless the session is snoozed. `sitrep snooze <id>` mutes it until the session next changes (`snoozed` is then true and `needs_input` false), and `sitrep snooze --off <id>` ends the mute at once. |
+| `needs_input`, `blocked`, `snoozed` | `needs_input` is true for a running session in the `waiting` state: Claude has stopped, and the next move is the user's. It stays true until the user sends a prompt, unless the session is snoozed. It is also true for a session at a permission dialog, whose `blocked` field is `permission` (the field is absent otherwise) and whose `state_label` starts with `blocked`. `sitrep snooze <id>` mutes it until the session next changes (`snoozed` is then true and `needs_input` false), and `sitrep snooze --off <id>` ends the mute at once. |
 | `pid` | The live process of the session, from the registry, or null when it is not known here (another pid space). If a resume left several, the first. A hint only: it can be stale by the time it is used. |
 | `pinned`, `highlight` | Whether the Objective is pinned, and whether the session changed within `highlight_seconds`. |
 | `dir`, `cwd` | The last part of the working directory, and the whole path. |

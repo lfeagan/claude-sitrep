@@ -89,7 +89,7 @@ The default for -n is 5, or SITREP_QUEUE_ITEMS from the environment or sitrep.co
 
 Mute the "waiting for you" state of one session, so that a program such as the dashboard stops
 drawing it as needing you. The mute ends by itself when the session changes: the next
-prompt, or the end of the next turn. ` + "`" + `--off` + "`" + ` ends it at once. Only the JSON changes: the
+prompt, or the end of the next turn (for a session at a permission dialog, until the dialog is over). ` + "`" + `--off` + "`" + ` ends it at once. Only the JSON changes: the
 ` + "`" + `needs_input` + "`" + ` field turns false and ` + "`" + `snoozed` + "`" + ` turns true.
 `,
 	"log": `usage: sitrep log [--session <id>] [--op <op>] [--host <name>] [--since <time>] [-n <count>] [--json] [--clear]

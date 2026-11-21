@@ -136,6 +136,9 @@ func cmdSnooze(e Env, args []string) error {
 	if !ok {
 		return fmt.Errorf("cannot read when %s last changed", e.label(id))
 	}
+	if _, at, blocked := live.Blocked(e.store(), e.configDir(), string(id), live.Word(e.store(), string(id)), e.Clock.Now().Unix()); blocked {
+		changed = at // a session at a dialog is muted until the dialog is over, which the time of the block names
+	}
 	if err := e.notes().Snooze(id, changed); err != nil {
 		return fmt.Errorf("cannot snooze %s", e.label(id))
 	}

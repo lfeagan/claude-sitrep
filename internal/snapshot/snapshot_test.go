@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -290,5 +291,108 @@ func TestHostilePipesDoNotHangTheListing(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("the listing hung on a pipe")
+	}
+}
+
+// block writes the record the permission hook leaves, at seconds before now, and a transcript last written at mtime seconds before now
+// (none when mtime is 0).
+func (w *world) block(id string, at, mtime time.Duration) {
+	w.t.Helper()
+	if err := w.s.EnsureSession(state.ID(id)); err != nil {
+		w.t.Fatal(err)
+	}
+	body := strconv.FormatInt(now.Add(-at).Unix(), 10) + " permission\n"
+	if err := os.WriteFile(w.s.Path(state.ID(id), "blocked"), []byte(body), 0o600); err != nil {
+		w.t.Fatal(err)
+	}
+	if mtime == 0 {
+		return
+	}
+	dir := filepath.Join(w.cfg, "projects", "p")
+	os.MkdirAll(dir, 0o755)
+	p := filepath.Join(dir, id+".jsonl")
+	os.WriteFile(p, []byte("{}\n"), 0o600)
+	os.Chtimes(p, now.Add(-mtime), now.Add(-mtime))
+}
+
+func TestBlockedSessionNeedsInput(t *testing.T) {
+	w := newWorld(t)
+	w.session("blk00001", "working", 30*time.Second)
+	w.register("blk00001", 1)
+	w.block("blk00001", 30*time.Second, 29*time.Second) // written one second after the dialog opened: the write that follows it
+	s := byID(w.build(Options{Cap: 5}), "blk00001")
+	if s.Blocked != "permission" || !s.NeedsInput || s.Snoozed || s.State != "working" || s.StateLabel != "blocked <1m" {
+		t.Fatalf("blocked session: %+v", s)
+	}
+
+	// the user answered: the transcript moved on, so the session is working again
+	w.block("blk00001", 30*time.Second, 5*time.Second)
+	if s := byID(w.build(Options{Cap: 5}), "blk00001"); s.Blocked != "" || s.NeedsInput || !strings.HasPrefix(s.StateLabel, "working") {
+		t.Fatalf("answered dialog: %+v", s)
+	}
+
+	// no transcript to judge by: the block stands until its file is removed
+	w.block("blk00001", 3*time.Minute, 0)
+	os.RemoveAll(filepath.Join(w.cfg, "projects"))
+	if s := byID(w.build(Options{Cap: 5}), "blk00001"); s.Blocked != "permission" || s.StateLabel != "blocked 3m" {
+		t.Fatalf("no transcript: %+v", s)
+	}
+}
+
+func TestBlockedIsIgnoredWhenItDoesNotApply(t *testing.T) {
+	w := newWorld(t)
+	w.session("wait0001", "waiting", 2*time.Minute)
+	w.register("wait0001", 1)
+	w.block("wait0001", 30*time.Second, 0)
+	if s := byID(w.build(Options{Cap: 5}), "wait0001"); s.Blocked != "" || !s.NeedsInput || s.StateLabel != "waiting 2m" {
+		t.Errorf("a waiting session is not blocked: %+v", s)
+	}
+	w.session("bad00001", "working", 30*time.Second)
+	w.register("bad00001", 1)
+	if err := w.s.EnsureSession("bad00001"); err != nil {
+		t.Fatal(err)
+	}
+	for _, body := range []string{"", "abc permission\n", "1800000000 other\n", "1800000000\n", "-5 permission\n", "0 permission\n", "1800000000 permission extra\n", "\x1b[31m 1800000000 permission\n"} {
+		os.WriteFile(w.s.Path("bad00001", "blocked"), []byte(body), 0o600)
+		if s := byID(w.build(Options{Cap: 5}), "bad00001"); s.Blocked != "" || s.NeedsInput {
+			t.Errorf("record %q gave %+v", body, s)
+		}
+	}
+}
+
+func TestBlockedSnoozeKeysOnTheBlock(t *testing.T) {
+	w := newWorld(t)
+	w.session("blk00001", "working", 30*time.Second)
+	w.register("blk00001", 1)
+	w.block("blk00001", 20*time.Second, 0)
+	at := strconv.FormatInt(now.Add(-20*time.Second).Unix(), 10)
+	os.WriteFile(w.s.Path("blk00001", "snooze"), []byte(at+"\n"), 0o600)
+	if s := byID(w.build(Options{Cap: 5}), "blk00001"); s.NeedsInput || !s.Snoozed || s.Blocked != "permission" {
+		t.Errorf("snoozed block: %+v", s)
+	}
+	os.WriteFile(w.s.Path("blk00001", "snooze"), []byte("1799999000\n"), 0o600)
+	if s := byID(w.build(Options{Cap: 5}), "blk00001"); !s.NeedsInput || s.Snoozed {
+		t.Errorf("a snooze from before the block must not mute it: %+v", s)
+	}
+}
+
+func TestBlockedIsLeftOutOfTheJSONWhenEmpty(t *testing.T) {
+	w := newWorld(t)
+	w.session("fresh001", "working", 30*time.Second)
+	w.register("fresh001", 1)
+	var buf strings.Builder
+	if err := Encode(&buf, w.build(Options{Cap: 5})); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), `"blocked"`) {
+		t.Errorf("the field must be absent unless set: %s", buf.String())
+	}
+	w.block("fresh001", 10*time.Second, 0)
+	buf.Reset()
+	if err := Encode(&buf, w.build(Options{Cap: 5})); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), `"blocked":"permission"`) && !strings.Contains(buf.String(), `"blocked": "permission"`) {
+		t.Errorf("the field is missing: %s", buf.String())
 	}
 }

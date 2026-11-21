@@ -73,6 +73,7 @@ type Session struct {
 	QuietSecs    *int64        `json:"quiet_secs"`
 	Idle         bool          `json:"idle"`
 	NeedsInput   bool          `json:"needs_input"`
+	Blocked      string        `json:"blocked,omitempty"` // "permission" while the session waits at a dialog; absent otherwise
 	Snoozed      bool          `json:"snoozed"`
 	PID          *int          `json:"pid"`
 	Pinned       bool          `json:"pinned"`
@@ -173,9 +174,16 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 			if hasQuiet {
 				s.QuietSecs = &quiet
 			}
-			if word == "waiting" { // Claude has stopped and the turn is the user's, until the next prompt
+			// Claude has stopped and the turn is the user's until the next prompt, or it waits at a dialog until the user answers; a snooze
+			// lasts until the time the session last changed, or the dialog opened
+			since := f.changed
+			if kind, at, ok := live.Blocked(b.Store, b.ConfigDir, f.id, word, now); ok {
+				s.Blocked, since = kind, at
+				s.StateLabel = "blocked " + live.Age(now-at)
+			}
+			if word == "waiting" || s.Blocked != "" {
 				s.NeedsInput = true
-				if snoozedAt(b.Store, id) == strconv.FormatInt(f.changed, 10) {
+				if snoozedAt(b.Store, id) == strconv.FormatInt(since, 10) {
 					s.NeedsInput, s.Snoozed = false, true
 				}
 			}

@@ -421,6 +421,8 @@ func counts(s Snapshot) (running, working, waiting, idle, ended int) {
 		switch {
 		case x.Idle:
 			idle++
+		case x.Blocked != "":
+			waiting++ // it needs the user, whatever the state word says
 		case x.State == "working":
 			working++
 		case x.State == "waiting":

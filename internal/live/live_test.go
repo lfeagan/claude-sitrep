@@ -244,3 +244,46 @@ func TestChangedNeedsRegularFiles(t *testing.T) {
 		t.Errorf("Changed = %d, %v", got, ok)
 	}
 }
+
+func TestBlocked(t *testing.T) {
+	home := t.TempDir()
+	st := state.Open(home)
+	cfg := filepath.Join(home, ".claude")
+	if err := st.EnsureSession("abc"); err != nil {
+		t.Fatal(err)
+	}
+	write := func(body string) {
+		if err := os.WriteFile(st.Path("abc", "blocked"), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	transcript := func(mtime int64) {
+		dir := filepath.Join(cfg, "projects", "p")
+		os.MkdirAll(dir, 0o755)
+		p := filepath.Join(dir, "abc.jsonl")
+		os.WriteFile(p, []byte("{}\n"), 0o600)
+		os.Chtimes(p, time.Unix(mtime, 0), time.Unix(mtime, 0))
+	}
+	const now = 2_000_000
+	write("1999000 permission\n")
+	if _, _, ok := Blocked(st, cfg, "abc", "working", now); !ok {
+		t.Error("no transcript: the block stands")
+	}
+	transcript(1999000 + BlockedSlack) // the write that follows the dialog
+	if k, at, ok := Blocked(st, cfg, "abc", "working", now); !ok || k != "permission" || at != 1999000 {
+		t.Errorf("inside the slack: %v %v %v", k, at, ok)
+	}
+	transcript(1999000 + BlockedSlack + 1)
+	if _, _, ok := Blocked(st, cfg, "abc", "working", now); ok {
+		t.Error("a write after the slack ends the block")
+	}
+	transcript(1999000)
+	for _, word := range []string{"waiting", "ended", "", "-"} {
+		if _, _, ok := Blocked(st, cfg, "abc", word, now); ok {
+			t.Errorf("state %q is not working", word)
+		}
+	}
+	if _, _, ok := Blocked(st, cfg, "../x", "working", now); ok {
+		t.Error("a bad id")
+	}
+}

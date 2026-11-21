@@ -704,3 +704,22 @@ func TestDetailShowsTheContextWindow(t *testing.T) {
 		t.Errorf("narrow:\n%s", got)
 	}
 }
+
+func TestBlockedSessionCountsAsWaitingAndShowsWhy(t *testing.T) {
+	snap := Snapshot{Sessions: []Session{
+		{ID: "a", Running: true, State: "working", StateLabel: "blocked 1m", NeedsInput: true, Blocked: "permission"},
+		{ID: "b", Running: true, State: "working", StateLabel: "working 5s"},
+	}}
+	if _, working, waiting, _, _ := counts(snap); working != 1 || waiting != 1 {
+		t.Errorf("working %d, waiting %d", working, waiting)
+	}
+	if got := stateText(snap.Sessions[0]); got != "● blocked 1m" {
+		t.Errorf("state text %q", got)
+	}
+	snap.sanitize()
+	bad := Snapshot{Sessions: []Session{{ID: "a", Blocked: "\x1b[31mx"}}}
+	bad.sanitize()
+	if bad.Sessions[0].Blocked != "" {
+		t.Error("an unknown kind must be dropped")
+	}
+}

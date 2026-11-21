@@ -17,6 +17,7 @@ import (
 
 	"github.com/lfeagan/claude-sitrep/internal/clock"
 	"github.com/lfeagan/claude-sitrep/internal/histlog"
+	"github.com/lfeagan/claude-sitrep/internal/live"
 	"github.com/lfeagan/claude-sitrep/internal/notes"
 	"github.com/lfeagan/claude-sitrep/internal/queue"
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -121,8 +122,24 @@ func (s *session) write(obj, prog, now string) error {
 	return s.notes().Write(s.id, textsafe.Sane(obj, 0), textsafe.Sane(prog, 0), textsafe.Sane(now, 0))
 }
 
+// markBlocked records that the session waits at a permission dialog. It prints nothing, as a hook for this event could otherwise answer the dialog,
+// and stores only the time and the kind: the tool and its input are text from a model.
+func (s *session) markBlocked() {
+	_ = s.Store.WriteFile(s.Store.Path(s.id, "blocked"), []byte(strconv.FormatInt(s.Clock.Now().Unix(), 10)+" "+live.BlockPermission+"\n"))
+}
+
+// unblock removes the record of a dialog.
+func (s *session) unblock() {
+	_ = os.Remove(s.Store.Path(s.id, "blocked")) // a hook never fails
+}
+
 func (s *session) run() {
+	if s.ev.HookEventName == "PermissionRequest" {
+		s.markBlocked()
+		return
+	}
 	if s.ev.HookEventName == "SessionEnd" {
+		s.unblock()
 		s.setState("ended")
 		s.Log.Record(histlog.Entry{Op: histlog.SessionEnd, ID: s.id})
 		return
@@ -141,10 +158,13 @@ func (s *session) run() {
 	}
 	switch s.ev.HookEventName {
 	case "UserPromptSubmit":
+		s.unblock()
 		s.prompt()
 	case "SessionStart":
+		s.unblock()
 		s.start()
 	case "Stop":
+		s.unblock()
 		s.stop()
 	}
 }

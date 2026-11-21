@@ -450,3 +450,19 @@ func TestUnreadableQueueIsNotEmpty(t *testing.T) {
 		t.Errorf("%d %q %q", code, out, errs)
 	}
 }
+
+func TestSnoozeOfABlockedSessionKeysOnTheBlock(t *testing.T) {
+	home := t.TempDir()
+	st := state.Open(home)
+	statetest.PutAt(t, st, "abcd1111.txt", "Objective: x\n", time.Unix(1_700_000_000, 0))
+	statetest.PutAt(t, st, ".abcd1111.state", "working\n", time.Unix(1_700_000_000, 0))
+	if err := os.WriteFile(st.Path("abcd1111", "blocked"), []byte("1700000500 permission\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, _ := run(t, home, "snooze", "abcd"); code != 0 || out != "snoozed abcd until it changes\n" {
+		t.Fatalf("snooze: %d %q", code, out)
+	}
+	if b, _ := os.ReadFile(st.Path("abcd1111", "snooze")); string(b) != "1700000500\n" {
+		t.Errorf("snooze file %q: it must name the time of the block", b)
+	}
+}

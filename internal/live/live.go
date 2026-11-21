@@ -199,6 +199,35 @@ func Quiet(configDir, id string, now int64) (int64, bool) {
 	return q, found
 }
 
+// BlockedSlack is how long after a block the transcript may still be written, in seconds: Claude Code writes it once, 0.3 s after a dialog opens.
+const BlockedSlack = 3
+
+// Block kinds a hook records.
+const (
+	BlockPermission = "permission"
+)
+
+// Blocked says whether a session is stopped at a dialog, and since when (seconds since the epoch). The permission hook wrote the file `blocked`;
+// the block counts only while the session is working and its transcript has not been written since, so that an answered dialog, a crash and an
+// interrupt leave nothing behind. A session without a readable transcript keeps the block until the file is removed.
+func Blocked(s state.Store, configDir, id, word string, now int64) (kind string, at int64, ok bool) {
+	if word != "working" || !state.SessionID(id) {
+		return "", 0, false
+	}
+	f := strings.Fields(state.FirstLine(s.Path(state.ID(id), "blocked")))
+	if len(f) != 2 || f[1] != BlockPermission {
+		return "", 0, false
+	}
+	at, err := strconv.ParseInt(f[0], 10, 64)
+	if err != nil || at <= 0 {
+		return "", 0, false
+	}
+	if quiet, has := Quiet(configDir, id, now); has && now-quiet > at+BlockedSlack {
+		return "", 0, false
+	}
+	return f[1], at, true
+}
+
 // Age writes seconds as <1m, 5m, 3h or 2d.
 func Age(secs int64) string {
 	switch {

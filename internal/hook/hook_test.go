@@ -677,3 +677,65 @@ func TestImagePlaceholdersAreNotShownInNow(t *testing.T) {
 		t.Errorf("an image and words: %q", n)
 	}
 }
+
+// blockedFile is the record of a dialog, or "" when there is none.
+func blockedFile(r *rig) string {
+	b, _ := os.ReadFile(r.h.Store.Path("abc", "blocked"))
+	return string(b)
+}
+
+func TestPermissionRequestRecordsABlockAndSaysNothing(t *testing.T) {
+	r := newRig(t)
+	r.fire(`{"session_id":"abc","hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm -rf x"},"permission_suggestions":[]}`)
+	if got := blockedFile(r); got != strconv.FormatInt(t0.Unix(), 10)+" permission\n" {
+		t.Errorf("record %q", got)
+	}
+	if r.out.Len() != 0 {
+		t.Errorf("a hook for this event can answer the dialog, so ours must print nothing: %q", r.out)
+	}
+	if len(r.spawns) != 0 {
+		t.Errorf("nothing is started: %v", r.spawns)
+	}
+	for _, name := range []string{".abc.cwd", "abc.txt"} {
+		if _, err := os.Stat(statetest.Path(r.h.Store, name)); err == nil {
+			t.Errorf("%s written by a block", name)
+		}
+	}
+	if strings.Contains(blockedFile(r), "rm -rf") {
+		t.Error("the tool input was stored")
+	}
+}
+
+func TestEveryOtherEventEndsABlock(t *testing.T) {
+	for _, ev := range []string{"UserPromptSubmit", "Stop", "SessionStart", "SessionEnd"} {
+		r := newRig(t)
+		r.fire(`{"session_id":"abc","hook_event_name":"PermissionRequest"}`)
+		if blockedFile(r) == "" {
+			t.Fatalf("%s: no block to end", ev)
+		}
+		r.fire(`{"session_id":"abc","hook_event_name":"` + ev + `","prompt":"x"}`)
+		if _, err := os.Stat(r.h.Store.Path("abc", "blocked")); err == nil {
+			t.Errorf("%s left the block", ev)
+		}
+	}
+}
+
+func TestNotificationsAndUnknownEventsLeaveNoBlock(t *testing.T) {
+	r := newRig(t)
+	for _, ev := range []string{`"Notification","notification_type":"permission_prompt"`, `"Notification","notification_type":"idle_prompt"`, `"PreToolUse"`, `"Nonsense"`} {
+		r.fire(`{"session_id":"abc","hook_event_name":` + ev + `}`)
+	}
+	if _, err := os.Stat(r.h.Store.Path("abc", "blocked")); err == nil {
+		t.Error("an event that is not a permission request made a block")
+	}
+}
+
+func TestAnotherPermissionRequestRenewsTheBlock(t *testing.T) {
+	r := newRig(t)
+	r.fire(`{"session_id":"abc","hook_event_name":"PermissionRequest"}`)
+	r.h.Clock = clock.Fixed(t0.Add(90 * time.Second))
+	r.fire(`{"session_id":"abc","hook_event_name":"PermissionRequest"}`)
+	if got := blockedFile(r); got != strconv.FormatInt(t0.Unix()+90, 10)+" permission\n" {
+		t.Errorf("record %q", got)
+	}
+}

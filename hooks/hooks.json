@@ -7,6 +7,9 @@
     "UserPromptSubmit": [
       { "hooks": [ { "type": "command", "command": "\"$HOME/.claude/sitrep/bin/sitrep\" hook" } ] }
     ],
+    "PermissionRequest": [
+      { "hooks": [ { "type": "command", "command": "\"$HOME/.claude/sitrep/bin/sitrep\" hook" } ] }
+    ],
     "Stop": [
       { "hooks": [ { "type": "command", "command": "\"$HOME/.claude/sitrep/bin/sitrep\" hook" } ] }
     ],

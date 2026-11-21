@@ -71,6 +71,7 @@ type Session struct {
 	StateChanged int64    `json:"state_changed"`
 	Idle         bool     `json:"idle"`
 	NeedsInput   bool     `json:"needs_input"`
+	Blocked      string   `json:"blocked"`
 	Snoozed      bool     `json:"snoozed"`
 	QuietSecs    *int64   `json:"quiet_secs"`
 	PID          *int64   `json:"pid"`
@@ -132,6 +133,9 @@ func (s *Snapshot) sanitize() {
 		case "working", "waiting", "ended", "running", "-":
 		default:
 			x.State = "-"
+		}
+		if x.Blocked != "permission" { // the document is untrusted: only the kinds sitrep writes are known
+			x.Blocked = ""
 		}
 		x.Age = max(x.Age, 0)
 		if c := x.Context; c != nil && !(c.UsedPercent >= 0 && c.UsedPercent <= 100 && c.Window >= 1) { // the document is untrusted: a NaN or a range error is no record
