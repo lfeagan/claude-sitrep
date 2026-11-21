@@ -18,6 +18,7 @@ The differential tests in `internal/cli` run the last bash version, the git tag 
 6. Our status line command ends in the tag `# claude-sitrep`, which is how any clone's wrapper is recognised as ours.
 7. The summarizer runs isolated (empty working directory, no tools, no MCP, no settings, a time limit, its own process group that the limit kills whole), and a summary that arrives after a newer prompt is dropped.
 8. Changes to a queue take the folder's queue lock (`state.Lock`), so an append, a removal, a move and a reorder cannot lose one another's work.
+9. The update check (`internal/update`) is the only network use besides the summarizer. A hook only claims it (at most once a day) and starts the detached `update-check`; the child has a deadline and its own process group, and the status line only reads the record it wrote. A tag is shown only after `update.Parse` has turned it into numbers, and nothing is downloaded or installed. `SITREP_CHECK_UPDATES=0` turns it off, and the differential tests set it.
 
 ## Commit Messages
 

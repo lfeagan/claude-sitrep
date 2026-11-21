@@ -40,7 +40,7 @@ var specs = map[string]spec{
 }
 
 // hidden commands are run by Claude Code or by sitrep itself, and are not offered.
-var hidden = map[string]bool{"hook": true, "hook-summarize": true, "statusline": true, "__complete": true}
+var hidden = map[string]bool{"hook": true, "hook-summarize": true, "update-check": true, "statusline": true, "__complete": true}
 
 func commandNames() []string {
 	var out []string

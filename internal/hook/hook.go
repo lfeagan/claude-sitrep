@@ -19,6 +19,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
 	"github.com/lfeagan/claude-sitrep/internal/transcript"
+	"github.com/lfeagan/claude-sitrep/internal/update"
 )
 
 const (
@@ -33,6 +34,8 @@ type Hook struct {
 	Getenv    func(string) string
 	Clock     clock.Clock
 	Out       io.Writer // where a block answer goes
+	// CheckUpdates lets an event start the daily look for a newer release; the zero value does not.
+	CheckUpdates bool
 	// Spawn starts `sitrep <args>` detached from the hook, which must not wait for it.
 	Spawn func(args ...string) error
 }
@@ -117,6 +120,9 @@ func (s *session) run() {
 	if s.ev.HookEventName == "SessionEnd" {
 		s.setState("ended")
 		return
+	}
+	if s.CheckUpdates && update.Claim(s.Store, s.Clock.Now()) {
+		_ = s.Spawn("update-check")
 	}
 	cwd := ""
 	if s.ev.Cwd != "" {

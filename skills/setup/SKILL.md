@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Set up or remove sitrep after installing the sitrep plugin: build the program, add the sitrep block to the status line and link the `sitrep` command. Use when the user has just installed or updated the plugin, says the sitrep block is missing from the status line, or wants to remove sitrep's status line and links.
+description: Set up or remove sitrep after installing the sitrep plugin: build the program, add the sitrep block to the status line and link the `sitrep` command. Use when the user has just installed or updated the plugin, asks how to update sitrep, says the sitrep block is missing from the status line, or wants to remove sitrep's status line and links.
 argument-hint: "[remove]"
 disable-model-invocation: true
 allowed-tools: Bash(go version), Bash(go build*), Bash(mkdir -p "$HOME/.claude/sitrep"), Bash("$HOME/.claude/sitrep/sitrep.new" setup*), Bash("$HOME/.claude/sitrep/bin/sitrep" setup*)
@@ -19,4 +19,6 @@ Otherwise:
 
 If setup says it found an install from a checkout, it has changed nothing. Show the user what it names and how to take it out. Run nothing that removes those entries unless the user asks, and then run setup again.
 
-After a setup, the user restarts Claude Code sessions to see the status line. Run this setup again after every plugin update, so that the program matches the new plugin; until then the hooks run the older program. State in `~/.claude/sitrep` is kept by a removal.
+After a setup, the user restarts Claude Code sessions to see the status line. State in `~/.claude/sitrep` is kept by a removal.
+
+To update sitrep, the user updates the plugin first (`claude plugin marketplace update`, then `claude plugin update sitrep`, or `/plugin`) and restarts Claude Code, then runs this setup again, so that the program matches the new plugin; until then the hooks run the older program. The status line says "Update: sitrep X is out" when a newer release exists. A user with a clone updates with `git pull --tags && make install`.

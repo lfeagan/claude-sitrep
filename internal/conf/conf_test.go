@@ -260,3 +260,26 @@ func TestAnsiCEscapes(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckUpdates(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "sitrep.conf")
+	os.WriteFile(file, []byte("SITREP_CHECK_UPDATES=0\n"), 0o600)
+	env := map[string]string{}
+	c := Conf{File: file, Getenv: func(k string) string { return env[k] }}
+	if c.CheckUpdates() {
+		t.Error("the file turns it off")
+	}
+	env["SITREP_CHECK_UPDATES"] = "1"
+	if !c.CheckUpdates() {
+		t.Error("the environment wins")
+	}
+	for _, v := range []string{"false", "NO", "0"} {
+		env["SITREP_CHECK_UPDATES"] = v
+		if c.CheckUpdates() {
+			t.Errorf("%q leaves it on", v)
+		}
+	}
+	if !(Conf{File: filepath.Join(t.TempDir(), "none"), Getenv: func(string) string { return "" }}).CheckUpdates() {
+		t.Error("it is on by default")
+	}
+}

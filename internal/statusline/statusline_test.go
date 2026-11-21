@@ -108,3 +108,24 @@ func TestAPipeAsTheQueueDoesNotHang(t *testing.T) {
 		t.Errorf("%q", got)
 	}
 }
+
+func TestNoticeOfANewerRelease(t *testing.T) {
+	s := state.Open(t.TempDir())
+	s.Ensure()
+	os.WriteFile(filepath.Join(s.Dir, "update"), []byte("1 0.6.0\n"), 0o600)
+	draw := func(version string) string {
+		l := Line{Store: s, Conf: conf.Conf{File: filepath.Join(s.Dir, "sitrep.conf"), Getenv: func(string) string { return "" }}, Run: &runner.Fake{}, Version: version}
+		var out bytes.Buffer
+		l.Render(context.Background(), strings.NewReader(`{"session_id":"abcdef"}`), &out)
+		return out.String()
+	}
+	want := "Objective: (set on your first prompt)\nQueue: empty  [id abcd]\n"
+	if got := draw("0.5.0"); !strings.HasPrefix(got, want) || !strings.HasSuffix(got, "\n") || !strings.Contains(strings.TrimPrefix(got, want), "0.6.0") {
+		t.Errorf("older: %q", got)
+	}
+	for _, v := range []string{"0.6.0", "0.7.0", ""} {
+		if got := draw(v); got != want {
+			t.Errorf("version %q: %q", v, got)
+		}
+	}
+}

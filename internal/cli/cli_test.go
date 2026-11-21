@@ -185,3 +185,29 @@ func TestSetupUsage(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateCheckCommand(t *testing.T) {
+	home := t.TempDir()
+	st := state.Open(home)
+	st.Ensure()
+	f := &runner.Fake{Answers: map[string]runner.Result{
+		runner.Key("git", "ls-remote", "--tags", "--refs", "https://github.com/lfeagan/claude-sitrep.git"): {Out: []byte("a\trefs/tags/v9.0.0\n")},
+	}}
+	env := map[string]string{}
+	e := Env{Home: home, Getenv: func(k string) string { return env[k] }, Stdout: io.Discard, Stderr: io.Discard, Clock: clock.Fixed(time.Unix(1_800_000_000, 0)), Runner: f}
+	env["SITREP_CHECK_UPDATES"] = "0"
+	if Run([]string{"update-check"}, e) != 0 || len(f.Calls()) != 0 {
+		t.Errorf("it ran with the setting off: %v", f.Calls())
+	}
+	delete(env, "SITREP_CHECK_UPDATES")
+	if Run([]string{"update-check"}, e) != 0 || len(f.Calls()) != 1 {
+		t.Fatalf("calls %v", f.Calls())
+	}
+	b, _ := os.ReadFile(filepath.Join(st.Dir, "update"))
+	if string(b) != "1800000000 9.0.0\n" {
+		t.Errorf("record %q", b)
+	}
+	if c := f.Calls()[0]; !strings.Contains(strings.Join(c.Env, " "), "GIT_TERMINAL_PROMPT=0") {
+		t.Errorf("env %v", c.Env)
+	}
+}

@@ -136,7 +136,7 @@ func split(args []string) (env []string, stdin *string, rest []string) {
 
 func run(t testing.TB, home string, extra []string, stdin *string, cmd *exec.Cmd) Result {
 	t.Helper()
-	cmd.Env = []string{"HOME=" + home, "PATH=" + os.Getenv("PATH"), "LANG=" + os.Getenv("LANG"), "LC_ALL=" + os.Getenv("LC_ALL"), "TZ=UTC", "NO_COLOR=1", "TMPDIR=" + os.TempDir()}
+	cmd.Env = []string{"HOME=" + home, "PATH=" + os.Getenv("PATH"), "LANG=" + os.Getenv("LANG"), "LC_ALL=" + os.Getenv("LC_ALL"), "TZ=UTC", "NO_COLOR=1", "SITREP_CHECK_UPDATES=0", "TMPDIR=" + os.TempDir()}
 	cmd.Env = append(cmd.Env, extra...)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb

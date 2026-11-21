@@ -10,3 +10,10 @@ test:
 .PHONY: build
 build:
 	go build -o sitrep ./cmd/sitrep
+
+# Builds the program beside the installed one and lets it install itself, as /sitrep:setup does.
+.PHONY: install
+install:
+	mkdir -p "$$HOME/.claude/sitrep"
+	go build -o "$$HOME/.claude/sitrep/sitrep.new" -mod=readonly -buildvcs=false ./cmd/sitrep
+	"$$HOME/.claude/sitrep/sitrep.new" setup

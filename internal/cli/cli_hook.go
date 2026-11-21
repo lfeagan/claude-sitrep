@@ -12,10 +12,12 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/hook"
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"github.com/lfeagan/claude-sitrep/internal/statusline"
+	"github.com/lfeagan/claude-sitrep/internal/update"
+	"github.com/lfeagan/claude-sitrep/internal/version"
 )
 
 func (e Env) hook() hook.Hook {
-	return hook.Hook{Store: e.store(), ConfigDir: e.configDir(), Getenv: e.Getenv, Clock: e.Clock, Out: e.Stdout, Spawn: e.Spawn}
+	return hook.Hook{Store: e.store(), ConfigDir: e.configDir(), Getenv: e.Getenv, Clock: e.Clock, Out: e.Stdout, Spawn: e.Spawn, CheckUpdates: e.conf().CheckUpdates()}
 }
 
 // cmdHook handles one hook event from standard input. It never fails: whatever happens, the exit status is 0 and the prompt is not held.
@@ -72,7 +74,15 @@ func cmdStatusline(e Env, args []string) error {
 	if e.Stdin == nil {
 		return nil
 	}
-	statusline.Line{Store: e.store(), Conf: e.conf(), Run: e.Runner, Env: os.Environ()}.Render(context.Background(), e.Stdin, e.Stdout)
+	statusline.Line{Store: e.store(), Conf: e.conf(), Run: e.Runner, Env: os.Environ(), Version: version.Version}.Render(context.Background(), e.Stdin, e.Stdout)
+	return nil
+}
+
+// cmdUpdateCheck is the detached child the hook starts once a day: it looks for a newer release and records it. It never fails.
+func cmdUpdateCheck(e Env, args []string) error {
+	if e.Runner != nil && e.conf().CheckUpdates() {
+		update.Check(context.Background(), e.Runner, e.store(), e.Clock.Now(), update.Repo, append(os.Environ(), "GIT_TERMINAL_PROMPT=0"))
+	}
 	return nil
 }
 

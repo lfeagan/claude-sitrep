@@ -15,6 +15,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/runner"
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
+	"github.com/lfeagan/claude-sitrep/internal/update"
 )
 
 const maxInput = 16 << 20
@@ -25,6 +26,8 @@ type Line struct {
 	Conf  conf.Conf
 	Run   runner.Runner
 	Env   []string // the environment of the upstream command, which gets SITREP_RENDERING=1 added
+	// Version is this program's version; a newer release recorded by the daily check is announced after the queue line. Empty means no notice.
+	Version string
 }
 
 // Render reads the event from in and writes the status line to out. It never fails: whatever goes wrong, what could be drawn is drawn.
@@ -75,4 +78,9 @@ func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 		inbox = fmt.Sprintf("  Inbox: %d", c)
 	}
 	fmt.Fprintf(out, "Queue: %s  [id %s]%s\n", summary, queue.Label(id), inbox)
+	if l.Version != "" {
+		if n := update.Notice(l.Store, l.Version); n != "" {
+			fmt.Fprintln(out, n)
+		}
+	}
 }

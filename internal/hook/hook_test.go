@@ -517,3 +517,50 @@ func TestAnIdThatLooksLikeAFlagIsStillAnId(t *testing.T) {
 		t.Errorf("%v", got)
 	}
 }
+
+func TestUpdateCheckStartsOnceADay(t *testing.T) {
+	r := newRig(t)
+	r.h.CheckUpdates = true
+	ev := `{"session_id":"sess7","hook_event_name":"UserPromptSubmit","prompt":"hi"}`
+	checks := func() (n int) {
+		for _, s := range r.spawns {
+			if len(s) == 1 && s[0] == "update-check" {
+				n++
+			}
+		}
+		return n
+	}
+	r.fire(ev)
+	r.fire(ev)
+	if checks() != 1 {
+		t.Fatalf("spawns %v, want one update-check", r.spawns)
+	}
+	r.h.Clock = clock.Fixed(t0.Add(25 * time.Hour))
+	r.fire(ev)
+	if checks() != 2 {
+		t.Errorf("spawns %v, want a second update-check a day later", r.spawns)
+	}
+}
+
+func TestUpdateCheckIsOffUnlessAsked(t *testing.T) {
+	r := newRig(t)
+	r.fire(`{"session_id":"sess7","hook_event_name":"UserPromptSubmit","prompt":"hi"}`)
+	for _, s := range r.spawns {
+		if s[0] == "update-check" {
+			t.Errorf("spawns %v", r.spawns)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(r.h.Store.Dir, "update")); err == nil {
+		t.Error("a record was made")
+	}
+}
+
+func TestUpdateCheckFailureDoesNotFailTheHook(t *testing.T) {
+	r := newRig(t)
+	r.h.CheckUpdates = true
+	r.h.Spawn = func(args ...string) error { return os.ErrNotExist }
+	r.fire(`{"session_id":"sess7","hook_event_name":"UserPromptSubmit","prompt":"+ item"}`)
+	if !strings.Contains(r.out.String(), "Queued (1)") {
+		t.Errorf("out %q", r.out.String())
+	}
+}

@@ -43,11 +43,22 @@ The first line adds this repository as a marketplace and installs the plugin, wh
 2. It points the status line at `"$HOME/.claude/sitrep/bin/sitrep" statusline`. An existing status line, such as Claude HUD, is saved as `SITREP_HUD_CMD` in `~/.claude/sitrep/sitrep.conf` and runs first.
 3. It links `sitrep` into `~/bin` (`BIN_DIR` changes the folder), unless something else is there.
 
-Run `/sitrep:setup` again after every plugin update, so that the program matches the new plugin (`sitrep version` prints the version of the program, and `.claude-plugin/plugin.json` the version of the plugin). Until then the hooks run the older program, and between an update and the first setup they name a program that does not exist yet, so each hook ends with a non-blocking error and a `+` prompt goes to Claude as written. If you have no plugin, `go install github.com/lfeagan/claude-sitrep/cmd/sitrep@latest` builds the same program (from a version tag that holds the Go code), and `sitrep setup` then puts it in place, wraps the status line and links the command; the hooks come only with the plugin.
-
 `sitrep setup` backs up `~/.claude/settings.json` (to `settings.json.bak.<time>`, owner-only, never over an earlier backup) and checks the edit before it writes anything. It changes only the `statusLine` key and leaves the rest of the file as it was, a symlinked file included. If it finds an install from a checkout of the old shell version, it stops, changes nothing, and names what to take out by hand.
 
 sitrep runs on macOS and Linux; it uses file locks and process groups, so there is no Windows build.
+
+### Updating
+
+When a newer release exists, the status line says so under the queue line (`Update: sitrep 0.6.0 is out (you have 0.5.0)`). Updating is two steps, because the hooks and the status line run the built program, and a plugin update does not rebuild it:
+
+1. Update the plugin: `claude plugin marketplace update` and then `claude plugin update sitrep`, or `/plugin` inside Claude Code. Restart Claude Code to apply it.
+2. Run `/sitrep:setup` again, so that the program matches the new plugin. It is safe to run again. `sitrep version` prints the version of the program, and `.claude-plugin/plugin.json` the version of the plugin.
+
+Between the two steps the hooks run the older program, and if you skipped step 2 after the first install they name a program that does not exist yet, so each hook ends with a non-blocking error and a `+` prompt goes to Claude as written.
+
+From a clone, with no plugin: `git pull --tags && make install`. `make install` builds the program and runs its `setup`, as `/sitrep:setup` does. `go install github.com/lfeagan/claude-sitrep/cmd/sitrep@latest` builds the same program from the newest version tag, and `sitrep setup` then puts it in place, wraps the status line and links the command; the hooks come only with the plugin.
+
+Once a day a hook starts `sitrep update-check`, which runs `git ls-remote --tags` against this repository and records the newest `vX.Y.Z` tag in `~/.claude/sitrep/update`. It downloads and installs nothing, and the status line only reads that file. It needs `git` and the network, and fails quietly without them. `SITREP_CHECK_UPDATES=0` turns it off.
 
 ### Upgrading from 0.3.x
 
@@ -144,6 +155,7 @@ Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the envi
 2. `SITREP_HIGHLIGHT_SECONDS=<seconds>` is how long a session counts as recently active, for the dashboard's colour (default 60, and 0 turns it off).
 3. `SITREP_HIGHLIGHT_SGR=<codes>` is that colour as terminal SGR codes (default `48;5;238`, a dark grey). Only digits and semicolons are accepted.
 4. `SITREP_DEBOUNCE=<seconds>` is the time between summaries (default 45; a value that is not a number turns the debounce off).
+5. `SITREP_CHECK_UPDATES=<0|1>` lets sitrep look once a day for a newer release (default on; 0, false and no turn it off). See Updating.
 
 `sitrep.conf` holds `NAME=value` lines, with single quotes, double quotes and backslashes understood. It is read and never run, so it can hold no commands, and setup replaces or removes only its own `SITREP_HUD_CMD` line.
 
@@ -190,7 +202,7 @@ State lives in `~/.claude/sitrep/`: a folder `sessions/<session_id>/` per sessio
 
 ## Privacy And Safety
 
-Session state is stored in `~/.claude/sitrep`, which is owner-only (`700`, files `600`). Prompt and model text is treated as untrusted terminal input, so control characters (escape sequences and the C1 range) and format characters (such as bidi overrides) are removed before it is stored and again before it is printed. The summarizer sends the tail of the transcript to Haiku through `claude -p`, the same service the session itself uses. It runs from an empty temporary directory with no tools, no MCP servers, no settings and a 60 second limit, in its own process group that the limit ends whole, and only reads transcripts that live under `~/.claude/projects`.
+Session state is stored in `~/.claude/sitrep`, which is owner-only (`700`, files `600`). Prompt and model text is treated as untrusted terminal input, so control characters (escape sequences and the C1 range) and format characters (such as bidi overrides) are removed before it is stored and again before it is printed. The summarizer sends the tail of the transcript to Haiku through `claude -p`, the same service the session itself uses. It runs from an empty temporary directory with no tools, no MCP servers, no settings and a 60 second limit, in its own process group that the limit ends whole, and only reads transcripts that live under `~/.claude/projects`. The daily update check is the only other network use: it asks this repository for its tag names and sends nothing from your sessions.
 
 ## Development
 

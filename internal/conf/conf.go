@@ -77,6 +77,15 @@ func (c Conf) HighlightSGR() string {
 	return v
 }
 
+// CheckUpdates says whether sitrep may look once a day for a newer release (SITREP_CHECK_UPDATES); 0, false and no turn it off.
+func (c Conf) CheckUpdates() bool {
+	switch strings.ToLower(c.Get("SITREP_CHECK_UPDATES")) {
+	case "0", "false", "no":
+		return false
+	}
+	return true
+}
+
 func (c Conf) number(name string, def int) int {
 	v := c.Get(name)
 	for _, r := range v {
