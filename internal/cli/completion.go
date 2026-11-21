@@ -32,6 +32,7 @@ var specs = map[string]spec{
 	"pin":     {ids: []int{0}, noInbox: true},
 	"unpin":   {ids: []int{0}, noInbox: true},
 	"snooze":  {flags: []string{"--off"}, ids: []int{0}, noInbox: true},
+	"log":     {flags: []string{"--session", "--op", "--host", "--since", "-n", "--json", "--clear"}, values: map[string][]string{"--session": nil, "--op": {"queue.add", "queue.rm", "queue.edit", "queue.move", "queue.reorder", "pin", "unpin", "snooze", "unsnooze", "alias", "prune", "session.start", "session.end"}, "--host": nil, "--since": nil, "-n": nil}},
 	"prune":   {flags: []string{"-y", "--yes", "-k", "--keep", "--dry-run"}},
 	"watch": {flags: []string{"--tab", "--interval", "--once", "--read-only", "--no-bell", "--quit-on-jump", "--width"},
 		values: map[string][]string{"--tab": {"watch", "top"}, "--interval": nil, "--width": nil}},

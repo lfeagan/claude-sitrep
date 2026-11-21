@@ -13,6 +13,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/lfeagan/claude-sitrep/internal/clock"
+	"github.com/lfeagan/claude-sitrep/internal/histlog"
 	"github.com/lfeagan/claude-sitrep/internal/notes"
 	"github.com/lfeagan/claude-sitrep/internal/queue"
 	"github.com/lfeagan/claude-sitrep/internal/runner"
@@ -35,6 +36,7 @@ type Env struct {
 	Spawn      func(args ...string) error       // starts this program again, detached; the hook uses it for the summarizer
 	Alive      func(pid int) bool               // whether a process exists; nil means ask the system
 	TermSize   func() (rows, cols int, ok bool) // the size of the terminal on standard output; nil or !ok means there is none
+	Hostname   func() (string, error)           // the name of this machine, for the history log; nil means "host"
 
 	located *state.Store // the state folder, as Run found it
 }
@@ -42,7 +44,7 @@ type Env struct {
 // OSEnv is the real process environment.
 func OSEnv() Env {
 	home, _ := os.UserHomeDir()
-	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}, TTY: openTTY, TermSize: termSize, Spawn: spawnSelf, Executable: os.Executable}
+	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}, TTY: openTTY, TermSize: termSize, Hostname: os.Hostname, Spawn: spawnSelf, Executable: os.Executable}
 }
 
 func termSize() (int, int, bool) {
@@ -65,7 +67,24 @@ func (e Env) store() state.Store {
 	}
 	return state.Open(e.Home)
 }
-func (e Env) queue() queue.Queue { return queue.Queue{Store: e.store()} }
+func (e Env) queue() queue.Queue { return queue.Queue{Store: e.store(), Log: e.log()} }
+
+// log is the history log of this host. It writes only when SITREP_LOG turns it on, but it can always be read and cleared.
+func (e Env) log() histlog.Log {
+	c := e.conf()
+	host := "host"
+	if e.Hostname != nil {
+		if h, err := e.Hostname(); err == nil {
+			host = histlog.Host(h)
+		}
+	}
+	l := histlog.Log{Dir: e.store().Dir, Host: host, On: c.LogOn(), MaxMB: c.LogMaxMB(), Days: c.LogDays()}
+	if e.Clock != nil {
+		l.Now = e.Clock.Now
+	}
+	return l
+}
+
 func (e Env) notes() notes.Notes { return notes.Notes{Store: e.store()} }
 
 // usageError is a wrong command line; its text is the usage line.
@@ -85,7 +104,7 @@ var commands map[string]command
 
 func init() {
 	commands = map[string]command{
-		"add": cmdAdd, "alias": cmdAlias, "edit": cmdEdit, "rm": cmdRm, "done": cmdDone, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
+		"add": cmdAdd, "alias": cmdAlias, "edit": cmdEdit, "rm": cmdRm, "done": cmdDone, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune, "log": cmdLog,
 		"setup": cmdSetup, "migrate": cmdMigrate, "version": cmdVersion, "completion": cmdCompletion, "__complete": cmdComplete, "watch": cmdWatch, "status": cmdStatus, "hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "update-check": cmdUpdateCheck, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
 	}
 }
@@ -381,9 +400,11 @@ func cmdPin(e Env, args []string) error {
 	if id == state.Inbox {
 		return errors.New("inbox has no objective")
 	}
-	if err := e.notes().Pin(id, textsafe.Clean(strings.Join(args[1:], " "), queue.MaxItem)); err != nil {
+	text := textsafe.Clean(strings.Join(args[1:], " "), queue.MaxItem)
+	if err := e.notes().Pin(id, text); err != nil {
 		return err
 	}
+	e.log().Record(histlog.Entry{Op: histlog.Pin, ID: id, Text: text})
 	fmt.Fprintf(e.Stdout, "objective set on %s\n", e.label(id))
 	return nil
 }
@@ -399,8 +420,12 @@ func cmdUnpin(e Env, args []string) error {
 	if id == state.Inbox {
 		return errors.New("inbox has no objective")
 	}
+	was := state.IsRegular(e.store().Path(id, "pinned"))
 	if err := e.notes().Unpin(id); err != nil {
 		return err
+	}
+	if was {
+		e.log().Record(histlog.Entry{Op: histlog.Unpin, ID: id})
 	}
 	fmt.Fprintf(e.Stdout, "objective on %s will be summarized again\n", e.label(id))
 	return nil

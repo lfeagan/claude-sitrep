@@ -1,6 +1,6 @@
 # History log -- an append-only record of changes
 
-Status: proposal, 2026-11-21. Nothing here is built.
+Status: built (0.10.0). The settings are `SITREP_LOG`, `SITREP_LOG_MAX` (megabytes) and `SITREP_LOG_DAYS` in `sitrep.conf` or the environment, in the style of the other settings. A move names its queues in `id` and `dest`, and a reorder names its positions in `from` and `to`. The host name is made safe for a folder name (`mbp.local` becomes `mbp_local`). Session starts that come from a compaction are not recorded, and an unpin or an end of a snooze is recorded only when there was something to end.
 
 ## Claim
 
@@ -27,7 +27,7 @@ The operations are the ones that change state: `queue.add`, `queue.rm`, `queue.e
 An entry records the outcome, not the command, so that it still means something a week later and does not depend on the state it was written against. A command such as `top 3` or `rm 2` names a position, and a position is only meaningful at that moment.
 
 - **Items by text, with positions as facts.** `queue.rm` carries the removed item's text. `queue.reorder` carries the text, `from` and `to`. `sitrep top 3` is recorded as a `queue.reorder` with `from` 3 and `to` 1, so it is still in the log, as what it did.
-- **One entry for one change.** `queue.move` is a single entry with both queues, `from` and `to`, and not a removal followed by an addition, so a reader never sees an item vanish and appear. `queue.edit` carries the old and the new text, which lets a reader follow an item through an edit.
+- **One entry for one change.** `queue.move` is a single entry with both queues, `id` and `dest`, and not a removal followed by an addition, so a reader never sees an item vanish and appear. `queue.edit` carries the old and the new text, which lets a reader follow an item through an edit.
 - **A repeated entry is recognisable.** If an append fails partway and is retried, or a hook runs twice, the same line can appear twice. A reader drops a line whose `e` it has already seen. Each host has one writer per file, so sync cannot make a copy.
 - **Nothing is replayed.** The log is a history. No code applies its entries to state, so none of them needs to be safe to apply twice.
 
@@ -41,13 +41,13 @@ The files are `0600` in a `0700` folder (invariant 2), and are opened for append
 
 ## Opt-in
 
-The log is off until the user turns it on with `log = on` in `sitrep.conf` (or `SITREP_LOG=1`). While it is off nothing is written and no `log/` folder is made. `sitrep setup` does not turn it on, and says what the log keeps when it is asked about it. Turning it off stops writing and leaves the files. `sitrep log --clear` removes the two files of this host, each by its own path.
+The log is off until the user turns it on with `SITREP_LOG=on` in `sitrep.conf` (or in the environment). While it is off nothing is written and no `log/` folder is made. `sitrep setup` does not turn it on, and `sitrep help log` says what the log keeps. Turning it off stops writing and leaves the files. `sitrep log --clear` removes the two files of this host, each by its own path.
 
 ## Size
 
-The log has two limits, a size and an age, and the one reached first wins: 10 MB or 30 days by default (`log_max` and `log_days` in `sitrep.conf`). Each file may hold half of each limit. When `current` reaches 5 MB, or its first entry is 15 days old, it is renamed over `previous` and a new `current` begins. The two files together then never hold more than 10 MB, and never an entry older than 30 days. Old entries fall off the end, and a reader sees a window of recent history, not all of it.
+The log has two limits, a size and an age, and the one reached first wins: 10 MB or 30 days by default (`SITREP_LOG_MAX` and `SITREP_LOG_DAYS`). Each file may hold half of each limit. When `current` reaches 5 MB, or its first entry is 15 days old, it is renamed over `previous` and a new `current` begins. The two files together then never hold more than 10 MB, and never an entry older than 30 days. Old entries fall off the end, and a reader sees a window of recent history, not all of it.
 
-The age is checked only when something is appended, so a log that sits idle keeps what it has until the next change. A reader therefore ignores entries older than `log_days`, and `sitrep log --clear` is the way to remove them from disk at once.
+The age is checked only when something is appended, so a log that sits idle keeps what it has until the next change. A reader therefore ignores entries older than `SITREP_LOG_DAYS`, and `sitrep log --clear` is the way to remove them from disk at once.
 
 Rolling over happens under a lock with a bounded wait, taken only when a limit is reached, and the limit is checked again once the lock is held. If the lock is busy the entry is appended anyway and the roll happens on a later call, so a hook never waits for it. A reader may find `current` replaced between two reads, and treats that as normal.
 

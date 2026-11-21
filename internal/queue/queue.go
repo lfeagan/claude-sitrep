@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/lfeagan/claude-sitrep/internal/histlog"
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
 )
@@ -60,8 +61,11 @@ var ErrEmpty = errors.New("queue empty")
 // ErrBlank says the text to queue holds nothing.
 var ErrBlank = errors.New("nothing to queue")
 
-// Queue is the set of queues in a state folder.
-type Queue struct{ Store state.Store }
+// Queue is the set of queues in a state folder. Log records each change once it has succeeded; the zero Log is off.
+type Queue struct {
+	Store state.Store
+	Log   histlog.Log
+}
 
 func (q Queue) file(id state.ID) string { return q.Store.Path(id, "queue") }
 
@@ -138,6 +142,7 @@ func (q Queue) Add(id state.ID, text textsafe.Text) (int, error) {
 	if err := q.append(id, text.String()); err != nil {
 		return 0, err
 	}
+	q.Log.Record(histlog.Entry{Op: histlog.QueueAdd, ID: id, Text: text})
 	return q.Count(id), nil
 }
 
@@ -177,6 +182,7 @@ func (q Queue) Remove(id state.ID, n int, guard *string) (textsafe.Text, error) 
 	if err := q.write(id, append(lines[:n-1:n-1], lines[n:]...)); err != nil {
 		return textsafe.Text{}, err
 	}
+	q.Log.Record(histlog.Entry{Op: histlog.QueueRm, ID: id, Text: textsafe.Strip(it)})
 	return textsafe.Strip(it), nil
 }
 
@@ -206,6 +212,7 @@ func (q Queue) Edit(id state.ID, n int, text textsafe.Text, guard *string) (text
 	if err := q.write(id, out); err != nil {
 		return textsafe.Text{}, err
 	}
+	q.Log.Record(histlog.Entry{Op: histlog.QueueEdit, ID: id, Text: text, Old: textsafe.Strip(it)})
 	return textsafe.Strip(it), nil
 }
 
@@ -232,6 +239,9 @@ func (q Queue) Reorder(id state.ID, from, to int, guard *string) (textsafe.Text,
 	out := append(rest[:to-1:to-1], append([]string{it}, rest[to-1:]...)...)
 	if err := q.write(id, out); err != nil {
 		return textsafe.Text{}, err
+	}
+	if from != to {
+		q.Log.Record(histlog.Entry{Op: histlog.QueueReorder, ID: id, Text: textsafe.Strip(it), From: from, To: to})
 	}
 	return textsafe.Strip(it), nil
 }
@@ -264,5 +274,6 @@ func (q Queue) Move(from, to state.ID, n int, guard *string) (textsafe.Text, err
 	if err := q.write(from, append(lines[:n-1:n-1], lines[n:]...)); err != nil {
 		return textsafe.Text{}, fmt.Errorf("could not update %s", Label(from))
 	}
+	q.Log.Record(histlog.Entry{Op: histlog.QueueMove, ID: from, Dest: to, Text: textsafe.Strip(it)})
 	return textsafe.Strip(it), nil
 }

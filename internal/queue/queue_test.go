@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 
+	"github.com/lfeagan/claude-sitrep/internal/histlog"
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
 )
@@ -298,5 +300,37 @@ func TestEditKeepsTheOtherLinesAsTheyAre(t *testing.T) {
 	}
 	if _, err := q.Edit("s1", 3, textsafe.Clean("z", MaxItem), nil); err != nil || read(t, q, "s1") != "a \n\nz\n" {
 		t.Errorf("%v, %q", err, read(t, q, "s1"))
+	}
+}
+
+func TestLogRecordsOnlyWhatSucceeded(t *testing.T) {
+	st := state.Store{Dir: t.TempDir()}
+	l := histlog.Log{Dir: st.Dir, Host: "h", On: true}
+	q := Queue{Store: st, Log: l}
+	for _, s := range []string{"a", "b"} {
+		if _, err := q.Add(state.Inbox, textsafe.Clean(s, 200)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	guard := "wrong"
+	if _, err := q.Remove(state.Inbox, 1, &guard); err == nil { // refused: nothing changed, nothing logged
+		t.Fatal("guard ignored")
+	}
+	if _, err := q.Reorder(state.Inbox, 2, 1, nil); err != nil {
+		t.Fatal(err)
+	}
+	var ops []string
+	for _, it := range histlog.Read(st.Dir, histlog.Query{}) {
+		ops = append(ops, it.Op)
+	}
+	if strings.Join(ops, " ") != "queue.add queue.add queue.reorder" {
+		t.Fatalf("ops %v", ops)
+	}
+	// the zero Log is off
+	if _, err := (Queue{Store: st}).Add(state.Inbox, textsafe.Clean("c", 200)); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(histlog.Read(st.Dir, histlog.Query{})); got != 3 {
+		t.Fatalf("%d entries", got)
 	}
 }

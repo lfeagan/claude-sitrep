@@ -92,6 +92,27 @@ drawing it as needing you. The mute ends by itself when the session changes: the
 prompt, or the end of the next turn. ` + "`" + `--off` + "`" + ` ends it at once. Only the JSON changes: the
 ` + "`" + `needs_input` + "`" + ` field turns false and ` + "`" + `snoozed` + "`" + ` turns true.
 `,
+	"log": `usage: sitrep log [--session <id>] [--op <op>] [--host <name>] [--since <time>] [-n <count>] [--json] [--clear]
+
+Show the history log: a line for each change sitrep made to a queue, an Objective, an
+alias, a snooze or a session, newest last. It is off until you set SITREP_LOG=on in
+sitrep.conf (or in the environment). It keeps the text of items, in the state folder,
+in log/<host>/, and never sends it anywhere. Each host writes its own files, and this
+command shows them all together.
+
+  --session   only this session or queue (id, prefix, alias or inbox); a move shows for both
+  --op        only this operation: queue.add, queue.rm, queue.edit, queue.move,
+              queue.reorder, pin, unpin, snooze, unsnooze, alias, prune, session.start,
+              session.end
+  --host      only this host
+  --since     only entries newer than this: 90m, 36h, 2d, or a date such as 2026-11-21
+  -n          show the latest this many (default 50; 0 shows all)
+  --json      one JSON object per line
+  --clear     delete the log files of this host, and nothing else
+
+The log is kept to SITREP_LOG_MAX megabytes (default 10) and SITREP_LOG_DAYS days
+(default 30), whichever is reached first, so it shows recent history, not all of it.
+`,
 	"prune": `usage: sitrep prune [-y | -k | --dry-run]
 
 Mark each session that is no longer running as ended. For a session that still holds
@@ -205,6 +226,7 @@ const helpAll = `usage: sitrep <command> [args]
   unpin <id>                 let the summarizer rewrite the Objective
   snooze [--off] <id>        mute the needs-you state of a session until it changes
   prune                      clear out sessions that are gone
+  log                        show the history of changes, when SITREP_LOG is on
   watch                      live full-screen dashboard of the sessions
   status                     print one frame of the dashboard as text
   setup [--remove]           put sitrep on the status line, or take it off

@@ -17,7 +17,7 @@ import (
 )
 
 func (e Env) hook() hook.Hook {
-	return hook.Hook{Store: e.store(), ConfigDir: e.configDir(), Getenv: e.conf().Get, Clock: e.Clock, Out: e.Stdout, Spawn: e.Spawn, CheckUpdates: e.conf().CheckUpdates()}
+	return hook.Hook{Store: e.store(), ConfigDir: e.configDir(), Getenv: e.conf().Get, Clock: e.Clock, Out: e.Stdout, Spawn: e.Spawn, CheckUpdates: e.conf().CheckUpdates(), Log: e.log()}
 }
 
 // cmdHook handles one hook event from standard input. It never fails: whatever happens, the exit status is 0 and the prompt is not held.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/lfeagan/claude-sitrep/internal/histlog"
 	"github.com/lfeagan/claude-sitrep/internal/queue"
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
@@ -38,10 +39,12 @@ func cmdAlias(e Env, args []string) error {
 		if old == "" {
 			fmt.Fprintf(e.Stdout, "%s has no alias\n", queue.Label(id))
 		} else {
+			e.log().Record(histlog.Entry{Op: histlog.Alias, ID: id, Old: textsafe.Clean(old, 64)})
 			fmt.Fprintf(e.Stdout, "%s is no longer called %s\n", queue.Label(id), old)
 		}
 		return nil
 	}
+	old := st.Alias(id)
 	changed, err := st.SetAlias(id, args[1])
 	if err != nil {
 		return err
@@ -50,6 +53,7 @@ func cmdAlias(e Env, args []string) error {
 		fmt.Fprintf(e.Stdout, "%s is already called %s\n", queue.Label(id), args[1])
 		return nil
 	}
+	e.log().Record(histlog.Entry{Op: histlog.Alias, ID: id, Text: textsafe.Clean(args[1], 64), Old: textsafe.Clean(old, 64)})
 	fmt.Fprintf(e.Stdout, "%s is now called %s\n", queue.Label(id), args[1])
 	return nil
 }

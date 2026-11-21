@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/lfeagan/claude-sitrep/internal/conf"
+	"github.com/lfeagan/claude-sitrep/internal/histlog"
 	"github.com/lfeagan/claude-sitrep/internal/live"
 	"github.com/lfeagan/claude-sitrep/internal/migrate"
 	"github.com/lfeagan/claude-sitrep/internal/prune"
@@ -117,8 +118,12 @@ func cmdSnooze(e Env, args []string) error {
 		return errors.New("the inbox is not a session")
 	}
 	if off {
+		was := state.IsRegular(e.store().Path(id, "snooze"))
 		if err := e.notes().Unsnooze(id); err != nil {
 			return err
+		}
+		if was {
+			e.log().Record(histlog.Entry{Op: histlog.Unsnooze, ID: id})
 		}
 		fmt.Fprintf(e.Stdout, "%s is no longer snoozed\n", e.label(id))
 		return nil
@@ -130,6 +135,7 @@ func cmdSnooze(e Env, args []string) error {
 	if err := e.notes().Snooze(id, changed); err != nil {
 		return fmt.Errorf("cannot snooze %s", e.label(id))
 	}
+	e.log().Record(histlog.Entry{Op: histlog.Snooze, ID: id})
 	fmt.Fprintf(e.Stdout, "snoozed %s until it changes\n", e.label(id))
 	return nil
 }
@@ -177,6 +183,7 @@ func cmdPrune(e Env, args []string) error {
 			if dry {
 				fmt.Fprintf(e.Stdout, "would mark %s ended\n", who)
 			} else if err := p.MarkEnded(a.ID); err == nil {
+				e.log().Record(histlog.Entry{Op: histlog.Prune, ID: a.ID})
 				fmt.Fprintf(e.Stdout, "marked %s ended\n", who)
 			}
 			marked++

@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/lfeagan/claude-sitrep/internal/clock"
+	"github.com/lfeagan/claude-sitrep/internal/histlog"
 	"github.com/lfeagan/claude-sitrep/internal/notes"
 	"github.com/lfeagan/claude-sitrep/internal/queue"
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -40,6 +41,8 @@ type Hook struct {
 	CheckUpdates bool
 	// Spawn starts `sitrep <args>` detached from the hook, which must not wait for it.
 	Spawn func(args ...string) error
+	// Log records the changes the hook makes; the zero Log is off.
+	Log histlog.Log
 }
 
 type event struct {
@@ -79,7 +82,7 @@ type session struct {
 }
 
 func (s *session) notes() notes.Notes { return notes.Notes{Store: s.Store} }
-func (s *session) queue() queue.Queue { return queue.Queue{Store: s.Store} }
+func (s *session) queue() queue.Queue { return queue.Queue{Store: s.Store, Log: s.Log} }
 
 func (s *session) setState(word string) {
 	_ = s.Store.WriteFile(s.Store.Path(s.id, "state"), []byte(word+"\n")) // a hook never fails
@@ -121,6 +124,7 @@ func (s *session) write(obj, prog, now string) error {
 func (s *session) run() {
 	if s.ev.HookEventName == "SessionEnd" {
 		s.setState("ended")
+		s.Log.Record(histlog.Entry{Op: histlog.SessionEnd, ID: s.id})
 		return
 	}
 	if s.CheckUpdates && update.Claim(s.Store, s.Clock.Now()) {
@@ -217,6 +221,7 @@ func (s *session) plus(prompt string) bool {
 		if text := strings.TrimPrefix(prompt, "+pin "); short(text) {
 			item := textsafe.Sane(text, 200)
 			if s.pin() == nil && s.write(item.String(), orDash(s.prog), orDash(s.now)) == nil {
+				s.Log.Record(histlog.Entry{Op: histlog.Pin, ID: s.id, Text: item})
 				s.block("Objective pinned: " + item.String())
 				return true
 			}
@@ -275,6 +280,7 @@ func (s *session) start() {
 	// a resumed session is alive again; a compaction fires SessionStart in the middle of a turn, so it leaves the state alone
 	if s.ev.Source != "compact" {
 		s.setState("waiting")
+		s.Log.Record(histlog.Entry{Op: histlog.SessionStart, ID: s.id})
 	}
 	if s.obj != "" || s.tp == "" {
 		return
