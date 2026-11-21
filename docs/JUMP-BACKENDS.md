@@ -1,10 +1,10 @@
-# Jump backends -- iTerm2, and a setting for the rest
+# Jump backends -- iTerm2 and Terminal.app, and a setting for the rest
 
 Status: proposal, 2026-11-21. Nothing here is built.
 
 ## Claim
 
-`enter` in the dashboard jumps to the terminal that shows a session. Today that works in tmux and cmux, and only there. We should add iTerm2 as a third built-in, and add one setting that lets the user turn jumping off, pick a backend, or run a program of their own. We should not add every terminal. A user who needs another one writes a short script and sitrep carries no code for it.
+`enter` in the dashboard jumps to the terminal that shows a session. Today that works in tmux and cmux, and only there. We should add iTerm2 and Terminal.app as built-ins, and add one setting that lets the user turn jumping off, pick a backend, or run a program of their own. We should not add every terminal. A user who needs another one writes a short script and sitrep carries no code for it.
 
 ## Today
 
@@ -13,7 +13,7 @@ Status: proposal, 2026-11-21. Nothing here is built.
 ## Which backends
 
 - **tmux and cmux** stay built in and detected from the environment.
-- **iTerm2** is added. It is the one other terminal that stands out for the user, and macOS has no other way for a program to focus one of its tabs.
+- **iTerm2 and Terminal.app** are added. They are the two terminals that matter on macOS, and both are driven the same way, from `osascript`.
 - **Not added:** GNU screen (little used now), Zellij, kitty, WezTerm, Ghostty, Warp, Alacritty, VS Code's terminal and Windows Terminal. Some have a usable command line and some have none. Each is a backend we could not test here, for few users. The `cmd` setting below covers anyone who wants one.
 
 ## iTerm2
@@ -23,8 +23,14 @@ iTerm2 can be driven from the command line with `osascript`, and its AppleScript
 Detection is `TERM_PROGRAM=iTerm.app` or `ITERM_SESSION_ID`.
 
 - **Permission.** The first time, macOS asks whether the program may control iTerm2. If the user says no, the jump fails with a message that says what to allow, and changes nothing, as a jump that finds no pane does today.
-- **Order.** Inside tmux inside iTerm2, both variables are set. The jump tries tmux, then cmux, then iTerm2, so the pane inside tmux wins and iTerm2 is the last resort.
-- **Tests.** A fake `osascript` in the tests, as with the fake `tmux`, and one check by the user in a real iTerm2.
+- **Order.** Inside tmux inside iTerm2, both variables are set. The jump tries tmux, then cmux, then iTerm2, then Terminal.app, so the pane inside tmux wins and the terminal application is the last resort.
+- **Tests.** A fake `osascript` in the tests, as with the fake `tmux`, and one check by the user in a real iTerm2 and a real Terminal.app.
+
+## Terminal.app
+
+macOS's own Terminal is scriptable in the same way, and its AppleScript interface gives each tab a tty. The backend is the iTerm2 one with another application name: ask Terminal which tab has the session's tty, select the tab and bring its window to the front. The exact calls need the same check against the real application.
+
+Detection is `TERM_PROGRAM=Apple_Terminal`. It has the same permission prompt as iTerm2, and the same failure message when the user says no. It is tried last, after iTerm2, though the two cannot both be the terminal in front of one process, so the order only matters if the variables are inherited from a parent.
 
 ## The setting
 
@@ -32,7 +38,7 @@ A `jump` key in `sitrep.conf`, with these values:
 
 - `auto` (the default): detect from the environment, in the order above.
 - `none`: `enter` does not jump, and says that jumping is off.
-- `tmux`, `cmux` or `iterm2`: use only that backend, for someone who runs two and wants a fixed choice.
+- `tmux`, `cmux`, `iterm2` or `terminal`: use only that backend, for someone who runs two and wants a fixed choice.
 - `cmd:<program>`: run a program of the user's own.
 
 It is read in the dashboard and not in a hook. `--quit-on-jump` works with every value.
@@ -52,7 +58,6 @@ It is run only when the user presses the key, never from a hook, so it cannot ho
 ## Questions
 
 - Whether `jump` can name a list, such as `tmux,iterm2`, to fix both which backends and their order. We lean to a single value at first.
-- Whether Terminal.app is worth a fourth built-in, since it is driven the same way. We lean to no, until someone asks.
 - Whether the dashboard should say which backend it chose, as a line in the key help. A user who sees nothing happen would learn something.
 - Whether sessions on another host (see `SHARED-STATE.md`) show the key at all. They cannot be jumped to, so the key should say so and not fail quietly.
 
