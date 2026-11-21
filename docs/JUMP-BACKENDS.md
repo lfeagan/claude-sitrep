@@ -1,6 +1,6 @@
 # Jump backends -- iTerm2 and Terminal.app, and a setting for the rest
 
-Status: iTerm2 and Terminal.app are built (0.11.0), detected from `TERM_PROGRAM` and `ITERM_SESSION_ID`, with the scripts as written below, checked to compile and tested against a fake `osascript`; they are not yet checked in a live iTerm2 or Terminal. The `jump` setting and `cmd:<program>` are not built.
+Status: iTerm2 and Terminal.app are built (0.11.0), detected from `TERM_PROGRAM` and `ITERM_SESSION_ID`, with the scripts as written below, checked to compile and tested against a fake `osascript`; iTerm2 was checked live on 2026-11-21 and works; Terminal.app is not yet checked. The `jump` setting and `cmd:<program>` are not built.
 
 ## Claim
 
