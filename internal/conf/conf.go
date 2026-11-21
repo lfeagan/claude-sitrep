@@ -1,6 +1,6 @@
 // Package conf reads sitrep's settings: the environment first, then sitrep.conf in the state folder. The file is read, never run, so it
-// holds NAME=value lines only (single quotes, double quotes, backslashes and $'...' are understood, so what printf %q wrote reads back; comments, export, variables
-// and commands are not). The bash status line used to source the file, which let it override the environment and run code; that is gone.
+// holds NAME=value lines only (single quotes, double quotes, backslashes and $'...' are understood, so what printf %q wrote reads back; export, variables
+// and commands are not, and a line that is not NAME=value, such as a # comment, is ignored). The bash status line used to source the file, which let it override the environment and run code; that is gone.
 package conf
 
 import (

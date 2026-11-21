@@ -12,7 +12,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/tui"
 )
 
-// envOn says whether a switch in the environment is on: set, and not 0, false or no.
+// envOn says whether a switch (the environment, then sitrep.conf) is on: set, and not 0, false or no.
 func envOn(get func(string) string, name string) bool {
 	switch strings.ToLower(get(name)) {
 	case "", "0", "false", "no":
@@ -21,7 +21,7 @@ func envOn(get func(string) string, name string) bool {
 	return true
 }
 
-// envOff says whether a switch in the environment is explicitly off: 0, false or no.
+// envOff says whether a switch (the environment, then sitrep.conf) is explicitly off: 0, false or no.
 func envOff(get func(string) string, name string) bool {
 	switch strings.ToLower(get(name)) {
 	case "0", "false", "no":
@@ -94,8 +94,8 @@ func cmdWatch(e Env, args []string) error {
 	tab := fs.String("tab", "watch", "the tab to start on: watch or top")
 	interval := fs.Duration("interval", e.conf().TUIInterval(), "how often to refresh (or set SITREP_TUI_INTERVAL)")
 	once := fs.Bool("once", false, "print one frame as plain text and exit")
-	readOnly := fs.Bool("read-only", envOn(e.Getenv, "SITREP_TUI_READONLY"), "turn off every key that changes state (or set SITREP_TUI_READONLY)")
-	noBell := fs.Bool("no-bell", envOff(e.Getenv, "SITREP_TUI_BELL"), "do not ring the bell when a session starts needing you (or set SITREP_TUI_BELL=0)")
+	readOnly := fs.Bool("read-only", envOn(e.conf().Get, "SITREP_TUI_READONLY"), "turn off every key that changes state (or set SITREP_TUI_READONLY)")
+	noBell := fs.Bool("no-bell", envOff(e.conf().Get, "SITREP_TUI_BELL"), "do not ring the bell when a session starts needing you (or set SITREP_TUI_BELL=0)")
 	quitOnJump := fs.Bool("quit-on-jump", false, "leave the dashboard after a good jump, for a tmux popup")
 	width := fs.Int("width", 100, "the frame width for --once")
 	if err := parseFlags(fs, args); err != nil {

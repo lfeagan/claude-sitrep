@@ -284,3 +284,22 @@ func TestAliasCommand(t *testing.T) {
 		t.Errorf("add by id after: %d %q", code, out)
 	}
 }
+
+func TestTheHookReadsItsSettingsFromTheConfFile(t *testing.T) {
+	home := t.TempDir()
+	st := state.Open(home)
+	st.Ensure()
+	os.WriteFile(filepath.Join(st.Dir, "sitrep.conf"), []byte("SITREP_DEBOUNCE=9\n# SITREP_TUI_BELL=0\n"), 0o600)
+	env := map[string]string{}
+	e := Env{Home: home, Getenv: func(k string) string { return env[k] }}
+	if got := e.hook().Getenv("SITREP_DEBOUNCE"); got != "9" {
+		t.Errorf("from the file: %q", got)
+	}
+	env["SITREP_DEBOUNCE"] = "2"
+	if got := e.hook().Getenv("SITREP_DEBOUNCE"); got != "2" {
+		t.Errorf("the environment wins: %q", got)
+	}
+	if got := e.conf().Get("SITREP_TUI_BELL"); got != "" {
+		t.Errorf("a commented line is not a setting: %q", got)
+	}
+}

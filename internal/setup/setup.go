@@ -206,6 +206,9 @@ func (s Setup) install(doc settings.Doc, f file) int {
 		}
 		s.say("Wrapping the existing status line (it renders first): %s", show(old))
 	}
+	if err := c.PutExamples(); err != nil {
+		s.warn("Could not add the example settings to %s: %v", show(c.File), err)
+	}
 	s.link()
 	s.removeBuildCopy(exe)
 	s.say("Set up. Restart Claude Code sessions to pick up the status line.")
@@ -360,6 +363,9 @@ func (s Setup) remove(doc settings.Doc, f file) int {
 		} else {
 			s.say("The status line is not sitrep's; left alone.")
 		}
+	}
+	if err := s.conf().DropExamples(); err != nil { // the block is ours, whatever the status line is
+		s.warn("Could not update %s.", show(s.conf().File))
 	}
 	bin := s.binPath()
 	entries, _ := os.ReadDir(s.binDir())

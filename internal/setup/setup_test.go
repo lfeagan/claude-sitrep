@@ -3,6 +3,7 @@ package setup
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/lfeagan/claude-sitrep/internal/conf"
 	"os"
 	"path/filepath"
 	"strings"
@@ -185,7 +186,7 @@ func TestUpstreamIsWrappedAndSetupIsRepeatable(t *testing.T) {
 	if !strings.Contains(e.out.String(), "Wrapping the existing status line (it renders first): bash ~/.claude/hud.sh --color 'x y'\n") {
 		t.Errorf("output %q", e.out.String())
 	}
-	if got := e.read(filepath.Join(e.nd(), "sitrep.conf")); got != "SITREP_HUD_CMD='bash ~/.claude/hud.sh --color '\\''x y'\\'''\n" {
+	if got := e.read(filepath.Join(e.nd(), "sitrep.conf")); userPart(got) != "SITREP_HUD_CMD='bash ~/.claude/hud.sh --color '\\''x y'\\'''\n" {
 		t.Errorf("conf %q", got)
 	}
 	before := e.read(e.settings())
@@ -206,7 +207,7 @@ func TestSetupWithNoUpstreamDropsAStaleOne(t *testing.T) {
 	e.write(filepath.Join(e.nd(), "sitrep.conf"), "SITREP_QUEUE_ITEMS=9\nSITREP_HUD_CMD='stale'\n")
 	e.write(e.settings(), `{}`)
 	e.run(false)
-	if got := e.read(filepath.Join(e.nd(), "sitrep.conf")); got != "SITREP_QUEUE_ITEMS=9\n" {
+	if got := e.read(filepath.Join(e.nd(), "sitrep.conf")); userPart(got) != "SITREP_QUEUE_ITEMS=9\n" {
 		t.Errorf("conf %q", got)
 	}
 }
@@ -708,5 +709,67 @@ func TestSetupMovesStateOfTheOldLayout(t *testing.T) {
 	e2.run(false)
 	if strings.Contains(e2.out.String(), "Moved the state") {
 		t.Errorf("%q", e2.out.String())
+	}
+}
+
+// userPart is the conf file without the block of examples that setup keeps at its end.
+func userPart(s string) string {
+	i := strings.Index(s, "# >>> sitrep settings")
+	if i < 0 {
+		return s
+	}
+	if head := strings.TrimRight(s[:i], "\n"); head != "" {
+		return head + "\n"
+	}
+	return ""
+}
+
+func TestSetupAddsTheExampleSettingsOnce(t *testing.T) {
+	e := newEnv(t)
+	e.write(e.settings(), `{}`)
+	confFile := filepath.Join(e.nd(), "sitrep.conf")
+	if code := e.run(false); code != 0 {
+		t.Fatal(e.err.String())
+	}
+	first := e.read(confFile)
+	if !strings.Contains(first, "# SITREP_QUEUE_ITEMS=5") || !strings.Contains(first, "# SITREP_COLORS=") || strings.Count(first, "# >>> sitrep settings") != 1 {
+		t.Errorf("the examples are in a new conf:\n%s", first)
+	}
+	if fi, err := os.Stat(confFile); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v %v", fi, err)
+	}
+	if code := e.run(false); code != 0 || e.read(confFile) != first {
+		t.Errorf("setup again changes nothing: %d", code)
+	}
+	// the user's setting goes above the block, and stays through a setup and a removal
+	e.write(confFile, "SITREP_QUEUE_ITEMS=4\n\n"+first)
+	if code := e.run(false); code != 0 {
+		t.Fatal(e.err.String())
+	}
+	if got := e.read(confFile); !strings.HasPrefix(got, "SITREP_QUEUE_ITEMS=4\n\n# >>> sitrep") || strings.Count(got, "# >>> sitrep settings") != 1 {
+		t.Errorf("after setup:\n%s", got)
+	}
+	if code := e.run(true); code != 0 {
+		t.Fatal(e.err.String())
+	}
+	if got := e.read(confFile); got != "SITREP_QUEUE_ITEMS=4\n" {
+		t.Errorf("after removal: %q", got)
+	}
+}
+
+func TestRemoveDropsTheExamplesWhateverTheStatusLineIs(t *testing.T) {
+	e := newEnv(t)
+	e.write(e.settings(), `{"statusLine":{"command":"someone else's"}}`)
+	confFile := filepath.Join(e.nd(), "sitrep.conf")
+	os.MkdirAll(e.nd(), 0o700)
+	c := conf.Open(e.nd())
+	if err := c.PutExamples(); err != nil {
+		t.Fatal(err)
+	}
+	if code := e.run(true); code != 0 {
+		t.Fatal(e.err.String())
+	}
+	if e.exists(confFile) {
+		t.Errorf("a conf that held only the examples is gone: %q", e.read(confFile))
 	}
 }
