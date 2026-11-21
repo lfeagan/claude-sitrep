@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -163,8 +164,17 @@ func (s *session) prompt() {
 	if obj == "" {
 		obj = textsafe.Sane(prompt, 160).String()
 	}
-	_ = s.write(obj, orDash(s.prog), textsafe.Sane(prompt, 140).String())
+	now := textsafe.Sane(untag(prompt), 140).String()
+	if strings.TrimSpace(now) == "" {
+		now = orDash(s.now) // nothing but markup
+	}
+	_ = s.write(obj, orDash(s.prog), now)
 }
+
+var tagRe = regexp.MustCompile(`(?:<|&lt;)/?[A-Za-z][A-Za-z0-9_-]*(?:\s[^<>]*?)?(?:>|&gt;)`)
+
+// untag drops XML-like tags, which a pasted notification carries in the middle of the user's own words; the text between them stays.
+func untag(s string) string { return tagRe.ReplaceAllString(s, " ") }
 
 // wrapped says a prompt starts with a tag, as the task notifications, agent hand-backs and command wrappers that Claude Code sends do. The
 // transcript scan skips the same messages.

@@ -595,3 +595,37 @@ func TestANotificationAsTheFirstPromptLeavesNoTagInTheNotes(t *testing.T) {
 		t.Errorf("notes %q", n)
 	}
 }
+
+func TestTagsInTheMiddleOfAPromptAreNotShownInNow(t *testing.T) {
+	r := newRig(t)
+	for _, c := range []struct{ prompt, now string }{
+		{`better handle this: <agent-message from=\"ae18\"> [Subagent hand-back] The text below`, "better handle this:   [Subagent hand-back] The text below"},
+		{`another: <task-notification> <task-id>bm0u</task-id> <output-file>/tmp/x</output-file>`, "another:    bm0u   /tmp/x"},
+		{`why does a < b and c > d fail?`, "why does a < b and c > d fail?"},
+		{`use &lt;b&gt;bold&lt;/b&gt; here`, "use  bold  here"},
+	} {
+		r.fire(`{"session_id":"sessa","hook_event_name":"UserPromptSubmit","prompt":"` + c.prompt + `"}`)
+		got := ""
+		for _, l := range strings.Split(r.file("sessa.txt"), "\n") {
+			if v, ok := strings.CutPrefix(l, "Now:"); ok {
+				got = v
+			}
+		}
+		if strings.Join(strings.Fields(got), " ") != strings.Join(strings.Fields(c.now), " ") {
+			t.Errorf("%q: Now is %q, want %q", c.prompt, got, c.now)
+		}
+	}
+	r.fire(`{"session_id":"sessb","hook_event_name":"UserPromptSubmit","prompt":"real work"}`)
+	r.fire(`{"session_id":"sessb","hook_event_name":"UserPromptSubmit","prompt":"</x><y/>"}`)
+	if n := r.file("sessb.txt"); !strings.Contains(n, "Now:       real work") {
+		t.Errorf("a prompt of only markup: %q", n)
+	}
+}
+
+func TestSummarizerKeepsTagsOutOfNow(t *testing.T) {
+	r, z, _, tp := newSummary(t, "Objective: goal\nProgress: did it\nNow: waiting on <task-notification> bm0u </task-notification>\n")
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+	if got := r.file("sess8.txt"); strings.Contains(got, "<") || !strings.Contains(got, "waiting on") {
+		t.Errorf("notes %q", got)
+	}
+}
