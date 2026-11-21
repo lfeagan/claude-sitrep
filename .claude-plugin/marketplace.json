@@ -1,14 +1,23 @@
 {
   "name": "sitrep",
-  "owner": { "name": "Lance Feagan" },
-  "metadata": { "description": "claude-sitrep: what each Claude Code session is doing, and what is queued for it" },
+  "owner": {
+    "name": "Lance Feagan"
+  },
+  "metadata": {
+    "description": "claude-sitrep: what each Claude Code session is doing, and what is queued for it"
+  },
   "plugins": [
     {
       "name": "sitrep",
       "source": "./",
-      "description": "Shows each session's Objective, Progress and Now under the prompt, keeps a work queue and a shared inbox per session, and ships an optional dashboard. Run /sitrep:setup after installing.",
+      "description": "Shows each session's Objective, Progress and Now under the prompt, keeps a work queue and a shared inbox per session, and has a full-screen dashboard. Needs Go 1.26 or newer. Run /sitrep:setup after installing.",
       "category": "productivity",
-      "tags": ["status-line", "queue", "sessions", "dashboard"]
+      "tags": [
+        "status-line",
+        "queue",
+        "sessions",
+        "dashboard"
+      ]
     }
   ]
 }

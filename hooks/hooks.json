@@ -2,16 +2,16 @@
   "description": "Keeps each session's Objective, Progress, Now and state under ~/.claude/sitrep, and marks the session ended",
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sitrep-hook.sh\"" } ] }
+      { "hooks": [ { "type": "command", "command": "\"$HOME/.claude/sitrep/bin/sitrep\" hook" } ] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sitrep-hook.sh\"" } ] }
+      { "hooks": [ { "type": "command", "command": "\"$HOME/.claude/sitrep/bin/sitrep\" hook" } ] }
     ],
     "Stop": [
-      { "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sitrep-hook.sh\"" } ] }
+      { "hooks": [ { "type": "command", "command": "\"$HOME/.claude/sitrep/bin/sitrep\" hook" } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sitrep-hook.sh\"", "timeout": 10 } ] }
+      { "hooks": [ { "type": "command", "command": "\"$HOME/.claude/sitrep/bin/sitrep\" hook", "timeout": 10 } ] }
     ]
   }
 }
