@@ -1,6 +1,6 @@
 # Jump backends -- iTerm2 and Terminal.app, and a setting for the rest
 
-Status: iTerm2 and Terminal.app are built (0.11.0), detected from `TERM_PROGRAM` and `ITERM_SESSION_ID`, with the scripts as written below, checked to compile and tested against a fake `osascript`; Both were checked live on 2026-11-21 and work. The applications are asked whichever terminal the dashboard runs in, so a dashboard in cmux reaches them. A dashboard outside cmux cannot reach a session inside it, as cmux refuses processes started outside (a setting of cmux, which we leave alone); the status bar then shows its answer. The `jump` setting and `cmd:<program>` are not built.
+Status: iTerm2 and Terminal.app are built (0.11.0), detected from `TERM_PROGRAM` and `ITERM_SESSION_ID`, with the scripts as written below, checked to compile and tested against a fake `osascript`; Both were checked live on 2026-11-21 and work. The applications are asked whichever terminal the dashboard runs in, so a dashboard in cmux reaches them (checked live in 0.11.1). A dashboard outside cmux cannot reach a session inside it, as cmux refuses processes started outside (a setting of cmux, which we leave alone); the status bar then shows its answer. The `jump` setting and `cmd:<program>` are not built.
 
 ## Claim
 
