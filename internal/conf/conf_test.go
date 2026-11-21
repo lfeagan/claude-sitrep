@@ -340,6 +340,18 @@ func TestTUIInterval(t *testing.T) {
 	}
 }
 
+func TestLogMaxIsCapped(t *testing.T) {
+	c := Conf{File: filepath.Join(t.TempDir(), "sitrep.conf"), Getenv: func(k string) string {
+		if k == "SITREP_LOG_MAX" {
+			return "129"
+		}
+		return ""
+	}}
+	if c.LogMaxMB() != 10 {
+		t.Fatal("a limit whose half exceeds what a reader takes was accepted")
+	}
+}
+
 func TestLogSettings(t *testing.T) {
 	env := map[string]string{}
 	c := Conf{File: filepath.Join(t.TempDir(), "sitrep.conf"), Getenv: func(k string) string { return env[k] }}

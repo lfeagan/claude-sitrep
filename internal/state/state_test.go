@@ -416,3 +416,18 @@ func TestTryLock(t *testing.T) {
 		u()
 	}
 }
+
+func TestTryLockRefusesLink(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target")
+	link := filepath.Join(dir, "lock")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := TryLock(link); ok {
+		t.Fatal("took a lock through a link")
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatal("made a file through a link")
+	}
+}

@@ -60,7 +60,7 @@ func TestLogOffWritesNothing(t *testing.T) {
 		t.Fatal("log folder made while the log is off")
 	}
 	_, out, _ := logRun(t, home, false, "", "log")
-	if !strings.Contains(out, "the history log is off") {
+	if !strings.Contains(out, "no entries\nthe history log is off") {
 		t.Fatalf("log: %q", out)
 	}
 }
@@ -235,4 +235,15 @@ func logItems(t *testing.T, dir string) []string {
 		}
 	}
 	return ops
+}
+
+func TestLogSessionAmbiguousIsAnError(t *testing.T) {
+	home := logHome(t)
+	statetest.PutAt(t, state.Open(home), "abce2222.txt", "Objective: y\n", logNow.Add(-time.Hour))
+	if code, _, errs := logRun(t, home, true, "", "log", "--session", "abc"); code == 0 || !strings.Contains(errs, "matches 2") {
+		t.Fatalf("ambiguous prefix: %d %q", code, errs)
+	}
+	if code, out, _ := logRun(t, home, true, "", "log", "--session", "gone0000"); code != 0 || !strings.Contains(out, "no entries") {
+		t.Fatalf("a session that is gone: %d %q", code, out)
+	}
 }

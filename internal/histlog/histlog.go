@@ -3,7 +3,6 @@
 package histlog
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
@@ -117,7 +116,7 @@ func (l Log) Record(e Entry) {
 	if !l.On || l.Host == "" || l.Dir == "" || !ops[e.Op] {
 		return
 	}
-	var raw [4]byte
+	var raw [8]byte
 	if _, err := rand.Read(raw[:]); err != nil {
 		return
 	}
@@ -139,8 +138,11 @@ func (l Log) Record(e Entry) {
 	if err != nil {
 		return
 	}
+	defer f.Close()
+	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() || fi.Sys().(*syscall.Stat_t).Nlink != 1 {
+		return // a hard link is somebody else's file
+	}
 	_, _ = f.Write(b)
-	_ = f.Close()
 }
 
 func encode(ln line) []byte {
@@ -203,7 +205,10 @@ func (l Log) due(next int64) bool {
 		return true
 	}
 	first, ok := l.firstTime()
-	return ok && l.now().Sub(first) >= time.Duration(days)*24*time.Hour/2
+	if !ok {
+		return fi.Size() > 0 // a first line that is no entry cannot be aged, so the file is rolled and starts clean
+	}
+	return l.now().Sub(first) >= time.Duration(days)*24*time.Hour/2
 }
 
 // firstTime is the time of the first entry of current.
@@ -277,14 +282,18 @@ func Read(dir string, q Query) []Item {
 			if err != nil {
 				continue
 			}
-			sc := bufio.NewScanner(bytes.NewReader(b))
-			sc.Buffer(make([]byte, 0, 64<<10), maxLine*4)
-			for sc.Scan() {
-				it, ok := parse(sc.Bytes())
+			for _, raw := range bytes.Split(b, []byte("\n")) {
+				if len(raw) > maxLine {
+					continue // no entry is this long
+				}
+				it, ok := parse(raw)
 				if !ok || it.Host != h || seen[it.E] {
 					continue
 				}
 				seen[it.E] = true
+				if !q.Now.IsZero() && it.Time.After(q.Now.Add(24*time.Hour)) {
+					continue // from the future: a clock that was wrong, or a forged line
+				}
 				if it.Time.Before(cutoff) || q.Op != "" && it.Op != q.Op || q.ID != "" && it.ID != q.ID && it.Dest != q.ID {
 					continue
 				}

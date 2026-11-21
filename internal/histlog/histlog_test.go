@@ -268,3 +268,52 @@ func TestHost(t *testing.T) {
 		t.Errorf("long host: %d", len(got))
 	}
 }
+
+func TestReaderSurvivesLongLineAndFuture(t *testing.T) {
+	l, now := newLog(t)
+	if err := l.ensure(); err != nil {
+		t.Fatal(err)
+	}
+	good := `{"e":"aa","t":"2026-11-21T14:00:00Z","host":"mbp","id":"inbox","op":"queue.add","text":"kept"}`
+	future := `{"e":"bb","t":"9999-01-01T00:00:00Z","host":"mbp","id":"inbox","op":"queue.add","text":"forged"}`
+	body := strings.Repeat("x", 100<<10) + "\n" + future + "\n" + good + "\n"
+	if err := os.WriteFile(l.current(), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := Read(l.Dir, Query{Now: *now})
+	if len(got) != 1 || got[0].E != "aa" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestDoesNotWriteThroughHardLink(t *testing.T) {
+	l, _ := newLog(t)
+	if err := l.ensure(); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(t.TempDir(), "other")
+	if err := os.WriteFile(other, []byte("mine\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(other, l.current()); err != nil {
+		t.Skip("no hard links here")
+	}
+	l.Record(Entry{Op: QueueAdd, ID: "inbox", Text: txt("x")})
+	if b, _ := os.ReadFile(other); string(b) != "mine\n" {
+		t.Fatalf("wrote through a hard link: %q", b)
+	}
+}
+
+func TestRollWhenFirstLineIsNoEntry(t *testing.T) {
+	l, _ := newLog(t)
+	if err := l.ensure(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(l.current(), []byte("junk\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	l.Record(Entry{Op: QueueAdd, ID: "inbox", Text: txt("x")})
+	if _, err := os.Stat(l.previous()); err != nil {
+		t.Fatal("a file with no readable first entry was not rolled")
+	}
+}

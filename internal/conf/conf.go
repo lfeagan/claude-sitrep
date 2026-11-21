@@ -103,7 +103,7 @@ func (c Conf) LogOn() bool {
 }
 
 // LogMaxMB is the most megabytes the two files of the log hold together (SITREP_LOG_MAX); 0 or a bad value is the default.
-func (c Conf) LogMaxMB() int { return c.positive("SITREP_LOG_MAX", DefaultLogMaxMB, 1024) }
+func (c Conf) LogMaxMB() int { return c.positive("SITREP_LOG_MAX", DefaultLogMaxMB, 128) }
 
 // LogDays is the age in days after which an entry is dropped (SITREP_LOG_DAYS); 0 or a bad value is the default.
 func (c Conf) LogDays() int { return c.positive("SITREP_LOG_DAYS", DefaultLogDays, 3650) }

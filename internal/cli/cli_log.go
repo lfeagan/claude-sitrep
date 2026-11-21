@@ -84,6 +84,9 @@ func cmdLog(e Env, args []string) error {
 	if *sess != "" {
 		id, err := e.resolve(*sess)
 		if err != nil {
+			if !strings.Contains(err.Error(), "matches 0;") {
+				return err // an ambiguous prefix stays an error
+			}
 			if id, err = state.ParseID(*sess); err != nil { // a session that is gone can still have a past
 				return err
 			}
@@ -92,10 +95,9 @@ func cmdLog(e Env, args []string) error {
 	}
 	items := histlog.Read(e.store().Dir, q)
 	if len(items) == 0 {
+		fmt.Fprintln(e.Stdout, "no entries")
 		if !l.On {
 			fmt.Fprintln(e.Stdout, "the history log is off; set SITREP_LOG=on in sitrep.conf to keep one")
-		} else {
-			fmt.Fprintln(e.Stdout, "no entries")
 		}
 		return nil
 	}

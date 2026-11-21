@@ -302,8 +302,12 @@ func Lock(path string) (unlock func(), err error) {
 
 // TryLock is Lock without the wait: one attempt, and ok is false when another holder has the lock. A hook uses it for work it can skip.
 func TryLock(path string) (unlock func(), ok bool) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, FileMode)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, FileMode)
 	if err != nil {
+		return nil, false
+	}
+	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() {
+		f.Close()
 		return nil, false
 	}
 	if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil {
