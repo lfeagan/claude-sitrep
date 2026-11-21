@@ -22,17 +22,32 @@ f="$dir/$sid.txt"
 # Once /sitrep:setup has made the stable link and the status line copy, keep them on the newest installed plugin version, from the
 # plugin's own hook. It never creates them (that would undo a removal), never moves from a working version to an older one or to a
 # folder outside the plugin cache, and never fails.
+ver_gt() { # a b: is version a newer than b? major.minor.patch as numbers; with equal numbers a release beats a prerelease (1.0.0 > 1.0.0-rc1)
+  local IFS=.
+  # shellcheck disable=SC2206  # splitting on dots is the point
+  local -a x=(${1%%[-+]*}) y=(${2%%[-+]*})
+  local i a b
+  for i in 0 1 2; do
+    a=${x[i]:-0}; b=${y[i]:-0}
+    [[ $a =~ ^[0-9]+$ && $b =~ ^[0-9]+$ ]] || return 1
+    [ $((10#$a)) -gt $((10#$b)) ] && return 0
+    [ $((10#$a)) -lt $((10#$b)) ] && return 1
+  done
+  [[ $1 != *-* && $2 == *-* ]] && return 0
+  [[ $1 == *-* && $2 == *-* && $1 > $2 ]]
+}
 refresh_plugin() {
   local root=${CLAUDE_PLUGIN_ROOT:-} cur cv nv t
   case "$root" in /*) ;; *) return 0 ;; esac   # an absolute path, without ..: it becomes code the status line runs
   case "$root" in */../*|*/..) return 0 ;; esac
   [ -f "$root/statusline/statusline.sh" ] || return 0
   cur=$(readlink "$dir/plugin" 2>/dev/null)
+  [ -n "$cur" ] || return 0   # the link went away since we looked: a removal is not undone here
   if [ "$cur" != "$root" ]; then
     if [ -f "$cur/statusline/statusline.sh" ]; then
       case "$root" in */plugins/cache/*) ;; *) return 0 ;; esac
       cv=$(jq -r '.version // empty' "$cur/.claude-plugin/plugin.json" 2>/dev/null); nv=$(jq -r '.version // empty' "$root/.claude-plugin/plugin.json" 2>/dev/null)
-      if [ -z "$nv" ] || [ "$nv" = "$cv" ] || [ "$(printf '%s\n%s\n' "$cv" "$nv" | sort -V | tail -1)" != "$nv" ]; then return 0; fi
+      if [ -z "$nv" ] || ! ver_gt "$nv" "$cv"; then return 0; fi
     fi
     t="$dir/.plugin.$$"; rm -f "$t"
     if ! { ln -s "$root" "$t" && perl -e 'rename $ARGV[0], $ARGV[1] or exit 1' "$t" "$dir/plugin"; }; then rm -f "$t"; return 0; fi

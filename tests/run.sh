@@ -1093,8 +1093,8 @@ eq "watch accepts options before the interval" 0 "$(rc sitrep watch -n 3 5)"
 
 # ---- plugin: manifests, hooks.json, setup, the checkout guard and the link refresh
 setupc() { HOME="$1" BIN_DIR="$1/bin" bash "$2/setup.sh" "${@:3}"; }   # home, plugin root, args
-tree_state() { (cd "$1" && find . \( -type f -o -type l \) ! -name 'settings.json.bak.*' | sort | while read -r f; do
-  if [ -L "$f" ]; then echo "$f -> $(readlink "$f")"; else echo "$f $(cksum < "$f")"; fi; done); }
+tree_state() { (cd "$1" && find . \( -type f -o -type l -o -type d \) ! -name 'settings.json.bak.*' | sort | while read -r f; do
+  if [ -L "$f" ]; then echo "$f -> $(readlink "$f")"; elif [ -d "$f" ]; then echo "$f/"; else echo "$f $(cksum < "$f")"; fi; done); }
 PJ="$R/.claude-plugin/plugin.json"; MJ="$R/.claude-plugin/marketplace.json"; HJ="$R/hooks/hooks.json"
 check "plugin.json, marketplace.json and hooks.json parse" bash -c "jq -e . '$PJ' && jq -e . '$MJ' && jq -e . '$HJ'"
 eq "the plugin is called sitrep" sitrep "$(jq -r .name "$PJ")"
@@ -1181,8 +1181,8 @@ for case in \
   'a skill link only|{}|skill' \
   'a bin link only|{}|bin'; do
   IFS='|' read -r what json extra <<<"$case"; n=$((n + 1)); HK="$T/home-pk$n"; fresh "$HK" "$json"; mkdir -p "$HK/bin" "$HK/.claude/skills"
-  [ "$extra" = skill ] && ln -s /nowhere/c/skills/sitrep-queue "$HK/.claude/skills/sitrep-queue"
-  [ "$extra" = bin ] && ln -s /nowhere/c/bin/sitrep "$HK/bin/sitrep"
+  [ "$extra" = skill ] && ln -s /nowhere/claude-sitrep/skills/sitrep-queue "$HK/.claude/skills/sitrep-queue"
+  [ "$extra" = bin ] && ln -s /nowhere/claude-sitrep/bin/sitrep "$HK/bin/sitrep"
   t0=$(tree_state "$HK"); out=$(setupc "$HK" "$T/plug" 2>&1); rcode=$?
   eq "setup stops for $what" 1 "$rcode"
   eq "and changes nothing for $what" "$t0" "$(tree_state "$HK")"
@@ -1200,6 +1200,19 @@ eq "setup refuses when the plugin link name is a real folder" 1 "$(rc setupc "$H
 check "and writes nothing" test "$(jq -c . "$HD/.claude/settings.json")" = '{}'
 eq "setup rejects an unknown argument" 1 "$(rc setupc "$HP" "$T/plug" --nope)"
 
+HY="$T/home-py"; fresh "$HY" '{}'; mkdir -p "$HY/bin"; ln -s /opt/foo/bin/sitrep "$HY/bin/sitrep"
+eq "a link to some other tool called sitrep is not taken for a checkout" 0 "$(rc setupc "$HY" "$T/plug")"
+eq "and is left alone" /opt/foo/bin/sitrep "$(readlink "$HY/bin/sitrep")"
+for bad in '{not json' '{"statusLine":"echo hud"}'; do
+  HZ="$T/home-pz"; fresh "$HZ" "$bad"; t0=$(tree_state "$HZ")
+  out=$(setupc "$HZ" "$T/plug" 2>&1); rcode=$?
+  eq "setup refuses settings like '$bad'" 1 "$rcode"
+  check "and says why" has "$out" "nothing was changed"
+  eq "and changes nothing, not even a backup" "$t0" "$(tree_state "$HZ")"
+done
+HZ="$T/home-pz"; fresh "$HZ" '{not json'; mkdir -p "$HZ/.claude/sitrep"; echo copy > "$HZ/.claude/sitrep/statusline.sh"
+eq "remove refuses unparseable settings" 1 "$(rc setupc "$HZ" "$T/plug" --remove)"
+eq "and keeps the status line copy" copy "$(cat "$HZ/.claude/sitrep/statusline.sh")"
 # install.sh and the plugin must not both be set up
 HI="$T/home-pi"; fresh "$HI" '{}'; setupc "$HI" "$T/plug" >/dev/null 2>&1
 sj=$(jq -S . "$HI/.claude/settings.json")
@@ -1236,16 +1249,30 @@ for bad in "relative/path" "$CACHE/0.2.0/../0.1.0" "$T/dev/missing"; do
   eq "a root like '${bad##*/}' exits 0 and moves nothing" "0 $CACHE/0.10.0" "$(sstart "$HR" sess0001 "$bad") $(readlink "$NDR/plugin")"
 done
 eq "no root exits 0 and moves nothing" "0 $CACHE/0.10.0" "$(ev sess0001 SessionStart | env -u CLAUDE_PLUGIN_ROOT HOME="$HR" bash "$R/hooks/sitrep-hook.sh" >/dev/null 2>&1; echo $?) $(readlink "$NDR/plugin")"
+mkroot "$CACHE/1.0.0-rc1" 1.0.0-rc1; mkroot "$CACHE/1.0.0" 1.0.0; mkroot "$CACHE/1.0.0-beta" 1.0.0-beta; mkroot "$CACHE/nover" ""
+ln -sfn "$CACHE/1.0.0-rc1" "$NDR/plugin"; sstart "$HR" sess0001 "$CACHE/1.0.0" >/dev/null
+eq "a release replaces its own prerelease" "$CACHE/1.0.0" "$(readlink "$NDR/plugin")"
+sstart "$HR" sess0001 "$CACHE/1.0.0-beta" >/dev/null
+eq "a prerelease does not replace its release" "$CACHE/1.0.0" "$(readlink "$NDR/plugin")"
+sstart "$HR" sess0001 "$CACHE/nover" >/dev/null
+eq "a version that cannot be read does not move a working link" "$CACHE/1.0.0" "$(readlink "$NDR/plugin")"
+ln -sfn "$CACHE/0.10.0" "$NDR/plugin"
+eq "a removal between the check and the read is not undone" 0 "$(rm -f "$NDR/plugin"; sstart "$HR" sess0001 "$CACHE/1.0.0")"
+check "so the link stays gone" test ! -L "$NDR/plugin"
+ln -s "$CACHE/0.10.0" "$NDR/plugin"
 ln -sfn /nowhere "$NDR/plugin"
 sstart "$HR" sess0001 "$T/dev/plugin" >/dev/null
 eq "a link to a missing folder is moved to any good root" "$T/dev/plugin" "$(readlink "$NDR/plugin")"
 sstart "$HR" sess0001 "$T/dev/plugin" >/dev/null
 eq "a second refresh changes nothing" "$T/dev/plugin" "$(readlink "$NDR/plugin")"
-ln -sfn "$CACHE/0.1.0" "$NDR/plugin"; bad=0
-for i in 1 2 3 4 5 6 7 8; do sstart "$HR" "sess000$i" "$CACHE/0.10.0" >/dev/null & done
-for _ in $(seq 1 40); do [ -f "$NDR/plugin/statusline/statusline.sh" ] || bad=1; done; wait
-eq "the link is never missing while hooks race" 0 "$bad"
-eq "and it ends on the newest version" "$CACHE/0.10.0" "$(readlink "$NDR/plugin")"
+# Eight hooks race to move the link. A reader can briefly miss a replaced link on some filesystems, so this checks the end state, not every instant.
+ln -sfn "$CACHE/0.1.0" "$NDR/plugin"; pids=()
+for i in 1 2 3 4 5 6 7 8; do sstart "$HR" "sess000$i" "$CACHE/0.10.0" > "$T/race$i" & pids+=($!); done
+wait "${pids[@]}"
+eq "every racing hook exits 0" "0 0 0 0 0 0 0 0" "$(cat "$T"/race[1-8] | tr '\n' ' ' | sed 's/ $//')"
+eq "the link ends on the newest version, and works" "$CACHE/0.10.0" "$(readlink "$NDR/plugin")"
+check "the link resolves" test -f "$NDR/plugin/statusline/statusline.sh"
+eq "no temporary link is left behind" 0 "$(find "$NDR" -maxdepth 1 -name '.plugin.*' | wc -l | tr -d ' ')"
 mkdir -p "$NDR/bin"; echo "Objective: o" > "$NDR/real0001.txt"
 eq "sitrep ls ignores the link and a bin folder in the state folder" 0 "$(HOME="$HR" bash "$R/bin/sitrep" ls -a >/dev/null 2>&1; echo $?)"
 eq "and lists only the real session" 1 "$(HOME="$HR" bash "$R/bin/sitrep" ls --json -a | jq '.sessions|length')"

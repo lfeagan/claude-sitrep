@@ -22,6 +22,7 @@ tag="# claude-sitrep"
 newcmd='bash "$HOME/.claude/sitrep/statusline.sh" '"$tag"
 show() { printf '%s' "$1" | perl -CSD -pe 's/[\p{Cc}\p{Cf}]//g' 2>/dev/null; }   # text from settings is untrusted
 
+if [ -f "$S" ] && ! jq -e . "$S" >/dev/null 2>&1; then echo "$S cannot be parsed as JSON; nothing was changed." >&2; exit 1; fi
 if [ "$remove" = 1 ]; then
   if [ -f "$S" ]; then
     cp "$S" "$S.bak.$(date +%Y%m%dT%H%M%S)"
@@ -59,14 +60,15 @@ if [ -f "$S" ]; then
     r=${sl#bash }; r=${r%%/statusline/statusline.sh*}; roots+=("$(printf '%s' "$r" | sed 's/\\\(.\)/\1/g')")
   fi
 fi
+# A link counts as ours when its target still has our layout, or is gone and was named for us: another tool may also be called sitrep.
 if [ -L "$SKILLS_DIR/sitrep-queue" ]; then
   t=$(readlink "$SKILLS_DIR/sitrep-queue")
-  if [[ $t == */skills/sitrep-queue ]]; then found+=("the skill link $(show "$SKILLS_DIR/sitrep-queue") -> $(show "$t")"); roots+=("${t%/skills/sitrep-queue}"); fi
+  if [[ $t == */skills/sitrep-queue ]] && { [ -f "$t/SKILL.md" ] || [[ $t == *claude-sitrep* ]]; }; then found+=("the skill link $(show "$SKILLS_DIR/sitrep-queue") -> $(show "$t")"); roots+=("${t%/skills/sitrep-queue}"); fi
 fi
 for l in "$BIN_DIR"/*; do
   [ -L "$l" ] || continue
   t=$(readlink "$l")
-  if [[ $t == */bin/sitrep ]] && [ "$t" != "$PL/bin/sitrep" ]; then found+=("the link $(show "$l") -> $(show "$t")"); roots+=("${t%/bin/sitrep}"); fi
+  if [[ $t == */bin/sitrep ]] && [ "$t" != "$PL/bin/sitrep" ] && { [ -f "${t%/bin/sitrep}/hooks/sitrep-hook.sh" ] || [[ $t == *claude-sitrep* ]]; }; then found+=("the link $(show "$l") -> $(show "$t")"); roots+=("${t%/bin/sitrep}"); fi
 done
 if [ ${#found[@]} -gt 0 ]; then
   echo "Found an install from a checkout of claude-sitrep. Its hooks would run twice beside the plugin's:" >&2
@@ -82,6 +84,7 @@ fi
 if [ -e "$PL" ] && [ ! -L "$PL" ]; then echo "$PL exists and is not a link; leaving it alone." >&2; exit 1; fi
 
 [ -f "$S" ] || echo '{}' > "$S"
+jq -e '(.statusLine // {}) | type == "object"' "$S" >/dev/null 2>&1 || { echo "The statusLine in $S is not an object; nothing was changed." >&2; exit 1; }
 cp "$S" "$S.bak.$(date +%Y%m%dT%H%M%S)"
 old=$(jq -r '.statusLine.command // empty' "$S")
 tmp=$(mktemp "$S.XXXXXX"); trap 'rm -f "$tmp"' EXIT

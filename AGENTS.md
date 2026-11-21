@@ -4,7 +4,7 @@ Guidance for agents working in this repository. The commit and comment rules are
 
 ## Linting
 
-After editing any shell script, run `make lint` and `make test`, which CI also runs. Lint runs `bash -n` and `shellcheck` over every script listed in `SCRIPTS` in the `Makefile`, so add a new script there. Tests live in `tests/run.sh` and add a case for every behavior or bug fix.
+After editing any shell script, run `make lint` and `make test`, which CI also runs. Lint runs `bash -n` and `shellcheck` over every script listed in `SCRIPTS` in the `Makefile`, so add a new script there. Tests live in `tests/run.sh` and add a case for every behavior or bug fix. The plugin cache is keyed by `version` in `.claude-plugin/plugin.json`, so bump it for every change users should receive. `claude plugin validate .` checks the manifests.
 
 ## Invariants
 
