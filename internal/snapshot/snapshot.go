@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -163,10 +162,10 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 		if !labelOK(s.StateLabel) {
 			s.StateLabel = "-"
 		}
-		_, err := os.Stat(b.Store.Hidden(id, "pinned"))
+		_, err := os.Stat(b.Store.Path(id, "pinned"))
 		s.Pinned = err == nil
 
-		notes := readText(b.Store.Path(id, "txt"))
+		notes := readText(b.Store.Path(id, "notes"))
 		s.Objective, s.Progress, s.Now = field(notes, "Objective"), field(notes, "Progress"), field(notes, "Now")
 		cwd := firstLine(readText(b.Store.Path(id, "cwd")))
 		s.Dir, s.Cwd = dirOf(cwd), textsafe.Clean(cwd, 300)
@@ -176,23 +175,15 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 	return snap
 }
 
-// sessions lists the notes files changed in the last day, newest first (by when the state last changed, else when the notes did).
+// sessions lists the sessions changed in the last day, newest first (by when the state last changed, else when the notes did).
 func (b Builder) sessions(now int64) []found {
-	entries, _ := os.ReadDir(b.Store.Dir)
 	var out []found
-	for _, e := range entries {
-		id, ok := strings.CutSuffix(e.Name(), ".txt")
-		if !ok || !state.SessionID(id) {
-			continue // not ours
-		}
-		if !state.IsRegular(filepath.Join(b.Store.Dir, e.Name())) {
-			continue
-		}
-		changed, ok := live.Changed(b.Store, id)
+	for _, id := range b.Store.Sessions() {
+		changed, ok := live.Changed(b.Store, string(id))
 		if !ok || now-changed >= Window {
 			continue
 		}
-		out = append(out, found{id, changed})
+		out = append(out, found{string(id), changed})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].changed != out[j].changed {
@@ -237,7 +228,7 @@ func labelOK(s string) bool {
 }
 
 // snoozedAt is the state-change time a `sitrep snooze` stored, as text.
-func snoozedAt(s state.Store, id state.ID) string { return state.FirstLine(s.Hidden(id, "snooze")) }
+func snoozedAt(s state.Store, id state.ID) string { return state.FirstLine(s.Path(id, "snooze")) }
 
 // readText reads a file as text; a file that is missing, unreadable or not a regular file reads as empty, so one bad file does not blank
 // the listing, and a pipe named like a session file does not hang it.

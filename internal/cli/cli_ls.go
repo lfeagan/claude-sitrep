@@ -10,6 +10,7 @@ import (
 
 	"github.com/lfeagan/claude-sitrep/internal/conf"
 	"github.com/lfeagan/claude-sitrep/internal/live"
+	"github.com/lfeagan/claude-sitrep/internal/migrate"
 	"github.com/lfeagan/claude-sitrep/internal/prune"
 	"github.com/lfeagan/claude-sitrep/internal/queue"
 	"github.com/lfeagan/claude-sitrep/internal/render"
@@ -84,6 +85,9 @@ loop:
 		snap := e.builder().Build(context.Background(), snapshot.Options{All: all, Cap: o.Cap()})
 		for _, l := range render.Frame(snap, o) {
 			fmt.Fprintln(e.Stdout, l)
+		}
+		if n := migrate.Pending(e.store()); n > 0 {
+			fmt.Fprintf(e.Stderr, "%d files of the old state layout are still in ~/.claude/sitrep: run 'sitrep migrate'\n", n)
 		}
 		return nil
 	}
@@ -258,7 +262,7 @@ func (e Env) lsQueue(prefix string) error {
 		}
 		cwd, _ := state.ReadFile(st.Path(id, "cwd"), 64<<10)
 		fmt.Fprintf(e.Stdout, "Session %s  %s%s\n", queue.Label(id), textsafe.Clean(string(cwd), 200), suffix)
-		notes, _ := state.ReadFile(st.Path(id, "txt"), 1<<20)
+		notes, _ := state.ReadFile(st.Path(id, "notes"), 1<<20)
 		for _, l := range strings.Split(string(notes), "\n") {
 			if rest, ok := strings.CutPrefix(l, "Objective: "); ok {
 				fmt.Fprintln(e.Stdout, "  Objective: "+textsafe.Strip(rest).String())

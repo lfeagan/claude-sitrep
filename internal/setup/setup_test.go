@@ -380,7 +380,7 @@ func TestRemoveRestoresTheUpstream(t *testing.T) {
 	e := newEnv(t)
 	orig := "{\n  \"model\": \"opus\",\n  \"statusLine\": {\"type\": \"command\", \"command\": \"bash hud.sh\", \"padding\": 1}\n}\n"
 	e.write(e.settings(), orig)
-	e.write(filepath.Join(e.nd(), "s1.queue"), "keep me\n")
+	e.write(filepath.Join(e.nd(), "mydata.bak"), "keep me\n")
 	e.run(false)
 	e.write(filepath.Join(e.nd(), "sitrep.conf"), e.read(filepath.Join(e.nd(), "sitrep.conf"))+"SITREP_QUEUE_ITEMS=4\n")
 	if code := e.run(true); code != 0 {
@@ -399,7 +399,7 @@ func TestRemoveRestoresTheUpstream(t *testing.T) {
 	if e.exists(filepath.Join(e.nd(), "bin")) || e.exists(filepath.Join(e.binDir, "sitrep")) {
 		t.Error("the program or its link is still there")
 	}
-	if e.read(filepath.Join(e.nd(), "s1.queue")) != "keep me\n" {
+	if e.read(filepath.Join(e.nd(), "mydata.bak")) != "keep me\n" {
 		t.Error("state was touched")
 	}
 }
@@ -683,5 +683,30 @@ func TestSetupThatChangesNothingMakesNoBackup(t *testing.T) {
 	e.run(false)
 	if e.read(e.settings()) != before || len(e.backups()) != backups {
 		t.Errorf("a second run changed the file or made %d more backups", len(e.backups())-backups)
+	}
+}
+
+func TestSetupMovesStateOfTheOldLayout(t *testing.T) {
+	e := newEnv(t)
+	e.write(e.settings(), `{}`)
+	e.write(filepath.Join(e.nd(), "13159d08.txt"), "Objective: x\n")
+	e.write(filepath.Join(e.nd(), "13159d08.queue"), "item\n")
+	e.write(filepath.Join(e.nd(), ".13159d08.state"), "waiting\n")
+	e.write(filepath.Join(e.nd(), ".13159d08.prompt"), "old prompt")
+	e.write(filepath.Join(e.nd(), "inbox.queue"), "i\n")
+	if code := e.run(false); code != 0 {
+		t.Fatal(e.err.String())
+	}
+	if !strings.Contains(e.out.String(), "Moved the state of the old layout into ~/.claude/sitrep/sessions: 3 moved, 0 merged, 0 left, 1 removed.") {
+		t.Errorf("output %q", e.out.String())
+	}
+	if e.read(filepath.Join(e.nd(), "sessions", "13159d08", "queue")) != "item\n" || e.read(filepath.Join(e.nd(), "inbox.queue")) != "i\n" {
+		t.Error("the state was not moved, or the inbox was")
+	}
+	// nothing to move: nothing said
+	e2 := newEnv(t)
+	e2.run(false)
+	if strings.Contains(e2.out.String(), "Moved the state") {
+		t.Errorf("%q", e2.out.String())
 	}
 }

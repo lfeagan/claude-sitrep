@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lfeagan/claude-sitrep/internal/conf"
+	"github.com/lfeagan/claude-sitrep/internal/migrate"
 	"github.com/lfeagan/claude-sitrep/internal/settings"
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
@@ -185,6 +186,7 @@ func (s Setup) install(doc settings.Doc, f file) int {
 		s.warn("cannot create %s: %v. The settings were put back.", show(st.Dir), err)
 		return 1
 	}
+	s.migrate()
 	c := s.conf()
 	switch old {
 	case "":
@@ -208,6 +210,23 @@ func (s Setup) install(doc settings.Doc, f file) int {
 	s.removeBuildCopy(exe)
 	s.say("Set up. Restart Claude Code sessions to pick up the status line.")
 	return 0
+}
+
+// migrate moves state of the old flat layout into a folder per session, now that the program that reads the new layout is in place. A hook
+// that runs between the two writes the new layout, and the move merges and never overwrites, so nothing is lost.
+func (s Setup) migrate() {
+	r := migrate.Run(s.store(), false)
+	if r.Moved+r.Merged+r.Deleted+r.Left > 0 {
+		s.say("Moved the state of the old layout into ~/.claude/sitrep/sessions: %d moved, %d merged, %d left, %d removed.", r.Moved, r.Merged, r.Left, r.Deleted)
+	}
+	if r.Errors > 0 {
+		for _, l := range r.Lines {
+			if strings.HasPrefix(l, "error: ") {
+				s.warn("%s", l)
+			}
+		}
+		s.warn("Some state was not moved: run `sitrep migrate` again.")
+	}
 }
 
 // BuildName is the file the setup skill builds the program into, beside the stable path. Setup copies it into place and removes it.

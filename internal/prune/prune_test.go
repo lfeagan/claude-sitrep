@@ -11,6 +11,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/live"
 	"github.com/lfeagan/claude-sitrep/internal/runner"
 	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/statetest"
 )
 
 const now = 1_800_000_000
@@ -34,11 +35,7 @@ func setup(t *testing.T, registered ...string) Pruner {
 func session(t *testing.T, p Pruner, id, word, cwd, queue string, age time.Duration) {
 	t.Helper()
 	at := time.Unix(now, 0).Add(-age)
-	write := func(name, body string) {
-		path := filepath.Join(p.Store.Dir, name)
-		os.WriteFile(path, []byte(body), 0o600)
-		os.Chtimes(path, at, at)
-	}
+	write := func(name, body string) { statetest.PutAt(t, p.Store, name, body, at) }
 	write(id+".txt", "Objective: x\n")
 	if word != "" {
 		write("."+id+".state", word+"\n")
@@ -90,7 +87,7 @@ func TestMarkEnded(t *testing.T) {
 	if got := live.Word(p.Store, "gone0001"); got != "ended" {
 		t.Errorf("word %q", got)
 	}
-	if fi, _ := os.Stat(p.Store.Hidden("gone0001", "state")); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(p.Store.Path("gone0001", "state")); fi.Mode().Perm() != 0o600 {
 		t.Errorf("mode %v", fi.Mode().Perm())
 	}
 }

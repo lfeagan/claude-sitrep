@@ -142,6 +142,14 @@ Print a bash completion script. Add this to ~/.bashrc:
 It completes command names, flags, the values of --tab, and session ids (the shortest unique prefix
 of at least four characters, and inbox where the command takes it).
 `,
+	"migrate": `usage: sitrep migrate [--dry-run]
+
+Move the state of sitrep 0.4 and before, which kept every file of every session in ~/.claude/sitrep
+(<id>.txt, .<id>.state and so on), into a folder for each session, ~/.claude/sitrep/sessions/<id>/.
+Run it once, after /sitrep:setup has installed 0.5 or newer. It moves only files with those names,
+keeps their modification times, never overwrites a file that is already in place, and deletes the
+.prompt files that nothing reads any more. It is safe to run again. --dry-run says what it would do.
+`,
 	"help": `usage: sitrep help [command]
 
 List the commands, or show the details of one. ` + "`sitrep <command> --help`" + ` shows the same.
@@ -164,6 +172,7 @@ const helpAll = `usage: sitrep <command> [args]
   watch                      live full-screen dashboard of the sessions
   status                     print one frame of the dashboard as text
   setup [--remove]           put sitrep on the status line, or take it off
+  migrate [--dry-run]        move state of version 0.4 and before into a folder per session
   version                    print the version of this program
   completion bash            print a bash completion script
   help [command]             this list, or the details of one command

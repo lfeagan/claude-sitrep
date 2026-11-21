@@ -156,7 +156,10 @@ func (r Registry) sameProcess(ctx context.Context, pid int, want string) bool {
 
 // Word is a session's state word from the file a hook wrote, from an allow-list (the file is untrusted input), else "-".
 func Word(s state.Store, id string) string {
-	switch w := state.FirstLine(filepath.Join(s.Dir, "."+id+".state")); w {
+	if !state.SessionID(id) {
+		return "-"
+	}
+	switch w := state.FirstLine(s.Path(state.ID(id), "state")); w {
 	case "working", "waiting", "ended":
 		return w
 	}
@@ -165,8 +168,11 @@ func Word(s state.Store, id string) string {
 
 // Changed is when a session's state last changed, in seconds since the epoch: the state file's time, else the notes file's.
 func Changed(s state.Store, id string) (int64, bool) {
-	for _, name := range []string{"." + id + ".state", id + ".txt"} {
-		if fi, err := os.Stat(filepath.Join(s.Dir, name)); err == nil && fi.Mode().IsRegular() {
+	if !state.SessionID(id) {
+		return 0, false
+	}
+	for _, name := range []string{"state", "notes"} {
+		if fi, err := os.Stat(s.Path(state.ID(id), name)); err == nil && fi.Mode().IsRegular() {
 			return fi.ModTime().Unix(), true
 		}
 	}

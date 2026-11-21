@@ -11,6 +11,8 @@ import (
 
 	"github.com/lfeagan/claude-sitrep/internal/clock"
 	"github.com/lfeagan/claude-sitrep/internal/runner"
+	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/statetest"
 )
 
 func run(t *testing.T, home string, args ...string) (int, string, string) {
@@ -63,21 +65,19 @@ func TestItemNo(t *testing.T) {
 
 func TestSnoozeInProcess(t *testing.T) {
 	home := t.TempDir()
-	dir := filepath.Join(home, ".claude", "sitrep")
-	os.MkdirAll(dir, 0o700)
-	os.WriteFile(filepath.Join(dir, "abcd1111.txt"), []byte("Objective: x\n"), 0o600)
+	st := state.Open(home)
 	at := time.Unix(1_700_000_000, 0)
-	os.Chtimes(filepath.Join(dir, "abcd1111.txt"), at, at)
+	statetest.PutAt(t, st, "abcd1111.txt", "Objective: x\n", at)
 	if code, out, _ := run(t, home, "snooze", "abcd"); code != 0 || out != "snoozed abcd until it changes\n" {
 		t.Errorf("snooze: %d %q", code, out)
 	}
-	if b, _ := os.ReadFile(filepath.Join(dir, ".abcd1111.snooze")); string(b) != "1700000000\n" {
+	if b, _ := os.ReadFile(statetest.Path(st, ".abcd1111.snooze")); string(b) != "1700000000\n" {
 		t.Errorf("snooze file %q", b)
 	}
 	if code, out, _ := run(t, home, "snooze", "--off", "abcd"); code != 0 || out != "abcd is no longer snoozed\n" {
 		t.Errorf("snooze off: %d %q", code, out)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".abcd1111.snooze")); !os.IsNotExist(err) {
+	if _, err := os.Stat(statetest.Path(st, ".abcd1111.snooze")); !os.IsNotExist(err) {
 		t.Error("the snooze file is still there")
 	}
 	if code, _, errs := run(t, home, "snooze", "inbox"); code != 1 || errs != "sitrep: the inbox is not a session\n" {
@@ -90,18 +90,19 @@ func pruneEnv(t *testing.T, tty string) (Env, *bytes.Buffer, *bytes.Buffer, stri
 	t.Helper()
 	home := t.TempDir()
 	dir := filepath.Join(home, ".claude", "sitrep")
+	st := state.Open(home)
 	sess := filepath.Join(home, ".claude", "sessions")
 	os.MkdirAll(dir, 0o700)
 	os.MkdirAll(sess, 0o755)
 	os.WriteFile(filepath.Join(sess, "1.json"), []byte(`{"pid":1,"sessionId":"live0001"}`), 0o600)
 	for id, q := range map[string]string{"live0001": "", "done0001": "one\ntwo\n"} {
-		os.WriteFile(filepath.Join(dir, id+".txt"), []byte("Objective: x\n"), 0o600)
-		os.WriteFile(filepath.Join(dir, id+".cwd"), []byte("/w/"+id+"\n"), 0o600)
+		statetest.Put(t, st, id+".txt", "Objective: x\n", 0)
+		statetest.Put(t, st, id+".cwd", "/w/"+id+"\n", 0)
 		if q != "" {
-			os.WriteFile(filepath.Join(dir, id+".queue"), []byte(q), 0o600)
+			statetest.Put(t, st, id+".queue", q, 0)
 		}
 	}
-	os.WriteFile(filepath.Join(dir, ".done0001.state"), []byte("ended\n"), 0o600)
+	statetest.Put(t, st, ".done0001.state", "ended\n", 0)
 	var out, errb bytes.Buffer
 	e := Env{Home: home, Getenv: func(string) string { return "" }, Stdout: &out, Stderr: &errb,
 		Clock: clock.Real{}, Alive: func(int) bool { return true },

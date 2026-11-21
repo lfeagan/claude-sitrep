@@ -4,11 +4,8 @@ package prune
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/lfeagan/claude-sitrep/internal/live"
 	"github.com/lfeagan/claude-sitrep/internal/queue"
@@ -44,26 +41,15 @@ func (p Pruner) Plan(ctx context.Context, now int64) ([]Action, error) {
 	if !set.OK {
 		return nil, &NoRegistryError{Dir: filepath.Join(p.ConfigDir, "sessions")}
 	}
-	entries, err := os.ReadDir(p.Store.Dir)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
 	q := queue.Queue{Store: p.Store}
 	var out []Action
-	for _, e := range entries {
-		sid, ok := strings.CutSuffix(e.Name(), ".txt")
-		if !ok || !state.SessionID(sid) {
-			continue
-		}
-		if !state.IsRegular(filepath.Join(p.Store.Dir, e.Name())) {
-			continue
-		}
+	for _, id := range p.Store.Sessions() {
+		sid := string(id)
 		changed, ok := live.Changed(p.Store, sid)
 		word := live.Word(p.Store, sid)
 		if !ok || !live.Dead(set, sid, word, changed, now) {
 			continue // alive, or too new to judge
 		}
-		id := state.ID(sid)
 		out = append(out, Action{ID: id, Dir: dirName(p.Store, id), Mark: word != "ended", Items: q.Count(id)})
 	}
 	return out, nil
@@ -81,5 +67,5 @@ func dirName(s state.Store, id state.ID) textsafe.Text {
 
 // MarkEnded records that a session is over.
 func (p Pruner) MarkEnded(id state.ID) error {
-	return p.Store.WriteFile(p.Store.Hidden(id, "state"), []byte("ended\n"))
+	return p.Store.WriteFile(p.Store.Path(id, "state"), []byte("ended\n"))
 }

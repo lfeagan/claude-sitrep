@@ -60,14 +60,19 @@ func TestEnsureTightensTheFolder(t *testing.T) {
 
 func TestPaths(t *testing.T) {
 	s := Store{Dir: "/d"}
-	if s.Path("abc", "txt") != "/d/abc.txt" || s.Hidden("abc", "state") != "/d/.abc.state" {
-		t.Errorf("Path %q, Hidden %q", s.Path("abc", "txt"), s.Hidden("abc", "state"))
+	for got, want := range map[string]string{
+		s.Path("abc", "notes"): "/d/sessions/abc/notes", s.Path("abc", "state"): "/d/sessions/abc/state", s.Path("inbox", "queue"): "/d/inbox.queue",
+		s.SessionDir("abc"): "/d/sessions/abc", s.SessionDir("inbox"): "/d", s.SessionsDir(): "/d/sessions",
+	} {
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
 	}
 }
 
 func TestWriteFile(t *testing.T) {
 	s := newStore(t)
-	p := s.Path("abc", "txt")
+	p := s.Path("abc", "notes")
 	for _, body := range []string{"first\n", "second\n"} {
 		if err := s.WriteFile(p, []byte(body)); err != nil {
 			t.Fatal(err)
@@ -79,22 +84,40 @@ func TestWriteFile(t *testing.T) {
 	if fi, _ := os.Stat(p); fi.Mode().Perm() != FileMode {
 		t.Errorf("mode %v, want %v", fi.Mode().Perm(), FileMode)
 	}
-	entries, _ := os.ReadDir(s.Dir)
+	entries, _ := os.ReadDir(s.SessionDir("abc"))
 	if len(entries) != 1 {
 		t.Errorf("a temporary file was left behind: %v", entries)
+	}
+	for _, d := range []string{s.SessionsDir(), s.SessionDir("abc")} {
+		if fi, err := os.Stat(d); err != nil || fi.Mode().Perm() != DirMode {
+			t.Errorf("%s: %v", d, err)
+		}
+	}
+	// the root takes a file too, and nowhere else does
+	if err := s.WriteFile(filepath.Join(s.Dir, "inbox.queue"), []byte("x")); err != nil {
+		t.Errorf("a file in the root: %v", err)
+	}
+	for _, bad := range []string{filepath.Join(s.Dir, "sessions", "x y", "notes"), filepath.Join(s.Dir, "sessions", "inbox", "notes"), filepath.Join(s.Dir, "sessions", "a", "b", "c"),
+		filepath.Join(s.Dir, "other", "notes"), filepath.Join(s.Dir, "sessions", "..", "..", "evil")} {
+		if err := s.WriteFile(bad, []byte("x")); err == nil {
+			t.Errorf("wrote %s", bad)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(s.Dir, "sessions", "x y")); err == nil {
+		t.Error("a folder was made for an invalid id")
 	}
 }
 
 func TestWriteFileFailureLeavesNothing(t *testing.T) {
 	s := newStore(t)
-	dir := s.Path("adir", "txt")
-	if err := os.Mkdir(dir, 0o700); err != nil { // renaming a file over a directory fails
+	dir := s.Path("adir", "notes")
+	if err := os.MkdirAll(dir, 0o700); err != nil { // renaming a file over a directory fails
 		t.Fatal(err)
 	}
 	if err := s.WriteFile(dir, []byte("x")); err == nil {
 		t.Fatal("want an error")
 	}
-	entries, _ := os.ReadDir(s.Dir)
+	entries, _ := os.ReadDir(s.SessionDir("adir"))
 	if len(entries) != 1 {
 		t.Errorf("a temporary file was left behind: %v", entries)
 	}
@@ -105,14 +128,19 @@ func TestWriteFileFailureLeavesNothing(t *testing.T) {
 
 func TestResolve(t *testing.T) {
 	s := newStore(t)
-	for _, f := range []string{"15f1aaaa.txt", "15f2bbbb.txt", "9zzz0000.txt", "a.b.txt", "x.queue"} {
-		if err := os.WriteFile(filepath.Join(s.Dir, f), nil, FileMode); err != nil {
-			t.Fatal(err)
-		}
+	for _, id := range []string{"15f1aaaa", "15f2bbbb", "9zzz0000"} {
+		os.MkdirAll(s.SessionDir(ID(id)), DirMode)
+		os.WriteFile(s.Path(ID(id), "notes"), nil, FileMode)
 	}
-	if err := os.Mkdir(filepath.Join(s.Dir, "dirdirdir.txt"), DirMode); err != nil {
-		t.Fatal(err)
-	}
+	os.MkdirAll(filepath.Join(s.SessionsDir(), "a.b"), DirMode) // not a valid id
+	os.WriteFile(filepath.Join(s.SessionsDir(), "a.b", "notes"), nil, FileMode)
+	os.MkdirAll(filepath.Join(s.SessionsDir(), "nonotes1"), DirMode) // a folder without notes is no session
+	os.MkdirAll(filepath.Join(s.SessionsDir(), "dirnotes1", "notes"), DirMode)
+	os.WriteFile(filepath.Join(s.SessionsDir(), "filefile"), nil, FileMode) // a file is no session
+	real := filepath.Join(t.TempDir(), "elsewhere")
+	os.MkdirAll(real, DirMode)
+	os.WriteFile(filepath.Join(real, "notes"), nil, FileMode)
+	os.Symlink(real, filepath.Join(s.SessionsDir(), "linked01")) // a link is never followed
 	for in, want := range map[string]string{"9z": "9zzz0000", "15f1": "15f1aaaa", "inbox": "inbox", "9zzz0000": "9zzz0000"} {
 		if got, err := s.Resolve(in); err != nil || string(got) != want {
 			t.Errorf("Resolve(%q) = %q, %v; want %q", in, got, err, want)
@@ -121,8 +149,11 @@ func TestResolve(t *testing.T) {
 	for in, msg := range map[string]string{
 		"15f":      "id '15f' matches 2; run 'sitrep ls'",
 		"nope":     "id 'nope' matches 0; run 'sitrep ls'",
-		"a":        "id 'a' matches 0; run 'sitrep ls'", // a.b.txt is not a session file
-		"dirdir":   "id 'dirdir' matches 0; run 'sitrep ls'",
+		"a":        "id 'a' matches 0; run 'sitrep ls'", // a.b is not a valid id
+		"nonotes":  "id 'nonotes' matches 0; run 'sitrep ls'",
+		"dirnotes": "id 'dirnotes' matches 0; run 'sitrep ls'",
+		"filefile": "id 'filefile' matches 0; run 'sitrep ls'",
+		"linked":   "id 'linked' matches 0; run 'sitrep ls'",
 		"../evil":  "bad id '../evil'",
 		"x\033[31": "bad id 'x[31'",
 		"":         "bad id ''",
@@ -238,5 +269,54 @@ func TestFirstLine(t *testing.T) {
 	}
 	if FirstLine(filepath.Join(t.TempDir(), "missing")) != "" {
 		t.Error("a missing file has a first line")
+	}
+}
+
+func TestSessions(t *testing.T) {
+	s := newStore(t)
+	for _, id := range []string{"bbbb", "aaaa"} {
+		s.EnsureSession(ID(id))
+		os.WriteFile(s.Path(ID(id), "notes"), nil, FileMode)
+	}
+	s.EnsureSession("cccc") // no notes yet
+	if got := s.Sessions(); len(got) != 2 || got[0] != "aaaa" || got[1] != "bbbb" {
+		t.Errorf("%v", got)
+	}
+	if got := (Store{Dir: filepath.Join(t.TempDir(), "none")}).Sessions(); len(got) != 0 {
+		t.Errorf("%v", got)
+	}
+}
+
+func TestEnsureSession(t *testing.T) {
+	s := Open(t.TempDir())
+	if err := s.EnsureSession("abc"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.EnsureSession("abc"); err != nil {
+		t.Errorf("twice: %v", err)
+	}
+	if fi, err := os.Stat(s.SessionDir("abc")); err != nil || fi.Mode().Perm() != DirMode {
+		t.Errorf("%v", err)
+	}
+	if err := s.EnsureSession("inbox"); err != nil {
+		t.Errorf("inbox: %v", err)
+	}
+}
+
+func TestParseLegacy(t *testing.T) {
+	for name, want := range map[string]Legacy{
+		"abc.txt": {ID: "abc", File: "notes"}, ".abc.state": {ID: "abc", File: "state"}, "abc.queue": {ID: "abc", File: "queue"}, "abc.cwd": {ID: "abc", File: "cwd"},
+		".abc.count": {ID: "abc", File: "count"}, ".abc.stamp": {ID: "abc", File: "stamp"}, ".abc.pending": {ID: "abc", File: "pending"}, ".abc.pinned": {ID: "abc", File: "pinned"},
+		".abc.snooze": {ID: "abc", File: "snooze"}, ".abc.lock": {ID: "abc", File: "lock"}, ".abc.prompt": {ID: "abc", Obsolete: true},
+		"13159d08-594f-49e6-bdb5-f37c13cadbec.txt": {ID: "13159d08-594f-49e6-bdb5-f37c13cadbec", File: "notes"},
+	} {
+		if got, ok := ParseLegacy(name); !ok || got != want {
+			t.Errorf("%q: %+v, %v", name, got, ok)
+		}
+	}
+	for _, name := range []string{"inbox.queue", "sitrep.conf", "bin", "a.b.txt", "x.y.z.txt", ".queue.lock", "abc.bogus", ".abc", "abc", ".abc.state.tmp", ".sitrep.XXXX", "bad name.txt", "abc.state", ".abc.txt", ".abc.queue", ".abc.cwd", "abc.count", "abc.prompt", "..txt", ".txt", "a b.txt", "\u00e9.txt", ""} {
+		if got, ok := ParseLegacy(name); ok {
+			t.Errorf("%q parsed as %+v", name, got)
+		}
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/live"
 	"github.com/lfeagan/claude-sitrep/internal/runner"
 	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/statetest"
 )
 
 var now = time.Unix(1_800_000_000, 0)
@@ -38,14 +39,7 @@ func newWorld(t *testing.T) *world {
 
 func (w *world) file(name, body string, age time.Duration) {
 	w.t.Helper()
-	p := filepath.Join(w.s.Dir, name)
-	if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
-		w.t.Fatal(err)
-	}
-	at := now.Add(-age)
-	if err := os.Chtimes(p, at, at); err != nil {
-		w.t.Fatal(err)
-	}
+	statetest.PutAt(w.t, w.s, name, body, now.Add(-age))
 }
 
 // session writes the notes and a state word, both aged.
@@ -190,6 +184,13 @@ func TestIgnoresFilesThatAreNotSessions(t *testing.T) {
 	w.file("x.y.txt", "junk", time.Hour)
 	w.file("inbox.txt", "junk", time.Hour)
 	os.Mkdir(filepath.Join(w.s.Dir, "adir0001.txt"), 0o700)
+	// in the new layout: a folder without notes, a folder whose notes is a folder, a file where a session folder belongs, and a link
+	os.MkdirAll(w.s.SessionDir("nonotes1"), 0o700)
+	os.MkdirAll(w.s.Path("dirnotes", "notes"), 0o700)
+	os.WriteFile(filepath.Join(w.s.SessionsDir(), "filefile"), []byte("x"), 0o600)
+	elsewhere := t.TempDir()
+	os.WriteFile(filepath.Join(elsewhere, "notes"), []byte("Objective: x\n"), 0o600)
+	os.Symlink(elsewhere, filepath.Join(w.s.SessionsDir(), "linked01"))
 	if snap := w.build(Options{All: true, Cap: 5}); len(snap.Sessions) != 1 {
 		t.Errorf("%d sessions", len(snap.Sessions))
 	}
@@ -272,14 +273,14 @@ func TestHostilePipesDoNotHangTheListing(t *testing.T) {
 	w.session("pipe0001", "working", time.Hour)
 	w.register("pipe0001", 1)
 	for _, name := range []string{"pipe0001.queue", "pipe0001.cwd", "inbox.queue", ".pipe0001.snooze"} {
-		if err := syscall.Mkfifo(filepath.Join(w.s.Dir, name), 0o600); err != nil {
+		if err := syscall.Mkfifo(statetest.Path(w.s, name), 0o600); err != nil {
 			t.Skip("no mkfifo")
 		}
 	}
 	// a pipe where the state file or the notes should be
 	w.session("pipe0002", "", time.Hour)
-	os.Remove(filepath.Join(w.s.Dir, ".pipe0002.state"))
-	syscall.Mkfifo(filepath.Join(w.s.Dir, ".pipe0002.state"), 0o600)
+	os.Remove(statetest.Path(w.s, ".pipe0002.state"))
+	syscall.Mkfifo(statetest.Path(w.s, ".pipe0002.state"), 0o600)
 	done := make(chan Snapshot)
 	go func() { done <- w.build(Options{All: true, Cap: 5}) }()
 	select {

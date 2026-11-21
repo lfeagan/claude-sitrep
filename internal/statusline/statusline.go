@@ -46,7 +46,7 @@ func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 		return
 	}
 	id := state.ID(ev.SessionID)
-	if b, err := state.ReadFile(l.Store.Path(id, "txt"), 1<<20); err == nil {
+	if b, err := state.ReadFile(l.Store.Path(id, "notes"), 1<<20); err == nil {
 		fmt.Fprint(out, textsafe.Strip(string(b)))
 	} else {
 		fmt.Fprintln(out, "Objective: (set on your first prompt)")

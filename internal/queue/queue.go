@@ -138,6 +138,9 @@ func (q Queue) Add(id state.ID, text textsafe.Text) (int, error) {
 }
 
 func (q Queue) append(id state.ID, item string) error {
+	if err := q.Store.EnsureSession(id); err != nil {
+		return err
+	}
 	f, err := os.OpenFile(q.file(id), os.O_WRONLY|os.O_APPEND|os.O_CREATE, state.FileMode)
 	if err != nil {
 		return err

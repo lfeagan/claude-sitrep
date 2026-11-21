@@ -68,8 +68,9 @@ func TestWordAllowList(t *testing.T) {
 	if err := s.Ensure(); err != nil {
 		t.Fatal(err)
 	}
+	s.EnsureSession("s1")
 	for body, want := range map[string]string{"working\n": "working", "waiting": "waiting", "ended\nextra\n": "ended", "\x1b[31mworking\n": "-", "bogus\n": "-", "": "-"} {
-		if err := os.WriteFile(s.Hidden("s1", "state"), []byte(body), 0o600); err != nil {
+		if err := os.WriteFile(s.Path("s1", "state"), []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if got := Word(s, "s1"); got != want {
@@ -86,7 +87,8 @@ func TestChanged(t *testing.T) {
 	if err := s.Ensure(); err != nil {
 		t.Fatal(err)
 	}
-	notes := s.Path("s1", "txt")
+	s.EnsureSession("s1")
+	notes := s.Path("s1", "notes")
 	if err := os.WriteFile(notes, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -96,8 +98,8 @@ func TestChanged(t *testing.T) {
 		t.Errorf("notes time: %d, %v", got, ok)
 	}
 	later := time.Unix(1_700_000_500, 0)
-	os.WriteFile(s.Hidden("s1", "state"), []byte("working\n"), 0o600)
-	os.Chtimes(s.Hidden("s1", "state"), later, later)
+	os.WriteFile(s.Path("s1", "state"), []byte("working\n"), 0o600)
+	os.Chtimes(s.Path("s1", "state"), later, later)
 	if got, _ := Changed(s, "s1"); got != later.Unix() {
 		t.Errorf("state file time: %d", got)
 	}
@@ -221,8 +223,9 @@ func TestFoldersWithGlobCharactersAreRead(t *testing.T) {
 func TestStateWordTrimsLikeRead(t *testing.T) {
 	s := state.Open(t.TempDir())
 	s.Ensure()
+	s.EnsureSession("s1")
 	for body, want := range map[string]string{" working \t\n": "working", "\twaiting": "waiting"} {
-		os.WriteFile(s.Hidden("s1", "state"), []byte(body), 0o600)
+		os.WriteFile(s.Path("s1", "state"), []byte(body), 0o600)
 		if got := Word(s, "s1"); got != want {
 			t.Errorf("Word(%q) = %q, want %q", body, got, want)
 		}
@@ -232,10 +235,11 @@ func TestStateWordTrimsLikeRead(t *testing.T) {
 func TestChangedNeedsRegularFiles(t *testing.T) {
 	s := state.Open(t.TempDir())
 	s.Ensure()
-	os.WriteFile(s.Path("s1", "txt"), nil, 0o600)
+	s.EnsureSession("s1")
+	os.WriteFile(s.Path("s1", "notes"), nil, 0o600)
 	at := time.Unix(1_700_000_000, 0)
-	os.Chtimes(s.Path("s1", "txt"), at, at)
-	os.Mkdir(s.Hidden("s1", "state"), 0o700) // a directory where the state file should be: fall back to the notes
+	os.Chtimes(s.Path("s1", "notes"), at, at)
+	os.Mkdir(s.Path("s1", "state"), 0o700) // a directory where the state file should be: fall back to the notes
 	if got, ok := Changed(s, "s1"); !ok || got != at.Unix() {
 		t.Errorf("Changed = %d, %v", got, ok)
 	}

@@ -111,7 +111,6 @@ func procStart(t testing.TB, pid int) string {
 
 func seedWorld(t testing.TB, home string, withRegistry bool) {
 	t.Helper()
-	dir := filepath.Join(home, ".claude", "sitrep")
 	sess := filepath.Join(home, ".claude", "sessions")
 	proj := filepath.Join(home, ".claude", "projects", "-tmp-p")
 	for _, d := range []string{sess, proj} {
@@ -140,9 +139,7 @@ func seedWorld(t testing.TB, home string, withRegistry bool) {
 			if body == "" {
 				return
 			}
-			if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
-				t.Fatal(err)
-			}
+			difftest.Put(t, home, name, body)
 		}
 		write(f.id+".txt", f.notes)
 		write(f.id+".cwd", f.cwd)
@@ -150,11 +147,11 @@ func seedWorld(t testing.TB, home string, withRegistry bool) {
 		mt := now.Add(-f.ago)
 		if f.word != "" {
 			write("."+f.id+".state", f.word+"\n")
-			if err := os.Chtimes(filepath.Join(dir, "."+f.id+".state"), mt, mt); err != nil {
+			if err := os.Chtimes(difftest.Path(home, "."+f.id+".state"), mt, mt); err != nil {
 				t.Fatal(err)
 			}
 		}
-		if err := os.Chtimes(filepath.Join(dir, f.id+".txt"), mt, mt); err != nil {
+		if err := os.Chtimes(difftest.Path(home, f.id+".txt"), mt, mt); err != nil {
 			t.Fatal(err)
 		}
 		if f.pinned {
@@ -201,9 +198,7 @@ func seedWorld(t testing.TB, home string, withRegistry bool) {
 		}
 	}
 	for name, body := range map[string]string{"inbox.queue": "inbox one\ninbox two\n", "bad name.txt": "junk\n", "x.y.txt": "junk\n"} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
-			t.Fatal(err)
-		}
+		difftest.Put(t, home, name, body)
 	}
 }
 
@@ -221,15 +216,14 @@ func worldWith(withRegistry, junk bool, steps ...string) difftest.Scenario {
 	return func(t testing.TB, home string, sitrep difftest.Runner) []difftest.Result {
 		seedWorld(t, home, withRegistry)
 		if !junk {
-			dir := filepath.Join(home, ".claude", "sitrep")
-			os.Remove(filepath.Join(dir, "bad name.txt"))
-			os.Remove(filepath.Join(dir, "x.y.txt"))
+			os.Remove(difftest.Path(home, "bad name.txt"))
+			os.Remove(difftest.Path(home, "x.y.txt"))
 			// hand-edited text (control characters, blank lines, a field over 200 characters) is drawn from the cleaned snapshot, which
 			// differs from the bash on purpose; the hostile session is covered by the JSON and render tests
 			for _, ext := range []string{".txt", ".cwd", ".queue"} {
-				os.Remove(filepath.Join(dir, "hostile0"+ext))
+				os.Remove(difftest.Path(home, "hostile0"+ext))
 			}
-			os.Remove(filepath.Join(dir, ".hostile0.state"))
+			os.Remove(difftest.Path(home, ".hostile0.state"))
 		}
 		var out []difftest.Result
 		for _, l := range steps {

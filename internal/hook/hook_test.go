@@ -16,6 +16,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/clock"
 	"github.com/lfeagan/claude-sitrep/internal/runner"
 	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/statetest"
 )
 
 var t0 = time.Unix(1_800_000_000, 0)
@@ -45,7 +46,7 @@ func newRig(t *testing.T) *rig {
 func (r *rig) fire(json string) { r.t.Helper(); r.h.Run(strings.NewReader(json)) }
 
 func (r *rig) file(name string) string {
-	b, _ := os.ReadFile(filepath.Join(r.h.Store.Dir, name))
+	b, _ := os.ReadFile(statetest.Path(r.h.Store, name))
 	return string(b)
 }
 
@@ -89,7 +90,7 @@ func TestStopSchedulesOneDeferredRun(t *testing.T) {
 		t.Fatalf("first stop: %v", r.spawns)
 	}
 	// a stamp from 10 seconds ago: the next Stop is deferred to the end of the window
-	stamp := r.h.Store.Hidden("sess1", "stamp")
+	stamp := r.h.Store.Path("sess1", "stamp")
 	at := t0.Add(-10 * time.Second)
 	os.Chtimes(stamp, at, at)
 	r.fire(stop)
@@ -102,7 +103,7 @@ func TestStopSchedulesOneDeferredRun(t *testing.T) {
 		t.Errorf("third stop: %v", r.spawns)
 	}
 	// a pending file whose time passed long ago belongs to a child that died, and does not block the next Stop
-	pend := r.h.Store.Hidden("sess1", "pending")
+	pend := r.h.Store.Path("sess1", "pending")
 	os.WriteFile(pend, []byte(strconv.FormatInt(t0.Unix()-100, 10)+" deadbeef\n"), 0o600)
 	r.fire(stop)
 	if len(r.spawns) != 3 {
@@ -134,7 +135,7 @@ func TestDebounceSettingFromTheEnvironment(t *testing.T) {
 	tp := r.transcript("sess3", `{"type":"user","message":{"content":"x"}}`)
 	stop := `{"session_id":"sess3","hook_event_name":"Stop","transcript_path":"` + tp + `"}`
 	r.fire(stop)
-	stamp := r.h.Store.Hidden("sess3", "stamp")
+	stamp := r.h.Store.Path("sess3", "stamp")
 	at := t0.Add(-60 * time.Second)
 	os.Chtimes(stamp, at, at)
 	r.fire(stop)
@@ -160,8 +161,7 @@ func TestSessionStartSeedsAndSummarizes(t *testing.T) {
 
 func TestSessionStartAfterACompactionLeavesTheState(t *testing.T) {
 	r := newRig(t)
-	os.MkdirAll(r.h.Store.Dir, 0o700)
-	os.WriteFile(filepath.Join(r.h.Store.Dir, ".sess5.state"), []byte("working\n"), 0o600)
+	statetest.Put(t, r.h.Store, ".sess5.state", "working\n", 0)
 	r.fire(`{"session_id":"sess5","hook_event_name":"SessionStart","source":"compact"}`)
 	if strings.TrimSpace(r.file(".sess5.state")) != "working" {
 		t.Errorf("state %q", r.file(".sess5.state"))
@@ -232,9 +232,8 @@ func newSummary(t *testing.T, out string) (*rig, Summarizer, *recordingRunner, s
 	rr := &recordingRunner{out: []byte(out)}
 	z := Summarizer{Hook: r.h, Run: rr, Sleep: func(context.Context, time.Duration) {}, Env: []string{"A=1"}}
 	tp := r.transcript("sess8", `{"type":"user","message":{"content":"build it"}}`)
-	os.MkdirAll(r.h.Store.Dir, 0o700)
-	os.WriteFile(filepath.Join(r.h.Store.Dir, "sess8.txt"), []byte("Objective: old goal\nProgress:  p\nNow:       n\n"), 0o600)
-	os.WriteFile(filepath.Join(r.h.Store.Dir, ".sess8.count"), []byte("3\n"), 0o600)
+	statetest.Put(t, r.h.Store, "sess8.txt", "Objective: old goal\nProgress:  p\nNow:       n\n", 0)
+	statetest.Put(t, r.h.Store, ".sess8.count", "3\n", 0)
 	return r, z, rr, tp
 }
 
@@ -275,7 +274,7 @@ func TestSummarizerDropsAStaleSummary(t *testing.T) {
 
 func TestSummarizerKeepsAPinnedObjectiveAndNeedsAllFields(t *testing.T) {
 	r, z, _, tp := newSummary(t, "Objective: ignored\nProgress: p2\nNow: n2\n")
-	os.WriteFile(r.h.Store.Hidden("sess8", "pinned"), nil, 0o600)
+	os.WriteFile(r.h.Store.Path("sess8", "pinned"), nil, 0o600)
 	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
 	if got := r.file("sess8.txt"); got != "Objective: old goal\nProgress:  p2\nNow:       n2\n" {
 		t.Errorf("notes %q", got)
@@ -317,11 +316,11 @@ func TestSummarizerCutsAndCleansWhatClaudeSays(t *testing.T) {
 
 func TestDeferredRunSleepsThenClearsPendingAndStamps(t *testing.T) {
 	r, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
-	os.WriteFile(r.h.Store.Hidden("sess8", "pending"), []byte("1\n"), 0o600)
+	os.WriteFile(r.h.Store.Path("sess8", "pending"), []byte("1\n"), 0o600)
 	var slept time.Duration
 	z.Sleep = func(_ context.Context, d time.Duration) {
 		slept = d
-		if _, err := os.Stat(r.h.Store.Hidden("sess8", "pending")); err != nil {
+		if _, err := os.Stat(r.h.Store.Path("sess8", "pending")); err != nil {
 			t.Error("pending went away before the sleep ended")
 		}
 	}
@@ -329,10 +328,10 @@ func TestDeferredRunSleepsThenClearsPendingAndStamps(t *testing.T) {
 	if slept != 30*time.Second || len(rr.got) != 1 {
 		t.Errorf("slept %v, runs %d", slept, len(rr.got))
 	}
-	if _, err := os.Stat(r.h.Store.Hidden("sess8", "pending")); !os.IsNotExist(err) {
+	if _, err := os.Stat(r.h.Store.Path("sess8", "pending")); !os.IsNotExist(err) {
 		t.Error("pending is still there")
 	}
-	if _, err := os.Stat(r.h.Store.Hidden("sess8", "stamp")); err != nil {
+	if _, err := os.Stat(r.h.Store.Path("sess8", "stamp")); err != nil {
 		t.Error("no stamp")
 	}
 	// the deferred run reads the count after the wait, so it is fresh whatever it was at the Stop
@@ -372,7 +371,7 @@ func TestDebounceSettingEdgeCases(t *testing.T) {
 		stop := `{"session_id":"sess9","hook_event_name":"Stop","transcript_path":"` + tp + `"}`
 		r.fire(stop)
 		at := t0.Add(-time.Duration(c.age) * time.Second)
-		os.Chtimes(r.h.Store.Hidden("sess9", "stamp"), at, at)
+		os.Chtimes(r.h.Store.Path("sess9", "stamp"), at, at)
 		r.spawns = nil
 		r.fire(stop)
 		deferred := len(r.spawns) == 1 && r.spawns[0][1] == "--wait"
@@ -388,7 +387,7 @@ func TestAStampFromTheFutureDoesNotDeferForever(t *testing.T) {
 	stop := `{"session_id":"sess9","hook_event_name":"Stop","transcript_path":"` + tp + `"}`
 	r.fire(stop)
 	future := t0.Add(48 * time.Hour)
-	os.Chtimes(r.h.Store.Hidden("sess9", "stamp"), future, future)
+	os.Chtimes(r.h.Store.Path("sess9", "stamp"), future, future)
 	r.spawns = nil
 	r.fire(stop)
 	if len(r.spawns) != 1 || r.spawns[0][1] != "--since" {
@@ -401,8 +400,8 @@ func TestTwoStopsThatFindAStalePendingFileCreateOneDeferredRun(t *testing.T) {
 	tp := r.transcript("sess9", `{"type":"user","message":{"content":"x"}}`)
 	stop := `{"session_id":"sess9","hook_event_name":"Stop","transcript_path":"` + tp + `"}`
 	r.fire(stop)
-	os.Chtimes(r.h.Store.Hidden("sess9", "stamp"), t0.Add(-5*time.Second), t0.Add(-5*time.Second))
-	os.WriteFile(r.h.Store.Hidden("sess9", "pending"), []byte(strconv.FormatInt(t0.Unix()-500, 10)+" old\n"), 0o600)
+	os.Chtimes(r.h.Store.Path("sess9", "stamp"), t0.Add(-5*time.Second), t0.Add(-5*time.Second))
+	os.WriteFile(r.h.Store.Path("sess9", "pending"), []byte(strconv.FormatInt(t0.Unix()-500, 10)+" old\n"), 0o600)
 	r.spawns = nil
 	done := make(chan struct{})
 	var mu sync.Mutex
@@ -436,15 +435,15 @@ func TestAHugeEventAndTrailingGarbage(t *testing.T) {
 
 func TestSummarizerStopsWhenAnotherRunOwnsThePendingFile(t *testing.T) {
 	r, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
-	os.WriteFile(r.h.Store.Hidden("sess8", "pending"), []byte(strconv.FormatInt(t0.Unix(), 10)+" theirs\n"), 0o600)
+	os.WriteFile(r.h.Store.Path("sess8", "pending"), []byte(strconv.FormatInt(t0.Unix(), 10)+" theirs\n"), 0o600)
 	z.Do(context.Background(), "sess8", tp, Opts{Wait: 1, Nonce: "mine"})
 	if len(rr.got) != 0 {
 		t.Error("a run that lost the pending file still summarized")
 	}
-	if _, nonce, ok := ReadPending(r.h.Store.Hidden("sess8", "pending")); !ok || nonce != "theirs" {
+	if _, nonce, ok := ReadPending(r.h.Store.Path("sess8", "pending")); !ok || nonce != "theirs" {
 		t.Error("the other run's pending file was removed")
 	}
-	os.WriteFile(r.h.Store.Hidden("sess8", "pending"), []byte(strconv.FormatInt(t0.Unix(), 10)+" mine\n"), 0o600)
+	os.WriteFile(r.h.Store.Path("sess8", "pending"), []byte(strconv.FormatInt(t0.Unix(), 10)+" mine\n"), 0o600)
 	z.Do(context.Background(), "sess8", tp, Opts{Wait: 1, Nonce: "mine"})
 	if len(rr.got) != 1 {
 		t.Error("the owner did not summarize")
@@ -472,17 +471,17 @@ func TestSummarizerSkipsATranscriptThatWentAway(t *testing.T) {
 
 func TestASignalDuringTheWaitChangesNothing(t *testing.T) {
 	r, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
-	os.WriteFile(r.h.Store.Hidden("sess8", "pending"), []byte(strconv.FormatInt(t0.Unix(), 10)+" mine\n"), 0o600)
+	os.WriteFile(r.h.Store.Path("sess8", "pending"), []byte(strconv.FormatInt(t0.Unix(), 10)+" mine\n"), 0o600)
 	ctx, cancel := context.WithCancel(context.Background())
 	z.Sleep = func(context.Context, time.Duration) { cancel() }
 	z.Do(ctx, "sess8", tp, Opts{Wait: 30, Nonce: "mine"})
 	if len(rr.got) != 0 {
 		t.Error("a cancelled run still summarized")
 	}
-	if _, err := os.Stat(r.h.Store.Hidden("sess8", "stamp")); err == nil {
+	if _, err := os.Stat(r.h.Store.Path("sess8", "stamp")); err == nil {
 		t.Error("a cancelled run touched the stamp")
 	}
-	if _, _, ok := ReadPending(r.h.Store.Hidden("sess8", "pending")); !ok {
+	if _, _, ok := ReadPending(r.h.Store.Path("sess8", "pending")); !ok {
 		t.Error("a cancelled run removed the pending file")
 	}
 }

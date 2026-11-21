@@ -78,19 +78,77 @@ func (s Store) Ensure() error {
 	return os.Chmod(s.Dir, DirMode)
 }
 
-// Path is the file for a session id and an extension without the dot: <id>.txt, <id>.queue, <id>.cwd.
-func (s Store) Path(id ID, ext string) string { return filepath.Join(s.Dir, string(id)+"."+ext) }
+// SessionsDir is the folder that holds one folder per session.
+func (s Store) SessionsDir() string { return filepath.Join(s.Dir, "sessions") }
 
-// Hidden is the dot file kept beside them: .<id>.state, .<id>.count, and so on.
-func (s Store) Hidden(id ID, ext string) string { return filepath.Join(s.Dir, "."+string(id)+"."+ext) }
+// SessionDir is the folder of one session. The inbox is no session, and lives in the root.
+func (s Store) SessionDir(id ID) string {
+	if id == Inbox {
+		return s.Dir
+	}
+	return filepath.Join(s.SessionsDir(), string(id))
+}
 
-// WriteFile replaces path with data in one step: a reader sees the old file or the new one, never a half. The temporary file has a
-// unique name in the same folder and is removed if anything fails.
+// Path is the file of a session: notes, queue, cwd, state, count, stamp, pending, lock, pinned or snooze. The inbox has only its queue, in
+// the root as inbox.queue.
+func (s Store) Path(id ID, name string) string {
+	if id == Inbox {
+		return filepath.Join(s.Dir, "inbox."+name)
+	}
+	return filepath.Join(s.SessionDir(id), name)
+}
+
+// EnsureSession makes the folder of a session, owner-only, and the folder of sessions above it. Whatever writes first makes it.
+func (s Store) EnsureSession(id ID) error {
+	if id == Inbox {
+		return s.Ensure()
+	}
+	if err := os.MkdirAll(s.SessionsDir(), DirMode); err != nil {
+		return err
+	}
+	if err := os.Mkdir(s.SessionDir(id), DirMode); err != nil && !os.IsExist(err) {
+		return err
+	}
+	// a link, or something that is no folder, is never written through
+	for _, d := range []string{s.SessionsDir(), s.SessionDir(id)} {
+		if fi, err := os.Lstat(d); err != nil || !fi.IsDir() {
+			return fmt.Errorf("%s is not a folder", filepath.Base(d))
+		}
+	}
+	return nil
+}
+
+// Sessions lists the sessions: the folders of the sessions folder that have a valid id and hold a regular file notes. A link is not followed,
+// and a folder without notes is not a session.
+func (s Store) Sessions() []ID {
+	entries, _ := os.ReadDir(s.SessionsDir())
+	var out []ID
+	for _, e := range entries {
+		if !e.Type().IsDir() || !SessionID(e.Name()) {
+			continue
+		}
+		id := ID(e.Name())
+		if IsRegular(s.Path(id, "notes")) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// WriteFile replaces path with data in one step: a reader sees the old file or the new one, never a half. The path must be in the state folder
+// or in the folder of a session (made if need be). The temporary file has a unique name in the same folder and is removed if anything fails.
 func (s Store) WriteFile(path string, data []byte) error {
-	if filepath.Dir(path) != s.Dir {
+	dir := filepath.Dir(path)
+	switch {
+	case dir == s.Dir:
+	case filepath.Dir(dir) == s.SessionsDir() && SessionID(filepath.Base(dir)):
+		if err := s.EnsureSession(ID(filepath.Base(dir))); err != nil {
+			return err
+		}
+	default:
 		return fmt.Errorf("%s is not in the state folder", path)
 	}
-	f, err := os.CreateTemp(s.Dir, ".sitrep.*")
+	f, err := os.CreateTemp(dir, ".sitrep.*")
 	if err != nil {
 		return err
 	}
@@ -119,7 +177,7 @@ func (s Store) WriteFile(path string, data []byte) error {
 
 // Resolve turns a unique prefix of a session id into the full id. "inbox" matches exactly. The error text is safe to print.
 //
-// It is stricter than the bash it replaces: only files named <valid id>.txt count, so inbox.txt and a.b.txt never match by prefix.
+// It is stricter than the bash it replaces: only session folders with a valid id count.
 func (s Store) Resolve(prefix string) (ID, error) {
 	id, err := ParseID(prefix)
 	if err != nil {
@@ -128,20 +186,11 @@ func (s Store) Resolve(prefix string) (ID, error) {
 	if id == Inbox {
 		return Inbox, nil
 	}
-	entries, err := os.ReadDir(s.Dir)
-	if err != nil && !os.IsNotExist(err) {
-		return "", err
-	}
 	var m []ID
-	for _, e := range entries {
-		id, ok := strings.CutSuffix(e.Name(), ".txt")
-		if !ok || !SessionID(id) || !strings.HasPrefix(id, prefix) {
-			continue
+	for _, c := range s.Sessions() {
+		if strings.HasPrefix(string(c), prefix) {
+			m = append(m, c)
 		}
-		if fi, err := os.Stat(filepath.Join(s.Dir, e.Name())); err != nil || !fi.Mode().IsRegular() {
-			continue
-		}
-		m = append(m, ID(id))
 	}
 	if len(m) != 1 {
 		return "", fmt.Errorf("id '%s' matches %d; run 'sitrep ls'", prefix, len(m))

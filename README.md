@@ -186,7 +186,7 @@ Each session has these fields:
 
 ## How It Works
 
-State lives in `~/.claude/sitrep/`: `<session_id>.{txt,queue,cwd}` per session, `inbox.queue` for the inbox, hidden `.<session_id>.*` files for the pin, the prompt count, the debounce and the session state, and `sitrep.conf`. The program is `~/.claude/sitrep/bin/sitrep`. The status line only reads files, so it renders instantly. The hooks run `sitrep hook`, which answers within milliseconds; the Haiku call runs afterwards in a detached child of the same program, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window. A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
+State lives in `~/.claude/sitrep/`: a folder `sessions/<session_id>/` per session, holding `notes`, `queue`, `cwd`, `state`, `count`, `stamp`, `pending`, `pinned` and `snooze`, then `inbox.queue` for the inbox, `bin/` and `sitrep.conf`. Version 0.4 and before kept every file in the root; `/sitrep:setup` moves them, and `sitrep migrate [--dry-run]` does the same by hand (it never overwrites, merges queues, and is safe to run again). The program is `~/.claude/sitrep/bin/sitrep`. The status line only reads files, so it renders instantly. The hooks run `sitrep hook`, which answers within milliseconds; the Haiku call runs afterwards in a detached child of the same program, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window. A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
 
 ## Privacy And Safety
 

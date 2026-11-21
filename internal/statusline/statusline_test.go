@@ -11,6 +11,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/conf"
 	"github.com/lfeagan/claude-sitrep/internal/runner"
 	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/statetest"
 )
 
 func render(t *testing.T, files map[string]string, input string, run runner.Runner) string {
@@ -18,7 +19,7 @@ func render(t *testing.T, files map[string]string, input string, run runner.Runn
 	s := state.Open(t.TempDir())
 	s.Ensure()
 	for name, body := range files {
-		os.WriteFile(filepath.Join(s.Dir, name), []byte(body), 0o600)
+		statetest.Put(t, s, name, body, 0)
 	}
 	l := Line{Store: s, Conf: conf.Conf{File: filepath.Join(s.Dir, "sitrep.conf"), Getenv: func(string) string { return "" }}, Run: run, Env: []string{"A=1"}}
 	var out bytes.Buffer

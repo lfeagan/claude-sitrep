@@ -2,7 +2,6 @@ package cli
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -28,11 +27,8 @@ func TestMain(m *testing.M) {
 // seed makes session files, so that ids resolve: two that share a prefix, and one on its own.
 func seed(t testing.TB, home string, objective string) {
 	t.Helper()
-	dir := filepath.Join(home, ".claude", "sitrep")
 	for _, id := range []string{"abcd1111", "abce2222", "zzzz3333"} {
-		if err := os.WriteFile(filepath.Join(dir, id+".txt"), []byte(objective), 0o600); err != nil {
-			t.Fatal(err)
-		}
+		difftest.Put(t, home, id+".txt", objective)
 	}
 }
 

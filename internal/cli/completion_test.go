@@ -9,6 +9,9 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/statetest"
 )
 
 func sorted(l []string) []string { c := append([]string(nil), l...); sort.Strings(c); return c }
@@ -16,9 +19,9 @@ func sorted(l []string) []string { c := append([]string(nil), l...); sort.String
 // completionEnv has three sessions: two share their first four characters.
 func completionEnv(t *testing.T) Env {
 	t.Helper()
-	e, _, _, dir := pruneEnv(t, "none")
+	e, _, _, _ := pruneEnv(t, "none")
 	for _, id := range []string{"abcd1111-x", "abcd2222-y", "zzzz3333-z"} {
-		os.WriteFile(filepath.Join(dir, id+".txt"), []byte("Objective: x\n"), 0o600)
+		statetest.Put(t, state.Open(e.Home), id+".txt", "Objective: x\n", 0)
 	}
 	return e
 }
@@ -172,10 +175,8 @@ func TestBashScript(t *testing.T) {
 		t.Skip("no bash")
 	}
 	home := t.TempDir()
-	dir := filepath.Join(home, ".claude", "sitrep")
-	os.MkdirAll(dir, 0o700)
 	for _, id := range []string{"abcd1111-x", "abcd2222-y", "zzzz3333-z"} {
-		os.WriteFile(filepath.Join(dir, id+".txt"), []byte("Objective: x\n"), 0o600)
+		statetest.Put(t, state.Open(home), id+".txt", "Objective: x\n", 0)
 	}
 	prog := filepath.Join(t.TempDir(), "sitrep")
 	build := exec.Command("go", "build", "-o", prog, "./cmd/sitrep")

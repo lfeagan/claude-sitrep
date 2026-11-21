@@ -10,7 +10,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+
+	"github.com/lfeagan/claude-sitrep/internal/state"
 )
 
 // Tag is the git tag of the last commit that holds the bash scripts.
@@ -162,41 +165,136 @@ func Home(t testing.TB) string {
 	return home
 }
 
+// flatHomes holds the homes of runs of the bash oracle, which keeps every file of every session in the state folder. A home that is not in
+// it is a home of the Go program, which keeps a folder for each session.
+var flatHomes sync.Map
+
+func isFlat(home string) bool { _, ok := flatHomes.Load(home); return ok }
+
+func stateDir(home string) string { return filepath.Join(home, ".claude", "sitrep") }
+
+// Path is where the file with this name of the old flat layout (<id>.txt, .<id>.state, inbox.queue) is in a home: where the bash keeps it,
+// or where the Go program does.
+func Path(home, name string) string {
+	if !isFlat(home) {
+		if l, ok := state.ParseLegacy(name); ok && !l.Obsolete {
+			return state.Open(home).Path(l.ID, l.File)
+		}
+	}
+	return filepath.Join(stateDir(home), name)
+}
+
+// Put writes a file named as in the old flat layout where the program of that home looks for it, making its folder, and returns the path.
+// Scenarios seed their state with it, so that one scenario serves both programs.
+func Put(t testing.TB, home, name, body string) string {
+	t.Helper()
+	p := Path(home, name)
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
 // File is one state file as the comparison sees it.
 type File struct {
 	Mode    os.FileMode
 	Content string
 }
 
-// State reads every regular file in the state folder, by name, with its mode and its content, in which the HOME is written as $HOME. A
-// leftover temporary file (.sitrep.*) is kept under its own name, so a run that leaks one is a difference; the random part is dropped.
+// flatName is the name a file of a session's folder has in the old flat layout, so that both programs' files can be compared by name.
+func flatName(id, file string) string {
+	switch file {
+	case "notes":
+		return id + ".txt"
+	case "queue", "cwd":
+		return id + "." + file
+	}
+	return "." + id + "." + file
+}
+
+// State reads every regular file of the state, by the name it has in the old flat layout, with its mode and its content, in which the HOME is
+// written as $HOME. The Go layout (sessions/<id>/<file>) is read as the flat names, so both are compared as one. A leftover temporary file
+// (.sitrep.*) is kept under its own name, so a run that leaks one is a difference; the random part is dropped. Lock files are left out: they
+// are a Go-only artifact, as the bash took none. Anything unexpected (a folder in the root, a file in a session folder that is not one of ours)
+// is kept under its path, so that it is a difference too.
 func State(t testing.TB, home string) map[string]File {
 	t.Helper()
-	dir := filepath.Join(home, ".claude", "sitrep")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := stateDir(home)
 	m := map[string]File{}
-	for _, e := range entries {
-		if !e.Type().IsRegular() || strings.HasSuffix(e.Name(), ".lock") {
-			continue // a lock file is a Go-only artifact: the bash took no locks
-		}
-		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+	add := func(path, name string) {
+		b, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		fi, err := e.Info()
+		fi, err := os.Stat(path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		name := e.Name()
-		if strings.HasPrefix(name, ".sitrep.") {
+		if strings.HasPrefix(filepath.Base(name), ".sitrep.") {
 			name = ".sitrep.<temporary>"
 		}
 		m[name] = File{Mode: fi.Mode().Perm(), Content: strings.ReplaceAll(string(b), home, "$HOME")}
 	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		switch {
+		case e.Name() == "sessions" && e.IsDir():
+			ids, _ := os.ReadDir(filepath.Join(dir, "sessions"))
+			for _, d := range ids {
+				files, _ := os.ReadDir(filepath.Join(dir, "sessions", d.Name()))
+				for _, f := range files {
+					p := filepath.Join(dir, "sessions", d.Name(), f.Name())
+					switch {
+					case !d.IsDir() || !f.Type().IsRegular():
+						m["?"+filepath.Join("sessions", d.Name(), f.Name())] = File{}
+					case f.Name() == "lock":
+					case strings.HasPrefix(f.Name(), ".sitrep."):
+						add(p, ".sitrep.<temporary>")
+					default:
+						add(p, flatName(d.Name(), f.Name()))
+					}
+				}
+			}
+		case !e.Type().IsRegular():
+			m["?"+e.Name()] = File{}
+		case strings.HasSuffix(e.Name(), ".lock"):
+		default:
+			add(filepath.Join(dir, e.Name()), e.Name())
+		}
+	}
 	return m
+}
+
+// CompareMigrated runs the scenario with the bash oracle, runs `sitrep migrate` (with the Go program) on the state it left, runs the scenario
+// with the Go program, and fails when the two states differ: migration of what the bash wrote must give what the Go program writes.
+func CompareMigrated(t *testing.T, scenario Scenario, goRunner Runner) {
+	t.Helper()
+	oracle := Oracle(t)
+	homeA, homeB := Home(t), Home(t)
+	flatHomes.Store(homeA, true)
+	scenario(t, homeA, oracle)
+	scenario(t, homeB, goRunner)
+	if r := goRunner(t, homeA, "migrate"); r.Code != 0 {
+		t.Fatalf("migrate: exit %d: %s%s", r.Code, r.Stdout, r.Stderr)
+	}
+	flatHomes.Delete(homeA) // it is the Go layout now
+	sa, sb := State(t, homeA), State(t, homeB)
+	for name, want := range sb {
+		if got, ok := sa[name]; !ok || got != want {
+			t.Errorf("state file %s differs\n  migrated bash: %+v\n  go:            %+v", name, got, want)
+		}
+	}
+	for name := range sa {
+		if _, ok := sb[name]; !ok {
+			t.Errorf("state file %s exists only after migrating the bash state", name)
+		}
+	}
 }
 
 // Normalize makes a result comparable: the temporary HOME becomes $HOME.
@@ -216,10 +314,11 @@ func Compare(t *testing.T, scenario Scenario, goRunner Runner, norm ...func(Resu
 	}
 }
 
-// Diff runs the scenario with each runner in its own fresh HOME, and describes every difference in exit status, output or state files.
+// Diff runs the scenario with each runner in its own fresh HOME (a is the bash oracle, b the Go program), and describes every difference in exit status, output or state files.
 func Diff(t testing.TB, scenario Scenario, a, b Runner, norm ...func(Result) Result) []string {
 	t.Helper()
 	homeA, homeB := Home(t), Home(t)
+	flatHomes.Store(homeA, true) // a is the bash oracle, which keeps the flat layout
 	ra, rb := scenario(t, homeA, a), scenario(t, homeB, b)
 	for _, n := range norm {
 		for i := range ra {

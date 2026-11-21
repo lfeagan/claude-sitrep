@@ -77,7 +77,7 @@ func (s *session) notes() notes.Notes { return notes.Notes{Store: s.Store} }
 func (s *session) queue() queue.Queue { return queue.Queue{Store: s.Store} }
 
 func (s *session) setState(word string) {
-	_ = s.Store.WriteFile(s.Store.Hidden(s.id, "state"), []byte(word+"\n")) // a hook never fails
+	_ = s.Store.WriteFile(s.Store.Path(s.id, "state"), []byte(word+"\n")) // a hook never fails
 }
 
 // block answers a prompt without sending it to Claude.
@@ -139,8 +139,8 @@ func (s *session) run() {
 
 func (s *session) prompt() {
 	prompt := strings.TrimRight(s.ev.Prompt, "\n") // the shell's command substitution
-	c, _ := strconv.Atoi(state.FirstLine(s.Store.Hidden(s.id, "count")))
-	_ = s.Store.WriteFile(s.Store.Hidden(s.id, "count"), []byte(strconv.Itoa(c+1)+"\n")) // for the stale-summary check
+	c, _ := strconv.Atoi(state.FirstLine(s.Store.Path(s.id, "count")))
+	_ = s.Store.WriteFile(s.Store.Path(s.id, "count"), []byte(strconv.Itoa(c+1)+"\n")) // for the stale-summary check
 	if s.plus(prompt) {
 		return
 	}
@@ -200,14 +200,17 @@ func (s *session) plus(prompt string) bool {
 
 // ensureNotes makes the notes file if there is none, so that the session resolves by id.
 func (s *session) ensureNotes() {
-	if !state.IsRegular(s.Store.Path(s.id, "txt")) {
+	if !state.IsRegular(s.Store.Path(s.id, "notes")) {
 		_ = s.write("-", "-", "-")
 	}
 }
 
 // pin keeps the summarizer from rewriting the Objective.
 func (s *session) pin() error {
-	f, err := os.OpenFile(s.Store.Hidden(s.id, "pinned"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, state.FileMode)
+	if err := s.Store.EnsureSession(s.id); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(s.Store.Path(s.id, "pinned"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, state.FileMode)
 	if err != nil {
 		return err
 	}
@@ -243,7 +246,7 @@ func (s *session) stop() {
 		window = int64(n)
 	}
 	now := s.Clock.Now().Unix()
-	stamp := s.Store.Hidden(s.id, "stamp")
+	stamp := s.Store.Path(s.id, "stamp")
 	fi, err := os.Stat(stamp)
 	// a stamp from the future (a clock that moved back) is as good as none
 	if err == nil && fi.ModTime().Unix() <= now && now-fi.ModTime().Unix() < window {
@@ -262,12 +265,12 @@ func (s *session) stop() {
 // owns it. A pending file whose time has long passed belongs to a child that died (a reboot, a kill), so it is replaced. The check and the
 // replacement happen under a lock, so two Stops that find it stale cannot both win it.
 func (s *session) claimPending(now, due, window int64) (string, bool) {
-	unlock, err := state.Lock(s.Store.Hidden(s.id, "lock"))
+	unlock, err := state.Lock(s.Store.Path(s.id, "lock"))
 	if err != nil {
 		return "", false
 	}
 	defer unlock()
-	path := s.Store.Hidden(s.id, "pending")
+	path := s.Store.Path(s.id, "pending")
 	if d, _, ok := ReadPending(path); ok {
 		if now <= d+5 {
 			return "", false
@@ -302,6 +305,6 @@ func touch(st state.Store, path string, now int64) {
 
 // summarizeNow starts the summarizer, telling it the prompt count it is for.
 func (s *session) summarizeNow() {
-	since := state.FirstLine(s.Store.Hidden(s.id, "count"))
+	since := state.FirstLine(s.Store.Path(s.id, "count"))
 	_ = s.Spawn("hook-summarize", "--since", since, "--", string(s.id), s.tp)
 }

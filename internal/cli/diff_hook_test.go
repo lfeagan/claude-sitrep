@@ -40,8 +40,6 @@ func newHookWorld(t testing.TB, home string, sitrep difftest.Runner) *hookWorld 
 	return &hookWorld{t: t, home: home, sitrep: sitrep}
 }
 
-func (w *hookWorld) state() string { return filepath.Join(w.home, ".claude", "sitrep") }
-
 func (w *hookWorld) transcript(sid string, lines ...string) string {
 	dir := filepath.Join(w.home, ".claude", "projects", "-proj")
 	os.MkdirAll(dir, 0o755)
@@ -86,8 +84,8 @@ func (w *hookWorld) settle(sid string, n int) {
 	w.t.Helper()
 	deadline := time.Now().Add(8 * time.Second)
 	for time.Now().Before(deadline) {
-		b, _ := os.ReadFile(filepath.Join(w.state(), sid+".txt"))
-		_, pend := os.Stat(filepath.Join(w.state(), "."+sid+".pending"))
+		b, _ := os.ReadFile(difftest.Path(w.home, sid+".txt"))
+		_, pend := os.Stat(difftest.Path(w.home, "."+sid+".pending"))
 		if w.calls() >= n && strings.Contains(string(b), "stub progress") && pend != nil {
 			time.Sleep(150 * time.Millisecond)
 			w.results = append(w.results, difftest.Result{Stdout: fmt.Sprintf("calls=%d\n%s", w.calls(), w.rec())})
@@ -296,4 +294,36 @@ func TestSummarizerDeadlineKillsTheWholeGroup(t *testing.T) {
 		t.Errorf("a process started by claude (pid %d) outlived the deadline", pid)
 		syscall.Kill(pid, syscall.SIGKILL)
 	}
+}
+
+// What `sitrep migrate` makes of the state the bash wrote is what the Go program writes.
+func TestMigratedBashStateEqualsGoState(t *testing.T) {
+	for name, f := range map[string]func(w *hookWorld){
+		"prompts and plus commands": func(w *hookWorld) {
+			w.fire(ev("sess0001", "SessionStart", "source", "startup"))
+			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "fix the flaky test"))
+			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "+ write the docs"))
+			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "+pin The goal"))
+			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "+inbox look at CI"))
+			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "+take"))
+			w.fire(ev("sess0001", "Stop"))
+			w.fire(ev("sess0002", "UserPromptSubmit", "prompt", "second session"))
+			w.fire(ev("sess0002", "SessionEnd"))
+		},
+		"summarizer": func(w *hookWorld) {
+			tp := w.transcript("sess0003", jsonl("user", "build it"))
+			w.fire(ev("sess0003", "UserPromptSubmit", "prompt", "build it", "transcript_path", tp))
+			w.fire(ev("sess0003", "Stop", "transcript_path", tp))
+			w.settle("sess0003", 1)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			difftest.CompareMigrated(t, hookScenario(f), goSitrep)
+		})
+	}
+}
+
+func TestMigratedQueueCommandsEqualGo(t *testing.T) {
+	steps := cmds("add|zz|a", "add|zz|b", "add|inbox|i", "move|zz|inbox", "pin|zz|ship it", "top|zz|1")
+	difftest.CompareMigrated(t, scenario(steps...), goSitrep)
 }

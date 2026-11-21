@@ -58,16 +58,16 @@ func (z Summarizer) Do(ctx context.Context, id state.ID, tp string, o Opts) {
 		if ctx.Err() != nil {
 			return // told to stop while waiting: change nothing
 		}
-		pending := z.Store.Hidden(id, "pending")
+		pending := z.Store.Path(id, "pending")
 		if o.Nonce != "" {
 			if _, nonce, ok := ReadPending(pending); !ok || nonce != o.Nonce {
 				return // another Stop took the deferred run over: it does the summary
 			}
 		}
 		// the stamp first, then the pending file, so a Stop in between sees one or the other and never neither
-		_ = z.Store.WriteFile(z.Store.Hidden(id, "stamp"), nil)
+		_ = z.Store.WriteFile(z.Store.Path(id, "stamp"), nil)
 		_ = os.Remove(pending)
-		since = state.FirstLine(z.Store.Hidden(id, "count"))
+		since = state.FirstLine(z.Store.Path(id, "count"))
 	}
 	n := &session{Hook: z.Hook, id: id}
 	obj := n.notes().Get(id, "Objective")
@@ -100,11 +100,11 @@ func (z Summarizer) Do(ctx context.Context, id state.ID, tp string, o Opts) {
 		return
 	}
 	// a prompt submitted while we were summarizing makes this summary stale: drop it, the next Stop redoes it
-	if state.FirstLine(z.Store.Hidden(id, "count")) != since {
+	if state.FirstLine(z.Store.Path(id, "count")) != since {
 		return
 	}
 	o3 := textsafe.Sane(o2, 100).String()
-	if _, err := os.Stat(z.Store.Hidden(id, "pinned")); err == nil || o3 == "" {
+	if _, err := os.Stat(z.Store.Path(id, "pinned")); err == nil || o3 == "" {
 		o3 = n.notes().Get(id, "Objective")
 	}
 	_ = n.write(o3, textsafe.Sane(p, 140).String(), textsafe.Sane(nw, 140).String())

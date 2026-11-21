@@ -19,6 +19,7 @@ func newQueue(t *testing.T, id state.ID, body string) Queue {
 	if err := s.Ensure(); err != nil {
 		t.Fatal(err)
 	}
+	s.EnsureSession(id)
 	q := Queue{Store: s}
 	if body != "" {
 		if err := os.WriteFile(q.file(id), []byte(body), 0o600); err != nil {

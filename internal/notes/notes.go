@@ -26,7 +26,7 @@ func (n Notes) Pin(id state.ID, text textsafe.Text) error {
 		return err
 	}
 	var keep []string
-	if b, err := state.ReadFile(n.Store.Path(id, "txt"), 1<<20); err == nil {
+	if b, err := state.ReadFile(n.Store.Path(id, "notes"), 1<<20); err == nil {
 		for _, l := range strings.SplitAfter(string(b), "\n") {
 			if l != "" && !strings.HasPrefix(l, "Objective:") {
 				keep = append(keep, l)
@@ -34,10 +34,13 @@ func (n Notes) Pin(id state.ID, text textsafe.Text) error {
 		}
 	}
 	body := "Objective: " + text.String() + "\n" + strings.Join(keep, "")
-	if err := n.Store.WriteFile(n.Store.Path(id, "txt"), []byte(body)); err != nil {
+	if err := n.Store.WriteFile(n.Store.Path(id, "notes"), []byte(body)); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(n.Store.Hidden(id, "pinned"), os.O_WRONLY|os.O_CREATE, state.FileMode)
+	if err := n.Store.EnsureSession(id); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(n.Store.Path(id, "pinned"), os.O_WRONLY|os.O_CREATE, state.FileMode)
 	if err != nil {
 		return err
 	}
@@ -46,7 +49,7 @@ func (n Notes) Pin(id state.ID, text textsafe.Text) error {
 
 // Unpin lets the summarizer rewrite the Objective again.
 func (n Notes) Unpin(id state.ID) error {
-	err := os.Remove(n.Store.Hidden(id, "pinned"))
+	err := os.Remove(n.Store.Path(id, "pinned"))
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -59,12 +62,12 @@ func (n Notes) Snooze(id state.ID, changed int64) error {
 	if err := n.Store.Ensure(); err != nil {
 		return err
 	}
-	return n.Store.WriteFile(n.Store.Hidden(id, "snooze"), []byte(strconv.FormatInt(changed, 10)+"\n"))
+	return n.Store.WriteFile(n.Store.Path(id, "snooze"), []byte(strconv.FormatInt(changed, 10)+"\n"))
 }
 
 // Unsnooze ends the mute at once.
 func (n Notes) Unsnooze(id state.ID) error {
-	err := os.Remove(n.Store.Hidden(id, "snooze"))
+	err := os.Remove(n.Store.Path(id, "snooze"))
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -74,7 +77,7 @@ func (n Notes) Unsnooze(id state.ID) error {
 // Get is the value of the first "<key>:" line of the session's notes, without the spaces after the colon; empty when there is none. The text
 // is raw: it came from a file, so it goes through textsafe before it is shown or stored again.
 func (n Notes) Get(id state.ID, key string) string {
-	b, err := state.ReadFile(n.Store.Path(id, "txt"), 1<<20)
+	b, err := state.ReadFile(n.Store.Path(id, "notes"), 1<<20)
 	if err != nil {
 		return ""
 	}
@@ -92,5 +95,5 @@ func (n Notes) Write(id state.ID, objective, progress, now textsafe.Text) error 
 		return err
 	}
 	body := "Objective: " + objective.String() + "\nProgress:  " + progress.String() + "\nNow:       " + now.String() + "\n"
-	return n.Store.WriteFile(n.Store.Path(id, "txt"), []byte(body))
+	return n.Store.WriteFile(n.Store.Path(id, "notes"), []byte(body))
 }
