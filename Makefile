@@ -19,3 +19,8 @@ tui-test:
 	cd tui && test -z "$$(gofmt -l .)" && go vet ./... && go test -race -count=1 ./...
 	cd tui && go build -o ../bin/sitrep-tui .
 	h=$$(mktemp -d); HOME=$$h SITREP_BIN=$(CURDIR)/bin/sitrep bin/sitrep-tui --once | grep -q Watch; r=$$?; rmdir "$$h"; exit $$r
+
+# The Go port (see docs/GO-PORT.md). The differential tests need git, jq and perl, and skip without the bash-final tag.
+.PHONY: go-test
+go-test:
+	test -z "$$(gofmt -l cmd internal)" && go vet ./... && go test -race -count=1 ./...

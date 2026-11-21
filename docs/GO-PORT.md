@@ -130,7 +130,7 @@ What this costs, plainly:
 
 ## Test Strategy
 
-1. **Oracle.** Phase 0 creates the tag and records the `passed:` count from `bash tests/run.sh`. The bash suite stays, and stays green, until Phase 8. The harness materializes the tag with `git archive` into a temp directory, since nothing needs building. It needs `jq` and `perl` on CI until then.
+1. **Oracle.** Phase 0 created the tag and recorded the `passed:` count from `bash tests/run.sh`: 708 passed, 0 failed. The bash suite stays, and stays green, until Phase 8. The harness materializes the tag with `git archive` into a temp directory, since nothing needs building. It needs `jq` and `perl` on CI until then.
 2. **Injected clock and runner.** Differential tests are flaky without them: `generated`, ages, `waiting 3m`, mtimes, `ps lstart`, real pids and the debounce `sleep` all vary. `internal/clock` and `internal/runner` exist from Phase 1, and tests normalize what remains.
 3. **Differential tests.** The same scenario runs through both, comparing exit status, stdout and the resulting state files. This proves parity for `ls`, `ls --json`, the queue commands, prune and the hook.
 4. **Port the cases.** Each section of `tests/run.sh` becomes Go tests, mostly `testscript` files (`rogpeppe/go-internal`) with a fake `$HOME` and stubs for `claude`, `ps` and `tmux` (the shell suite stubs only `claude`). The ported count shall be at least the bash count, shown per section in the commit that deletes the bash. Retired on purpose, and listed as such: the eight-process refresh race (`tests/run.sh:1270`), the `--build` stub, and the checkout-install cases.
@@ -145,7 +145,7 @@ Each phase runs the loop: design check, build with tests, fresh review, fix. Pha
 
 | Phase | Content | Done when |
 | --- | --- | --- |
-| 0 | Tag `bash-final` and `v0.3.0`, record the count, root `go.mod`, `clock` and `runner`, the differential harness | the harness runs one scenario against both |
+| 0 | Tag `bash-final` and `v0.3.0`, record the count, root `go.mod`, `clock` and `runner`, the differential harness | the harness runs one scenario against the oracle, and its comparison is tested (the Go side has no commands before Phase 2) |
 | 1 | `textsafe`, `state`, `conf` | the hostile fixtures match perl, `make lint test tui-test` unchanged |
 | 2 | `queue` with typed results, and the queue commands with the CLI contract and help text | queue, reorder, inbox, `--item` and help cases pass, both ways |
 | 3 | `live`, `snapshot`, `ls --json`, prune, snooze | decoded JSON equals the bash output on every fixture |

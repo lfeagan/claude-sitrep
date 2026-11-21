@@ -31,3 +31,20 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install jq
       - run: make tui-test
+  go:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Install jq (macOS)
+        if: runner.os == 'macOS'
+        run: brew install jq
+      - run: make go-test
