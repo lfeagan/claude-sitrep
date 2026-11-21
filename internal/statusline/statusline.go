@@ -77,7 +77,8 @@ func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 	if c := q.Count(state.Inbox); c > 0 {
 		inbox = fmt.Sprintf("  Inbox: %d", c)
 	}
-	fmt.Fprintf(out, "Queue: %s  [id %s]%s\n", summary, queue.Label(id), inbox)
+	// the id comes first, so a terminal that cuts a long line cuts the next item and not the id
+	fmt.Fprintf(out, "Queue [id %s]: %s%s\n", queue.Label(id), summary, inbox)
 	if l.Version != "" {
 		if n := update.Notice(l.Store, l.Version); n != "" {
 			fmt.Fprintln(out, n)

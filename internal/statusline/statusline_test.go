@@ -33,7 +33,7 @@ func TestRender(t *testing.T) {
 		"s1.queue":    "first item\nsecond\n",
 		"inbox.queue": "x\n",
 	}, `{"session_id":"s1"}`, &runner.Fake{})
-	want := "Objective: build\nProgress:  half\nNow:       compiling\nQueue: 2 items, next: first item  [id s1]  Inbox: 1\n"
+	want := "Objective: build\nProgress:  half\nNow:       compiling\nQueue [id s1]: 2 items, next: first item  Inbox: 1\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -41,7 +41,7 @@ func TestRender(t *testing.T) {
 
 func TestNoNotesAndNoQueue(t *testing.T) {
 	got := render(t, nil, `{"session_id":"abcdef"}`, &runner.Fake{})
-	if got != "Objective: (set on your first prompt)\nQueue: empty  [id abcd]\n" {
+	if got != "Objective: (set on your first prompt)\nQueue [id abcd]: empty\n" {
 		t.Errorf("%q", got)
 	}
 }
@@ -62,7 +62,7 @@ func TestFilesFromSessionsAreFiltered(t *testing.T) {
 	if strings.ContainsAny(got, "\x1b\u202e") || !strings.Contains(got, "n\tn") {
 		t.Errorf("%q", got)
 	}
-	next := got[strings.Index(got, "next: ")+6 : strings.Index(got, "  [id")]
+	next := strings.TrimSuffix(got[strings.Index(got, "next: ")+6:], "\n")
 	if len([]rune(next)) != 90 {
 		t.Errorf("the next item is %d characters, want 90", len([]rune(next)))
 	}
@@ -104,7 +104,7 @@ func hasEnv(env []string, want string) bool {
 func TestAPipeAsTheQueueDoesNotHang(t *testing.T) {
 	// covered by state.ReadFile; here the whole line must still come out
 	got := render(t, map[string]string{"s1.txt": "Objective: x\n"}, `{"session_id":"s1"}`, &runner.Fake{})
-	if !strings.HasSuffix(got, "[id s1]\n") {
+	if !strings.HasSuffix(got, "Queue [id s1]: empty\n") {
 		t.Errorf("%q", got)
 	}
 }
@@ -119,7 +119,7 @@ func TestNoticeOfANewerRelease(t *testing.T) {
 		l.Render(context.Background(), strings.NewReader(`{"session_id":"abcdef"}`), &out)
 		return out.String()
 	}
-	want := "Objective: (set on your first prompt)\nQueue: empty  [id abcd]\n"
+	want := "Objective: (set on your first prompt)\nQueue [id abcd]: empty\n"
 	if got := draw("0.5.0"); !strings.HasPrefix(got, want) || !strings.HasSuffix(got, "\n") || !strings.Contains(strings.TrimPrefix(got, want), "0.6.0") {
 		t.Errorf("older: %q", got)
 	}

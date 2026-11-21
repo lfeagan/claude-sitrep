@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -27,6 +28,16 @@ func put(home, name, body string) {
 	p := difftest.Path(home, name)
 	os.MkdirAll(filepath.Dir(p), 0o700)
 	os.WriteFile(p, []byte(body), 0o600)
+}
+
+// bashQueueLine matches the queue line as the bash version drew it, with the id last. It need not start a line: a notes file without a final
+// newline runs into it.
+var bashQueueLine = regexp.MustCompile(`(?m)Queue: (.*)  \[id ([A-Za-z0-9_-]+)\]((?:  Inbox: [0-9]+)?)$`)
+
+// idFirst rewrites the bash queue line into the form the Go version draws, which puts the id right after the word Queue.
+func idFirst(r difftest.Result) difftest.Result {
+	r.Stdout = bashQueueLine.ReplaceAllString(r.Stdout, "Queue [id $2]: $1$3")
+	return r
 }
 
 func TestDiffStatusline(t *testing.T) {
@@ -91,7 +102,7 @@ func TestDiffStatusline(t *testing.T) {
 			put(home, "sitrep.conf", "SITREP_HUD_CMD='echo $SITREP_RENDERING'\n")
 		}, []string{"a0000001"}},
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Compare(t, statusScenario(c.setup, c.sessions...), goSitrep) })
+		t.Run(name, func(t *testing.T) { difftest.Compare(t, statusScenario(c.setup, c.sessions...), goSitrep, idFirst) })
 	}
 }
 
@@ -108,5 +119,5 @@ func TestDiffStatuslineGuardAndBadInput(t *testing.T) {
 	}
 	// jq complains on standard error about input that is not JSON; the Go version is quiet. A numeric session id, which jq prints and
 	// the Go version does not accept, is a deliberate difference.
-	difftest.Compare(t, sc, goSitrep, func(r difftest.Result) difftest.Result { r.Stderr = ""; return r })
+	difftest.Compare(t, sc, goSitrep, idFirst, func(r difftest.Result) difftest.Result { r.Stderr = ""; return r })
 }

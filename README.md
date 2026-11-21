@@ -8,7 +8,7 @@ A situation report for each Claude Code session, plus a small per-session work q
 Objective: Build a three-line status block for my sessions
 Progress:  Wrote the wrapper and hooks; summarizer tested against a fake transcript.
 Now:       Waiting on a repo name.
-Queue: 2 items, next: update README  [id a1b2]
+Queue [id a1b2]: 2 items, next: update README
 ```
 
 The block works as follows:
