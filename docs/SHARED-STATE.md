@@ -26,17 +26,17 @@ What we decided:
 
 ### What we measured
 
-On 2026-11-21 we ran the 0.9.0 program with `SITREP_STATE_DIR` on a Synology share mounted over SMB, from a Mac on Wi-Fi. The numbers are medians, in milliseconds. A wired run is still to do, and should be faster.
+On 2026-11-21 we ran the 0.9.0 program with `SITREP_STATE_DIR` on a Synology share mounted over SMB, from one Mac, first on Wi-Fi and then over gigabit Ethernet (a ping of under 1 ms). The numbers are medians of 15 runs, in milliseconds. Each run was checked to have reached the share.
 
-| | SMB over Wi-Fi | local disk |
-|---|---|---|
-| hook (several writes) | 550 | 3 |
-| status line | 13 | 3 |
-| `ls` | 41 | 3 |
+| | SMB over Wi-Fi | SMB over Ethernet | local disk |
+|---|---|---|---|
+| hook (several writes) | 550 | 88 | 3 |
+| status line | 13 | 4 | 3 |
+| `ls` | 41 | 8 | 3 |
 
-What worked: `add`, `ls` and the hook; `flock` between processes on the one Mac (40 parallel `add` commands lost nothing, and a held lock gave the bounded wait and then `busy`); and the write-then-rename. The mount reports every folder as `0700` and every file as `0700`, so modes are emulated, and `Ensure` had nothing to tighten. What did not work is the hook budget (30 ms): every prompt would wait about half a second. Locking between two machines is untested.
+What worked: `add`, `ls` and the hook; `flock` between processes on the one Mac (40 parallel `add` commands lost nothing, and a held lock gave the bounded wait and then `busy`); and the write-then-rename. The mount reports every folder as `0700` and every file as `0700`, so modes are emulated, and `Ensure` had nothing to tighten. What did not work is the hook budget (30 ms): every prompt would wait about half a second on Wi-Fi, and about 90 ms on Ethernet, three times the budget. Reads are fast enough on Ethernet. Locking between two machines is untested. A mount that has gone away is also a risk: `sitrep ls` on a stale mount printed an empty queue and exited 0, so an unreadable state folder looks like an empty one.
 
-So a state folder on a network mount is usable to read, and wrong for a live session to write. The next two steps are designed so that no hook ever writes to a shared folder.
+So a state folder on a network mount is usable to read, and wrong for a live session to write, even on a good wired link. The next two steps are designed so that no hook ever writes to a shared folder.
 
 ## Step 2 -- a folder per machine
 
