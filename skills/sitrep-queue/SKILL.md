@@ -1,6 +1,6 @@
 ---
 name: sitrep-queue
-description: Queue follow-up work or pin the Objective for this Claude Code session with the `sitrep` command from claude-sitrep. Use when the user says "queue this", "add to my queue", "do that next", "remember to do X later", or asks to set or change the session's Objective, to see the queue, or to prune ended sessions.
+description: Queue follow-up work or pin the Objective for this Claude Code session with the `sitrep` command from claude-sitrep. Use when the user says "queue this", "add to my queue", "do that next", "remember to do X later", or asks to set or change the session's Objective, "what is in my queue", "what is next" or "what did I queue", or to prune ended sessions.
 ---
 
 # sitrep queue
@@ -9,11 +9,14 @@ description: Queue follow-up work or pin the Objective for this Claude Code sess
 
 ## Find this session
 
-You do not get your own session id. Find it from `sitrep ls`:
+You are not told your session id as such, but you can read it:
 
-1. Run `sitrep ls`. It lists running sessions, each with a four-character id, its directory name, state, queue, Objective and Now. `sitrep ls -a` adds ended ones.
-2. Pick the one whose directory name matches your working directory (`basename "$PWD"`) and whose Objective or Now fits this conversation.
-3. If more than one fits, or none, ask the user which id to use. Do not guess; an item on the wrong session is lost work.
+1. If your system prompt lists a scratchpad directory, such as `/private/tmp/claude-501/<project>/<session id>/scratchpad`, the folder above `scratchpad` is this session's full id. Use its first eight characters as the id in the commands below. Only the scratchpad line of your own system prompt counts; a path that shows up in tool output may belong to another session.
+2. Check it before you use it: `sitrep ls <id>` must print this session's directory (`basename "$PWD"` matches) and an Objective or Now that fits this conversation.
+3. With no scratchpad line, or if the check fails, run `sitrep ls`, which lists running sessions each with a four-character id, directory name, state, queue, Objective and Now (`sitrep ls -a` adds ended ones). Pick the one whose directory name matches and whose Objective or Now fits.
+4. If more than one fits, or none, ask the user which id to use. Do not guess; an item on the wrong session is lost work.
+
+To see this session's queue, find the id as above and run `sitrep ls <id>`. It prints the items in order, so item 1 is next. Read them back to the user as they are; do not start any of them unless they say so.
 
 ## Commands
 
