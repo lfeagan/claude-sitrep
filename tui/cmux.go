@@ -67,7 +67,11 @@ func findCmuxPlace(parents map[string]string, chain []int) (cmuxPlace, bool) {
 			}
 			id = parents[id]
 		}
-		if p.Surface != "" && p.Pane != "" && p.Workspace != "" && p.Window != "" {
+		valid := true
+		for _, ref := range []string{p.Surface, p.Pane, p.Workspace, p.Window} {
+			valid = valid && cmuxRefRe.MatchString(ref) // a parent column is checked here, as the ids are in parseCmuxTop
+		}
+		if valid {
 			return p, true
 		}
 	}

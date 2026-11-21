@@ -5,7 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+	"time"
 )
 
 func TestDetailLinesShowEverything(t *testing.T) {
@@ -88,4 +90,46 @@ func TestDetailGolden(t *testing.T) {
 	golden(t, "detail_80x24", detailScreen(s.Sessions[0], 80, 24, 0, plainTheme()))
 	golden(t, "detail_cjk_50x20", detailScreen(s.Sessions[1], 50, 20, 0, plainTheme()))
 	golden(t, "detail_hostile_60x20", detailScreen(s.Sessions[2], 60, 20, 0, plainTheme()))
+}
+
+func TestDetailFrameOnAVeryShortScreen(t *testing.T) {
+	x := loadFixture(t).Sessions[0]
+	for h := 1; h <= 4; h++ {
+		if got := strings.Count(detailScreen(x, 60, h, 0, plainTheme()), "\n") + 1; got > h {
+			t.Errorf("height %d: %d lines", h, got)
+		}
+	}
+}
+
+func TestStaleScrollIsClamped(t *testing.T) {
+	snap := loadFixture(t)
+	for i := 0; i < 40; i++ {
+		snap.Sessions[0].Queue.Items = append(snap.Sessions[0].Queue.Items, fmt.Sprintf("queued item %d with some words", i))
+	}
+	snap.Sessions[0].Queue.Count = len(snap.Sessions[0].Queue.Items)
+	m := newModel("x", time.Second, tabWatch)
+	next, _ := m.Update(snapMsg{snap: snap})
+	next, _ = next.Update(tea.WindowSizeMsg{Width: 80, Height: 12})
+	m = next.(model)
+	m, _ = press(t, m, "d")
+	m, _ = press(t, m, "end")
+	if m.scroll == 0 {
+		t.Fatalf("the long queue scrolls")
+	}
+	next, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 200}) // the window grows: everything fits
+	m = next.(model)
+	if m.scroll != 0 {
+		t.Errorf("a resize clamps the scroll: %d", m.scroll)
+	}
+	m.scroll = 500
+	short := loadFixture(t)
+	next, _ = m.Update(snapMsg{snap: short}) // the session shrinks
+	if got := next.(model).scroll; got > detailMax(short.Sessions[0], 80, 200) {
+		t.Errorf("a refresh clamps the scroll: %d", got)
+	}
+	m.scroll = 500
+	m, _ = press(t, m, "pgup")
+	if m.scroll > detailMax(*m.selected(), m.width, m.height) {
+		t.Errorf("a key clamps a stale scroll first: %d", m.scroll)
+	}
 }

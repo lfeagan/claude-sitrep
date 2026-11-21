@@ -80,21 +80,32 @@ func runPrune(bin string, args []string, timeout time.Duration, real bool, run r
 
 // pruneScreen is the preview and the question. A running prune shows no keys, because none work.
 func pruneScreen(lines []string, phase, width, height int, th Theme) string {
-	body := []string{"Prune the sessions that are gone", ""}
+	title := []string{"Prune the sessions that are gone", ""}
+	var preview, choices []string
 	switch phase {
 	case pruneLoading:
-		body = append(body, "looking…")
+		preview = []string{"looking…"}
 	case pruneBusy:
-		body = append(body, "working…")
+		preview = []string{"working…"}
 	default:
 		for _, l := range lines {
-			body = append(body, "  "+l)
+			preview = append(preview, "  "+l)
 		}
-		body = append(body, "",
+		choices = []string{"",
 			"  y   mark them ended, and move their queue items to the inbox",
 			"  n   mark them ended, and leave the items where they are",
-			"  esc cancel")
+			"  esc cancel"}
 	}
+	if height > 0 { // the choices always show: the preview gives way, then the title
+		room := height - 1 - len(choices)
+		if room < len(preview)+len(title) {
+			title = title[:0]
+		}
+		if room < len(preview) {
+			preview = preview[:max(room, 0)]
+		}
+	}
+	body := append(append(title, preview...), choices...)
 	for i, l := range body {
 		body[i] = ansi.Truncate(l, max(width, 1), "…")
 	}

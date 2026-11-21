@@ -285,3 +285,27 @@ func TestJumpFindsTheClientOfABackgroundSession(t *testing.T) {
 		t.Errorf("two clients are ambiguous, so no guess: %v", err)
 	}
 }
+
+func TestJumpRefusesAnImpossiblePid(t *testing.T) {
+	f := &fake{}
+	for _, pid := range []int64{0, 1, -5} {
+		if _, err := jump(context.Background(), Session{Short: "x", PID: pidOf(pid)}, jumpEnv{Tmux: true}, f.run); err == nil || !strings.Contains(err.Error(), "process") {
+			t.Errorf("pid %d: %v", pid, err)
+		}
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("no command runs for such a pid: %v", f.calls)
+	}
+}
+
+func TestALookAlikeClientCannotBlockARealMatch(t *testing.T) {
+	sess := Session{ID: "93a01840-2628-491e-805d-2632373346df", Short: "93a0", PID: pidOf(70)}
+	f := &fake{answer: map[string]string{
+		"tmux list-panes": "%2 60 /dev/ttys002 $1 @4\n",
+		// the session's own chain leads to pane %2, and two processes claim to be attach clients
+		"ps -A": "60 1 -zsh\n70 60 claude\n201 91 claude attach 93a01840\n202 92 claude attach 93a01840\n",
+	}}
+	if msg, err := jump(context.Background(), sess, jumpEnv{Tmux: true}, f.run); err != nil || msg != "jumped to 93a0" {
+		t.Errorf("the session's own chain is tried first: %q %v", msg, err)
+	}
+}

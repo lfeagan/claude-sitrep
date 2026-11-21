@@ -147,3 +147,27 @@ func TestCurrentEnv(t *testing.T) {
 		t.Errorf("both: %+v", env)
 	}
 }
+
+func TestHostileParentColumnNeverReachesACommand(t *testing.T) {
+	// ids are checked in parseCmuxTop; the parent column must be checked too
+	out := strings.Join([]string{
+		"1\t2\t3\tprocess\t10\tsurface:1\tbash",
+		"1\t2\t3\tsurface\tsurface:1\tpane:1\tx",
+		"1\t2\t3\tpane\tpane:1\tworkspace:1\t",
+		"1\t2\t3\tworkspace\tworkspace:1\twindow:1;EVIL --x\t",
+	}, "\n")
+	parents := parseCmuxTop(out)
+	if p, ok := findCmuxPlace(parents, []int{10}); ok {
+		t.Errorf("a parent that is not a plain ref must not give a place: %+v", p)
+	}
+	for _, bad := range []string{"window:1 --x", "window:", "window:-1", "windows:1", "window:1\n", ""} {
+		parents["workspace:1"] = bad
+		if _, ok := findCmuxPlace(parents, []int{10}); ok {
+			t.Errorf("%q was accepted as a window", bad)
+		}
+	}
+	parents["workspace:1"] = "window:1"
+	if _, ok := findCmuxPlace(parents, []int{10}); !ok {
+		t.Errorf("a good chain still works")
+	}
+}

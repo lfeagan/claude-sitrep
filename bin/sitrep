@@ -443,14 +443,18 @@ usage: sitrep tui [--tab watch|top] [--interval 3s] [--once] [--width n] [--quit
                   [--read-only]
 
 Run sitrep-tui, an optional full-screen dashboard with a Watch tab and a Top tab and a
-status bar. It is read-only, and it gets everything from `sitrep ls --json`. It is not
-built by default: run `make tui` in the claude-sitrep checkout, which needs Go 1.26 or
-newer. Keys: up, down, j and k move the selection; enter jumps to the session's tmux pane
-or cmux surface; d or space opens the session in full; tab, shift-tab, left, right, 1 and
-2 switch tabs; a shows or hides ended sessions; s sorts Top; p prunes sessions that are
-gone, after a preview and a y or n; r refreshes; ? lists the keys; q quits. --once prints
-one frame as plain text and exits, --quit-on-jump leaves the dashboard after a good jump,
-for a tmux popup, and --read-only turns off p and every other key that changes state.
+status bar. It gets everything from `sitrep ls --json` and changes nothing itself. It is
+not built by default: run `make tui` in the claude-sitrep checkout, which needs Go 1.26
+or newer.
+
+Keys: up, down, j and k move the selection; enter jumps to the session's tmux pane or cmux
+surface; d or space opens the session in full; tab, shift-tab, left, right, 1 and 2 switch
+tabs; a shows or hides ended sessions; s sorts Top; p prunes sessions that are gone, after
+a preview and a y or n; r refreshes; ? lists the keys; q quits.
+
+--once prints one frame as plain text and exits, --quit-on-jump leaves the dashboard after
+a good jump, for a tmux popup, and --read-only turns off p and every other key that
+changes state.
 
 sitrep-tui is found through $SITREP_TUI, then next to this script, then on PATH.
 EOF

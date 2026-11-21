@@ -23,7 +23,7 @@ Most tools show what your sessions are doing. sitrep also holds what you plan to
 
 1. A status block and a per-session queue under each prompt, plus an inbox for work you have not yet matched to a session. `+ <text>` queues an item without sending anything to Claude.
 2. Objective, Progress and Now come from a short Haiku call after each turn. See Privacy And Safety for the cost cap and what is sent.
-3. Read-only dashboards (`sitrep watch`, and the optional `sitrep tui`) and a stable JSON format (`sitrep ls --json`) for your own tools.
+3. Dashboards (`sitrep watch`, which is read-only, and the optional `sitrep tui`) and a stable JSON format (`sitrep ls --json`) for your own tools.
 4. Limits: Claude Code only, one machine, no cost tracking, and it cannot answer a session's approval prompts.
 
 `docs/COMPARISON.md` compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
@@ -119,7 +119,7 @@ A session that waits for you, meaning Claude has stopped and the next move is yo
 
 The status bar shows the counts and the keys. `up`, `down`, `j` and `k` move the selection, which is marked with a `▸` and follows its session through refreshes and re-sorts, and `home` and `end` select the first and last. `enter` jumps to the terminal that shows the selected session, when the dashboard itself runs inside tmux or cmux. It finds it through the session's process id, and through the `claude attach` client for a session that runs in the background. In tmux it selects the window, pane and client by tmux's own ids. In cmux it reads `cmux top --all --processes` to find the surface that holds the process, and focuses its window, workspace, pane and surface. Inside both, tmux is tried first. If it cannot find one it says so and changes nothing, and `--quit-on-jump` leaves the dashboard after a good jump, for a tmux popup. `d` or the space bar opens the selected session in full, for its details, with nothing cut off and its whole queue, and `esc` or `d` closes it. Inside it, `up` and `down` show the neighbouring sessions, and `pgup`, `pgdn` and the space bar scroll. `tab`, `shift+tab`, `left`, `right`, `1` and `2` switch tabs, `a` shows or hides ended sessions, `p` prunes the sessions that are gone: it shows what `sitrep prune --dry-run` would do, and asks. `y` runs `sitrep prune -y`, which marks them ended and moves their queue items to the inbox, `n` runs `sitrep prune --keep`, which marks them ended and leaves the items, and `esc` or `q` cancels. While the question is open or the prune runs, every other key does nothing, so a held key cannot start a second one. It will not run without the live-session registry. `--read-only`, or `SITREP_TUI_READONLY` in the environment, turns every key that changes state off, and the key list stops naming them. `s` cycles the Top sort through activity, state, directory and queue size, `r` refreshes, `?` opens a list of the keys and colours, and `q` quits. The Top view says which sort is on, and rows with equal keys keep their order, so they do not shuffle. A session that changed in the last `highlight_seconds` has a background colour, and the colours follow a light or dark terminal. `--interval` sets the refresh (default 3s), and `--once` prints one frame as plain text and exits.
 
-It is read-only and has no rules of its own. It runs `sitrep ls --json -a` for each refresh, so what counts as running, the two-minute grace and the `idle?` label are decided in one place, the shell script. If a refresh fails or is slow, the last good screen stays and the status bar says how old it is. It strips control and format characters from everything it draws, even though `sitrep` has already done so. `make tui-test` runs its tests, which need no terminal.
+It has no rules of its own, and changes nothing itself: the one key that changes state, `p`, runs a fixed `sitrep prune` command after a preview and a confirm, and `--read-only` turns it off. It runs `sitrep ls --json -a --full` for each refresh, so what counts as running, the two-minute grace and the `idle?` label are decided in one place, the shell script. If a refresh fails or is slow, the last good screen stays and the status bar says how old it is. It strips control and format characters from everything it draws, even though `sitrep` has already done so. `make tui-test` runs its tests, which need no terminal.
 
 ## For Programs
 
@@ -137,7 +137,7 @@ The top level holds these fields:
 | `version`, `generated` | The contract version, and the time of the listing in epoch seconds. |
 | `registry` | `ok` when liveness came from Claude Code's session registry, `unavailable` when it fell back to the hook states. |
 | `settings` | `queue_items`, `highlight_seconds` and `highlight_sgr`, as set in the environment or `sitrep.conf`. |
-| `inbox` | `count` is the true number of items, and `items` holds the first ones, up to the cap. |
+| `inbox` | `count` is the true number of items, and `items` holds the first ones, up to the cap (all of them with `--full`). |
 | `hidden` | `ended` counts the finished sessions left out, and `stranded_items` counts the queue items they still hold. |
 | `sessions` | One object per session, below. |
 
@@ -156,7 +156,7 @@ Each session has these fields:
 | `needs_input`, `snoozed` | `needs_input` is true for a running session in the `waiting` state: Claude has stopped, and the next move is the user's. It stays true until the user sends a prompt, unless the session is snoozed. `sitrep snooze <id>` mutes it until the session next changes (`snoozed` is then true and `needs_input` false), and `sitrep snooze --off <id>` ends the mute at once. |
 | `pinned`, `highlight` | Whether the Objective is pinned, and whether the session changed within `highlight_seconds`. |
 | `objective`, `progress`, `now` | The three lines of the status block. |
-| `queue` | `count` is the true number of items, and `items` holds the first ones, up to the cap. |
+| `queue` | `count` is the true number of items, and `items` holds the first ones, up to the cap (all of them with `--full`). |
 
 ## How It Works
 

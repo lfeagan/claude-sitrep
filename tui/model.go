@@ -174,6 +174,13 @@ func (m model) selected() *Session {
 	return nil
 }
 
+// clampScroll keeps the detail pane's scroll inside the text, after a resize or a refresh.
+func (m *model) clampScroll() {
+	if x := m.selected(); m.detail && x != nil {
+		m.scroll = min(max(m.scroll, 0), detailMax(*x, m.width, m.height))
+	}
+}
+
 // detailKey handles keys while the detail pane is open: up and down change the session, and
 // the page keys and the space bar scroll. Esc or d closes it.
 func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -183,6 +190,7 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	maxScroll := detailMax(*x, m.width, m.height)
+	m.scroll = min(m.scroll, maxScroll)
 	page := max(detailBody(m.height)-1, 1)
 	switch msg.String() {
 	case "q", "ctrl+c":
@@ -257,6 +265,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(msg.Width, 1), max(msg.Height, 1) // 0 would mean "no limit"
+		m.clampScroll()
 	case tea.BackgroundColorMsg:
 		m.isDark = msg.IsDark()
 	case snapMsg:
@@ -267,6 +276,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.snap, m.haveSnap, m.err, m.lastOK = msg.snap, true, nil, m.now()
 		m.fixSel()
+		m.clampScroll()
 	case pruneMsg:
 		return m.pruneResult(msg)
 	case jumpMsg:

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"fmt"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -206,5 +207,23 @@ func TestReadOnlyHelpHidesPrune(t *testing.T) {
 	ro := helpScreen(80, 30, true, plainTheme())
 	if strings.Contains(ro, "prune the sessions") || !strings.Contains(ro, "read-only") {
 		t.Errorf("read-only hides p and says why:\n%s", ro)
+	}
+}
+
+func TestTheChoicesAlwaysShow(t *testing.T) {
+	var long []string
+	for i := 0; i < 30; i++ {
+		long = append(long, fmt.Sprintf("would mark session %d ended", i))
+	}
+	for h := 5; h <= 40; h++ {
+		out := pruneScreen(long, pruneConfirm, 80, h, plainTheme())
+		for _, want := range []string{"y   mark them ended", "n   mark them ended", "esc cancel"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("height %d: the preview must give way, so %q shows:\n%s", h, want, out)
+			}
+		}
+		if strings.Count(out, "\n")+1 > h {
+			t.Errorf("height %d: too tall", h)
+		}
 	}
 }

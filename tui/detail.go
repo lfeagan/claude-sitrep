@@ -110,8 +110,11 @@ func detailScreen(x Session, width, height, scroll int, th Theme) string {
 		view = append(view, "")
 	}
 	bar := th.Status.Width(max(width, 1)).Render(ansi.Truncate(hint, max(width, 1), ""))
-	if height == 1 {
+	switch height {
+	case 1:
 		return bar
+	case 2: // no room for a title
+		return strings.Join(append(view, bar), "\n")
 	}
 	return strings.Join(append(append([]string{title}, view...), bar), "\n")
 }

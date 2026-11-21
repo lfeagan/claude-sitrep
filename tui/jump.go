@@ -195,7 +195,7 @@ func jump(ctx context.Context, s Session, env jumpEnv, run runner) (string, erro
 	if !env.Tmux && !env.Cmux {
 		return "", errors.New("not in tmux or cmux: run the dashboard inside one to jump")
 	}
-	if s.PID == nil {
+	if s.PID == nil || *s.PID <= 1 {
 		return "", errors.New("sitrep does not know this session's process")
 	}
 	ctx, cancel := context.WithTimeout(ctx, jumpTimeout)
@@ -206,27 +206,33 @@ func jump(ctx context.Context, s Session, env jumpEnv, run runner) (string, erro
 	}
 	procs := parseProcs(snapshot)
 	parents := parentMap(procs)
-	chains := [][]int{ancestors(int(*s.PID), parents)}
-	// a background session has no terminal above it; the client attached to it does
+	try := func(chains [][]int) (bool, error) {
+		if env.Tmux {
+			if ok, err := jumpTmux(ctx, s, chains, run); err != nil || ok {
+				return ok, err
+			}
+		}
+		if env.Cmux {
+			return jumpCmux(ctx, chains, run)
+		}
+		return false, nil
+	}
+	if ok, err := try([][]int{ancestors(int(*s.PID), parents)}); err != nil {
+		return "", err
+	} else if ok {
+		return "jumped to " + s.Short, nil
+	}
+	// a background session has no terminal above it; the client attached to it does. This comes
+	// second, so that a look-alike `claude attach` process cannot get in the way of a real match.
 	switch clients := attachClients(procs, s.ID); {
 	case len(clients) == 1:
-		chains = append(chains, ancestors(clients[0], parents))
+		if ok, err := try([][]int{ancestors(clients[0], parents)}); err != nil {
+			return "", err
+		} else if ok {
+			return "jumped to " + s.Short, nil
+		}
 	case len(clients) > 1:
 		return "", errors.New("several terminals are attached to this session")
-	}
-	if env.Tmux {
-		if ok, err := jumpTmux(ctx, s, chains, run); err != nil {
-			return "", err
-		} else if ok {
-			return "jumped to " + s.Short, nil
-		}
-	}
-	if env.Cmux {
-		if ok, err := jumpCmux(ctx, chains, run); err != nil {
-			return "", err
-		} else if ok {
-			return "jumped to " + s.Short, nil
-		}
 	}
 	hint := ""
 	if len(s.ID) >= 8 {
