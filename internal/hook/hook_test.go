@@ -646,3 +646,34 @@ func TestSummarizerKeepsTagsOutOfNow(t *testing.T) {
 		t.Errorf("notes %q", got)
 	}
 }
+
+func TestImagePlaceholdersAreNotShownInNow(t *testing.T) {
+	r := newRig(t)
+	now := func(id string) string {
+		for _, l := range strings.Split(r.file(id+".txt"), "\n") {
+			if v, ok := strings.CutPrefix(l, "Now:"); ok {
+				return strings.TrimSpace(v)
+			}
+		}
+		return ""
+	}
+	r.fire(`{"session_id":"sessc","hook_event_name":"UserPromptSubmit","prompt":"fix the layout"}`)
+	for _, p := range []string{`[Image #5]`, `[Image #5] [Image #6]`, `  [Image #12]\n`, `[Pasted text #1 +20 lines]`} {
+		r.fire(`{"session_id":"sessc","hook_event_name":"UserPromptSubmit","prompt":"` + p + `"}`)
+		if got := now("sessc"); got != "fix the layout" {
+			t.Errorf("%q: Now is %q, want the earlier one", p, got)
+		}
+	}
+	r.fire(`{"session_id":"sessc","hook_event_name":"UserPromptSubmit","prompt":"the bar is [Image #5] too narrow"}`)
+	if got := now("sessc"); got != "the bar is too narrow" {
+		t.Errorf("words around a placeholder: %q", got)
+	}
+	r.fire(`{"session_id":"sessd","hook_event_name":"UserPromptSubmit","prompt":"[Image #1]"}`)
+	if n := r.file("sessd.txt"); strings.Contains(n, "Image") || !strings.Contains(n, "Objective: -") {
+		t.Errorf("an image as the first prompt: %q", n)
+	}
+	r.fire(`{"session_id":"sesse","hook_event_name":"UserPromptSubmit","prompt":"[Image #1] why is this broken?"}`)
+	if n := r.file("sesse.txt"); !strings.Contains(n, "Objective: why is this broken?") || strings.Contains(n, "Image") {
+		t.Errorf("an image and words: %q", n)
+	}
+}

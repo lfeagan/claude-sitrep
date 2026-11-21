@@ -165,20 +165,27 @@ func (s *session) prompt() {
 		_ = s.write(orDash(obj), orDash(s.prog), now)
 		return
 	}
+	said := untag(prompt)
 	if obj == "" {
-		obj = textsafe.Sane(prompt, 160).String()
+		obj = orDash(textsafe.Sane(said, 160).String())
 	}
-	now := textsafe.Sane(untag(prompt), 140).String()
+	now := textsafe.Sane(said, 140).String()
 	if strings.TrimSpace(now) == "" {
-		now = orDash(s.now) // nothing but markup
+		now = orDash(s.now) // nothing but markup or placeholders
 	}
 	_ = s.write(obj, orDash(s.prog), now)
 }
 
-var tagRe = regexp.MustCompile(`(?:<|&lt;)/?[A-Za-z][A-Za-z0-9_-]*(?:\s[^<>]*?)?(?:>|&gt;)`)
+var tagRe = regexp.MustCompile(`(?:<|&lt;)/?[A-Za-z][A-Za-z0-9_-]*(?:\s[^<>]*?)?(?:>|&gt;)|\[(?:Image|Pasted text) #[0-9]+[^\]\n]*\]`)
 
-// untag drops XML-like tags, which a pasted notification carries in the middle of the user's own words; the text between them stays.
-func untag(s string) string { return tagRe.ReplaceAllString(s, " ") }
+// untag drops what is not the user's words: XML-like tags, which a pasted notification carries in the middle of the user's own words, and
+// the placeholders Claude Code writes for a pasted image or text ("[Image #5]"). The text between them stays.
+func untag(s string) string {
+	if !tagRe.MatchString(s) {
+		return s
+	}
+	return strings.Join(strings.Fields(tagRe.ReplaceAllString(s, " ")), " ")
+}
 
 // notices name the tags whose messages say what happened, as the line Now shows. Any other tag leaves Now as it was.
 var notices = map[string]string{"task-notification": "Background task finished", "agent-message": "Subagent reported back"}
