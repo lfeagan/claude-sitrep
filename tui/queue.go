@@ -162,6 +162,8 @@ func (m model) editCheck(qid, target string) string {
 	switch {
 	case m.acting:
 		return "busy"
+	case m.settling:
+		return "refreshing"
 	case m.readOnly:
 		return "the dashboard is read-only"
 	}
@@ -283,7 +285,7 @@ func (m model) askRun() (tea.Model, tea.Cmd) {
 	}
 	n := fmt.Sprint(a.n)
 	if a.verb == "take" {
-		return m.queueRun("take", -1, "move", "inbox", a.target, n, "--item", a.item)
+		return m.queueRun("take", a.n-1, "move", "inbox", a.target, n, "--item", a.item)
 	}
 	return m.queueRun("remove", a.n-1, "rm", a.qid, n, "--item", a.item)
 }
@@ -392,7 +394,7 @@ func (m model) queueRun(verb string, pend int, args ...string) (tea.Model, tea.C
 // queueResult takes the answer. Whatever happened, the next snapshot must start after it, so an
 // older one that is still on its way is dropped.
 func (m model) queueResult(msg queueMsg) (tea.Model, tea.Cmd) {
-	m.acting = false
+	m.acting, m.settling = false, true
 	if msg.err != nil {
 		m.say(msg.verb + ": " + clean(msg.err.Error()))
 	} else {

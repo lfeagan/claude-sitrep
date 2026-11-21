@@ -74,6 +74,7 @@ type model struct {
 	qText     string       // and by text, so it stays on the same item when the list changes
 	pendSel   int          // the item to select when the running change worked, or -1
 	refetch   bool         // a change finished while a fetch was running: that fetch is stale
+	settling  bool         // a change finished and its snapshot has not arrived, so the list may be old
 	ask       *askState    // the open question, if any
 	prompt    *promptState // the open line of typing, if any
 	scroll    int          // the top line of the detail pane
@@ -402,6 +403,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refetch, m.fetching, m.started = false, true, m.started+1
 			return m, m.fetchCmd()
 		}
+		m.settling = false
 		if msg.err != nil {
 			m.err = msg.err // the last good snapshot stays on screen
 			return m, nil

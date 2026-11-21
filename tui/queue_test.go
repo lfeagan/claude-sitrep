@@ -32,6 +32,13 @@ func queueModel(t *testing.T, kind int) (model, *fake) {
 	return m, f
 }
 
+// settled delivers the snapshot that follows a change, which edit keys wait for.
+func settled(t *testing.T, m model) model {
+	t.Helper()
+	next, _ := m.Update(snapMsg{snap: loadFixture(t)})
+	return next.(model)
+}
+
 func TestQueueOpensAndCloses(t *testing.T) {
 	m, _ := queueModel(t, qInbox)
 	if !m.queue || m.qKind != qInbox || m.qTo != m.selID || m.queueIndex() != 0 {
@@ -112,6 +119,13 @@ func TestQueueTakeAsksThenMovesTheItemItShowed(t *testing.T) {
 	if m.acting || !m.fetching || m.statusText() != "done" {
 		t.Errorf("the result is shown and the screen refreshes: %q fetching %v", m.statusText(), m.fetching)
 	}
+	if m.qText != "" || m.qSel != 0 {
+		t.Errorf("the old text does not pull the selection to a twin: %q", m.qText)
+	}
+	next, _ := m.Update(snapMsg{snap: loadFixture(t)})
+	if m = next.(model); m.settling {
+		t.Error("the fresh snapshot ends the wait")
+	}
 }
 
 func TestQueueRemoveAsks(t *testing.T) {
@@ -152,7 +166,7 @@ func TestQueueFailureIsShownAndCanBeRetried(t *testing.T) {
 	if m.acting || m.statusText() != "take: queue changed; run 'sitrep ls inbox'" || m.qSel != 0 {
 		t.Errorf("a refusal is shown and the move is over: %q", m.statusText())
 	}
-	if m, _ = press(t, m, "t"); m.ask == nil {
+	if m, _ = press(t, settled(t, m), "t"); m.ask == nil {
 		t.Error("and the user can try again")
 	}
 }
@@ -214,6 +228,12 @@ func TestQueueAChangeDropsAnOlderSnapshot(t *testing.T) {
 	m, cmd = press(t, m, "T")
 	m.fetching = true // a fetch that began before the change is still running
 	m = feed(t, m, cmd)
+	if _, again := press(t, m, "K"); again != nil || m.statusText() == "" {
+		t.Error("edit keys wait for the fresh snapshot")
+	}
+	if m2, _ := press(t, m, "K"); !strings.Contains(m2.statusText(), "refreshing") {
+		t.Errorf("and say why: %q", m2.statusText())
+	}
 	if !m.refetch {
 		t.Fatal("the change notes that the running fetch is stale")
 	}
@@ -249,14 +269,14 @@ func TestQueuePromptAddsAndPins(t *testing.T) {
 	if want := "/x/sitrep add " + id + " qxi go o"; len(f.calls) != 1 || f.calls[0] != want {
 		t.Errorf("add runs with the text: %v", f.calls)
 	}
-	m, _ = press(t, m, "P")
+	m, _ = press(t, settled(t, m), "P")
 	m = typed(t, m, "-x --item")
 	m, cmd = press(t, m, "enter")
 	m = feed(t, m, cmd)
 	if want := "/x/sitrep pin " + id + " -x --item"; f.calls[1] != want {
 		t.Errorf("pin runs with text that starts with a dash: %q", f.calls[1])
 	}
-	m, cmd = press(t, m, "U")
+	m, cmd = press(t, settled(t, m), "U")
 	m = feed(t, m, cmd)
 	if want := "/x/sitrep unpin " + id; f.calls[2] != want {
 		t.Errorf("unpin: %q", f.calls[2])
