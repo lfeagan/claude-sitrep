@@ -11,9 +11,9 @@ Choose sitrep if you want the whiteboard role: a place to write down the next it
 ## What sitrep Is Built Around
 
 1. **Your list, not the agent's.** The queue belongs to you. It is never fed to Claude automatically, and Claude changes it only when you ask. `+ <text>` queues an item from inside a session, and Claude never sees that prompt.
-2. **Plain files, shell and `jq`.** State is files under `~/.claude/sitrep/`. The status line only reads files, so it renders instantly. There is no server, no database and no daemon. The full-screen `sitrep tui` is optional and written in Go.
+2. **Plain files and one Go program.** State is files under `~/.claude/sitrep/`. The status line only reads files, so it renders instantly. There is no server, no database and no daemon, and no other tool is needed beyond Go to build it.
 3. **A summary of each session.** A short Haiku call after each turn writes the Objective, Progress and Now. You can pin the Objective.
-4. **Read-only views and a stable data contract.** `sitrep watch` and `sitrep tui` show every running session. `sitrep ls --json` has a versioned format, so another program can draw its own view.
+4. **Read-only views and a stable data contract.** `sitrep watch` shows every running session in a full-screen dashboard, and `sitrep status` prints one frame. `sitrep ls --json` has a versioned format, so another program can draw its own view.
 5. **A state that says who is waiting.** The hooks record `working`, `waiting` and `ended`, and `needs_input` is true while Claude has stopped and the next move is yours.
 
 ## Where sitrep Is Weaker
@@ -23,7 +23,7 @@ Choose sitrep if you want the whiteboard role: a place to write down the next it
 3. **Read-only.** You cannot approve a tool call, send input to a session or start one from the dashboard. Several of the tools below can.
 4. **Claude Code only.** It depends on Claude Code hooks. Some dashboards also handle Codex, Gemini CLI or opencode.
 5. **One machine.** State is local files. A tool with a server can show sessions from several machines.
-6. **It changes your settings.** The installer adds four hooks to `~/.claude/settings.json` and wraps your status line. Another tool that replaces the status line, such as Claude HUD's setup, hides the sitrep block until you run `./install.sh` again.
+6. **It changes your settings.** The plugin adds four hooks and `/sitrep:setup` wraps your status line in `~/.claude/settings.json`. Another tool that replaces the status line, such as Claude HUD's setup, hides the sitrep block until you run `/sitrep:setup` again.
 7. **The queue does not run itself.** Whether a `Stop` hook should hand over the next item is undecided. claudectl has dependency-ordered task runs.
 8. **A small race in the inbox.** An `add` that lands while a `move` is rewriting the same queue can be lost. See The Queue in the README.
 

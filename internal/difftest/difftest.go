@@ -26,11 +26,11 @@ type Result struct {
 // Runner runs `sitrep args...` in a given HOME.
 type Runner func(t testing.TB, home string, args ...string) Result
 
-// unavailable skips the test on a developer machine, and fails it in CI (or with SITREP_REQUIRE_ORACLE=1), where a skipped oracle would
-// let a green run prove nothing.
+// unavailable skips the test on a developer machine, and fails it when SITREP_REQUIRE_ORACLE is set (CI sets it), where a skipped oracle
+// would let a green run prove nothing.
 func unavailable(t testing.TB, format string, args ...any) {
 	t.Helper()
-	if os.Getenv("CI") != "" || os.Getenv("SITREP_REQUIRE_ORACLE") != "" {
+	if os.Getenv("SITREP_REQUIRE_ORACLE") != "" {
 		t.Fatalf("difftest: "+format, args...)
 	}
 	t.Skipf("difftest: "+format, args...)

@@ -2,19 +2,22 @@
 
 Guidance for agents working in this repository. The commit and comment rules are adapted from `savannah-dbagent`.
 
-## Linting
+## Checking
 
-After editing any shell script, run `make lint` and `make test`, which CI also runs. Lint runs `bash -n` and `shellcheck` over every script listed in `SCRIPTS` in the `Makefile`, so add a new script there. Tests live in `tests/run.sh` and add a case for every behavior or bug fix. The plugin cache is keyed by `version` in `.claude-plugin/plugin.json`, so bump it for every change users should receive. `claude plugin validate .` checks the manifests.
+sitrep is one Go program. After any change, run `make test`, which CI also runs: `gofmt`, `go mod tidy -diff`, `go vet` and `go test -race`. Add a test for every behavior or bug fix. The plugin cache is keyed by `version` in `.claude-plugin/plugin.json`, so bump it for every change users should receive. `claude plugin validate .` checks the manifests.
+
+The differential tests in `internal/cli` run the last bash version, the git tag `bash-final`, beside the Go program and compare exit status, output and state files. They need git, jq, perl and that tag, skip without them, and fail when `SITREP_REQUIRE_ORACLE` is set, as it is in CI. The tag must be pushed (`git push origin bash-final v0.3.0`) for CI to run them. Do not move or delete it.
 
 ## Invariants
 
-1. Text from prompts, transcripts and models is untrusted terminal input. Strip control (Cc, including C1) and format (Cf) characters before storing it and before printing it. Filtering only ASCII bytes is not enough.
-2. State files are owner-only: `umask 077` in every script that writes them, and a unique `mktemp` name for every temporary file.
-3. A session id becomes part of a file name, so reject anything outside `[A-Za-z0-9_-]`, and `inbox` is reserved for the queue of no session. Read transcripts only from regular files under the Claude projects directory.
-4. Hooks must never fail or swallow a user's prompt: exit 0 on any error, and block only after the action the user asked for has succeeded.
-5. The installers (`install.sh`, `setup.sh`) change nothing until the settings merge has succeeded, and say what they found. They touch only what they own. Match our hook by its exact path, merge into `statusLine` and never replace it, write through a symlinked `settings.json`, and leave a `q` that is not ours alone. A checkout install and the plugin never run together: each installer stops, changing nothing, when it finds the other. The plugin's hooks live in `hooks/hooks.json`, never in settings. Only `setup.sh` creates `~/.claude/sitrep/plugin` and `statusline.sh`; the `SessionStart` hook only refreshes them. `chmod` state files only (`find -type f`), never through a link. `plugin` and `bin` in the state folder are not session files, so no code may `chmod`, `rm` or recurse over its contents with a bare `*`.
-6. Our status line command ends in the tag `# claude-sitrep`, which is how any clone's wrapper is recognised as ours. `stat` differs between BSD and GNU. Try `stat -c` first, then `stat -f`, because `stat -f` succeeds with the wrong output on Linux.
-7. The summarizer runs isolated (empty working directory, no tools, no MCP, no settings, time limit), and a summary that arrives after a newer prompt is dropped.
+1. Text from prompts, transcripts and models is untrusted terminal input. Strip control (Cc, including C1) and format (Cf) characters before storing it and before printing it. Filtering only ASCII bytes is not enough. `textsafe.Text` can only be made by `Clean`, `Sane` or `Strip`, and the code that renders or encodes takes nothing else. The upstream status line is the user's own command and is passed as it is.
+2. State files are owner-only: explicit modes (`0600` files, `0700` folders) and a unique `os.CreateTemp` name in the state folder for every temporary file, published by rename. A `Umask` call does not reach tests, so never rely on it alone.
+3. A session id becomes part of a file name, so it is a `state.ID`, made only by `state.ParseID` or `Store.Resolve`: `[A-Za-z0-9_-]` and nothing else, and `inbox` is reserved for the queue of no session. Read transcripts only through `internal/transcript`: regular files under `<config>/projects/`, opened without following a link. Read state files only through `state.ReadFile`, which refuses what is not a regular file and never blocks on a pipe.
+4. Hooks must never fail, hang or swallow a user's prompt: exit 0 on any error, block only after the action the user asked for has succeeded, and take locks with a bounded wait.
+5. `sitrep setup` changes nothing until the settings edit has been checked and has succeeded, and says what it found. It touches only what it owns: the `statusLine` key (merged into, never replaced), our line in `sitrep.conf`, the program at `~/.claude/sitrep/bin/sitrep` and a link to it. It writes through a symlinked `settings.json`, backs it up first (owner-only, never over an earlier backup), and checks that nothing else in the file changed. It stops, changing nothing, when it finds an install from a checkout of the old bash version. The plugin's hooks live in `hooks/hooks.json`, never in settings. `chmod` and `rm` only single files by their own path, never through a link: no code may recurse over the state folder or its `bin`.
+6. Our status line command ends in the tag `# claude-sitrep`, which is how any clone's wrapper is recognised as ours.
+7. The summarizer runs isolated (empty working directory, no tools, no MCP, no settings, a time limit, its own process group that the limit kills whole), and a summary that arrives after a newer prompt is dropped.
+8. Changes to a queue take the folder's queue lock (`state.Lock`), so an append, a removal, a move and a reorder cannot lose one another's work.
 
 ## Commit Messages
 

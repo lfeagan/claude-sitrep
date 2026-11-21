@@ -24,4 +24,4 @@ cmake-build-*/
 *.swp
 *~
 *.tmp
-bin/sitrep-tui
+/sitrep

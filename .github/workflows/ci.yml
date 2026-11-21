@@ -5,22 +5,13 @@ on:
 permissions:
   contents: read
 jobs:
-  check:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install shellcheck and jq (macOS)
-        if: runner.os == 'macOS'
-        run: brew install shellcheck jq
-      - run: make lint test
   go:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      SITREP_REQUIRE_ORACLE: 1
     steps:
       - uses: actions/checkout@v7
         with:
@@ -32,4 +23,4 @@ jobs:
       - name: Install jq (macOS)
         if: runner.os == 'macOS'
         run: brew install jq
-      - run: make go-test
+      - run: make test
