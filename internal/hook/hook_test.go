@@ -565,33 +565,50 @@ func TestUpdateCheckFailureDoesNotFailTheHook(t *testing.T) {
 	}
 }
 
-func TestANotificationDoesNotBecomeNow(t *testing.T) {
+func TestANotificationLabelsNow(t *testing.T) {
 	r := newRig(t)
 	r.fire(`{"session_id":"sess8","hook_event_name":"UserPromptSubmit","prompt":"fix the build"}`)
-	for _, p := range []string{
-		`<task-notification>\n<task-id>bm0uk1g13</task-id>`,
-		`  <agent-message from=\"ae18\"> [Subagent hand-back]`,
-		`&lt;task-notification&gt; done`,
+	now := func() string {
+		for _, l := range strings.Split(r.file("sess8.txt"), "\n") {
+			if v, ok := strings.CutPrefix(l, "Now:"); ok {
+				return strings.TrimSpace(v)
+			}
+		}
+		return ""
+	}
+	for _, c := range []struct{ prompt, now string }{
+		{`<task-notification>\n<task-id>bm0uk1g13</task-id>`, "Background task finished"},
+		{`  <agent-message from=\"ae18\"> [Subagent hand-back]`, "Subagent reported back"},
+		{`&lt;task-notification&gt; done`, "Background task finished"},
+		{`<system-reminder> x`, ""},
+		{`<task-notificationx> x`, ""}, // a longer name is another tag
 	} {
-		r.fire(`{"session_id":"sess8","hook_event_name":"UserPromptSubmit","prompt":"` + p + `"}`)
-		n := r.file("sess8.txt")
-		if !strings.Contains(n, "Objective: fix the build") || !strings.Contains(n, "Now:       fix the build") || strings.Contains(n, "<") || strings.Contains(n, "&lt;") {
-			t.Fatalf("after %q the notes are %q", p, n)
+		before := now()
+		r.fire(`{"session_id":"sess8","hook_event_name":"UserPromptSubmit","prompt":"` + c.prompt + `"}`)
+		want := c.now
+		if want == "" {
+			want = before // an unknown tag leaves Now alone
+		}
+		if got := now(); got != want {
+			t.Errorf("after %q Now is %q, want %q", c.prompt, got, want)
+		}
+		if n := r.file("sess8.txt"); !strings.Contains(n, "Objective: fix the build") || strings.Contains(n, "<") || strings.Contains(n, "&lt;") {
+			t.Errorf("after %q the notes are %q", c.prompt, n)
 		}
 	}
 	if got := strings.TrimSpace(r.file(".sess8.state")); got != "working" {
 		t.Errorf("state %q: a notification starts a turn", got)
 	}
 	r.fire(`{"session_id":"sess8","hook_event_name":"UserPromptSubmit","prompt":"now the tests"}`)
-	if n := r.file("sess8.txt"); !strings.Contains(n, "Now:       now the tests") {
-		t.Errorf("a real prompt after it: %q", n)
+	if got := now(); got != "now the tests" {
+		t.Errorf("a real prompt after it: %q", got)
 	}
 }
 
 func TestANotificationAsTheFirstPromptLeavesNoTagInTheNotes(t *testing.T) {
 	r := newRig(t)
 	r.fire(`{"session_id":"sess9","hook_event_name":"UserPromptSubmit","prompt":"<task-notification> x"}`)
-	if n := r.file("sess9.txt"); strings.Contains(n, "<") || !strings.Contains(n, "Objective: -") || !strings.Contains(n, "Now:       -") {
+	if n := r.file("sess9.txt"); strings.Contains(n, "<") || !strings.Contains(n, "Objective: -") || !strings.Contains(n, "Now:       Background task finished") {
 		t.Errorf("notes %q", n)
 	}
 }

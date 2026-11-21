@@ -158,7 +158,11 @@ func (s *session) prompt() {
 		obj = textsafe.Sane(transcript.FirstPrompt(s.tp), 160).String()
 	}
 	if wrapped(prompt) { // a notification Claude Code sent, not something the user said: it says nothing about what is happening
-		_ = s.write(orDash(obj), orDash(s.prog), orDash(s.now))
+		now := orDash(s.now)
+		if label := notice(prompt); label != "" {
+			now = label
+		}
+		_ = s.write(orDash(obj), orDash(s.prog), now)
 		return
 	}
 	if obj == "" {
@@ -175,6 +179,21 @@ var tagRe = regexp.MustCompile(`(?:<|&lt;)/?[A-Za-z][A-Za-z0-9_-]*(?:\s[^<>]*?)?
 
 // untag drops XML-like tags, which a pasted notification carries in the middle of the user's own words; the text between them stays.
 func untag(s string) string { return tagRe.ReplaceAllString(s, " ") }
+
+// notices name the tags whose messages say what happened, as the line Now shows. Any other tag leaves Now as it was.
+var notices = map[string]string{"task-notification": "Background task finished", "agent-message": "Subagent reported back"}
+
+// notice is the Now line for a wrapped prompt, or empty when the tag is not one that is known.
+func notice(prompt string) string {
+	head := strings.TrimLeftFunc(prompt, unicode.IsSpace)
+	head = strings.TrimPrefix(strings.TrimPrefix(head, "&lt;"), "<")
+	for tag, label := range notices {
+		if rest, ok := strings.CutPrefix(head, tag); ok && (rest == "" || !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-", rune(rest[0]))) {
+			return label
+		}
+	}
+	return ""
+}
 
 // wrapped says a prompt starts with a tag, as the task notifications, agent hand-backs and command wrappers that Claude Code sends do. The
 // transcript scan skips the same messages.
