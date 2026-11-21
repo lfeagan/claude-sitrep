@@ -47,10 +47,13 @@ func cmdHookSummarize(e Env, args []string) error {
 		}
 		args = args[2:]
 	}
+	if len(args) == 3 && args[0] == "--" {
+		args = args[1:] // an id may look like a flag
+	}
 	if len(args) != 2 {
 		return nil
 	}
-	z := hook.Summarizer{Hook: e.hook(), Run: e.Runner, Sleep: time.Sleep, Env: os.Environ()}
+	z := hook.Summarizer{Hook: e.hook(), Run: e.Runner, Sleep: sleepCtx, Env: os.Environ()}
 	if n, err := strconv.Atoi(e.Getenv("SITREP_SUMMARIZE_TIMEOUT")); err == nil && n > 0 { // for tests, so that no stub outlives them
 		z.Limit = time.Duration(n) * time.Second
 	}
@@ -85,4 +88,14 @@ func spawnSelf(args ...string) error {
 		return err
 	}
 	return cmd.Process.Release()
+}
+
+// sleepCtx waits for d, or until ctx is done.
+func sleepCtx(ctx context.Context, d time.Duration) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-t.C:
+	case <-ctx.Done():
+	}
 }

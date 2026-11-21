@@ -40,7 +40,7 @@ func TestExecDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	_, err := Exec{}.Run(ctx, Cmd{Name: "sh", Args: []string{"-c", "sleep 30 & wait"}})
+	_, err := Exec{}.Run(ctx, Cmd{Name: "sh", Args: []string{"-c", "sleep 30 & wait"}, NewGroup: true})
 	if err == nil || time.Since(start) > 10*time.Second {
 		t.Fatalf("the deadline did not stop the command: %v after %v", err, time.Since(start))
 	}

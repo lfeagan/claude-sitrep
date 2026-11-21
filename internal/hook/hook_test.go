@@ -93,7 +93,7 @@ func TestStopSchedulesOneDeferredRun(t *testing.T) {
 	at := t0.Add(-10 * time.Second)
 	os.Chtimes(stamp, at, at)
 	r.fire(stop)
-	if len(r.spawns) != 2 || strings.Join(r.spawns[1][:3], " ") != "hook-summarize --wait 35" || r.spawns[1][3] != "--nonce" {
+	if len(r.spawns) != 2 || strings.Join(r.spawns[1][:3], " ") != "hook-summarize --wait 35" || r.spawns[1][3] != "--nonce" || r.spawns[1][5] != "--" {
 		t.Fatalf("second stop: %v", r.spawns)
 	}
 	// while that is pending, a third schedules nothing
@@ -230,7 +230,7 @@ func (r *recordingRunner) Run(_ context.Context, c runner.Cmd) ([]byte, error) {
 func newSummary(t *testing.T, out string) (*rig, Summarizer, *recordingRunner, string) {
 	r := newRig(t)
 	rr := &recordingRunner{out: []byte(out)}
-	z := Summarizer{Hook: r.h, Run: rr, Sleep: func(time.Duration) {}, Env: []string{"A=1"}}
+	z := Summarizer{Hook: r.h, Run: rr, Sleep: func(context.Context, time.Duration) {}, Env: []string{"A=1"}}
 	tp := r.transcript("sess8", `{"type":"user","message":{"content":"build it"}}`)
 	os.MkdirAll(r.h.Store.Dir, 0o700)
 	os.WriteFile(filepath.Join(r.h.Store.Dir, "sess8.txt"), []byte("Objective: old goal\nProgress:  p\nNow:       n\n"), 0o600)
@@ -319,7 +319,7 @@ func TestDeferredRunSleepsThenClearsPendingAndStamps(t *testing.T) {
 	r, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
 	os.WriteFile(r.h.Store.Hidden("sess8", "pending"), []byte("1\n"), 0o600)
 	var slept time.Duration
-	z.Sleep = func(d time.Duration) {
+	z.Sleep = func(_ context.Context, d time.Duration) {
 		slept = d
 		if _, err := os.Stat(r.h.Store.Hidden("sess8", "pending")); err != nil {
 			t.Error("pending went away before the sleep ended")
@@ -467,5 +467,54 @@ func TestSummarizerSkipsATranscriptThatWentAway(t *testing.T) {
 	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
 	if len(rr.got) != 0 {
 		t.Error("claude was asked to summarize nothing")
+	}
+}
+
+func TestASignalDuringTheWaitChangesNothing(t *testing.T) {
+	r, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	os.WriteFile(r.h.Store.Hidden("sess8", "pending"), []byte(strconv.FormatInt(t0.Unix(), 10)+" mine\n"), 0o600)
+	ctx, cancel := context.WithCancel(context.Background())
+	z.Sleep = func(context.Context, time.Duration) { cancel() }
+	z.Do(ctx, "sess8", tp, Opts{Wait: 30, Nonce: "mine"})
+	if len(rr.got) != 0 {
+		t.Error("a cancelled run still summarized")
+	}
+	if _, err := os.Stat(r.h.Store.Hidden("sess8", "stamp")); err == nil {
+		t.Error("a cancelled run touched the stamp")
+	}
+	if _, _, ok := ReadPending(r.h.Store.Hidden("sess8", "pending")); !ok {
+		t.Error("a cancelled run removed the pending file")
+	}
+}
+
+func TestAClockThatStepsBackDoesNotSleepForever(t *testing.T) {
+	r, z, _, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	_ = r
+	var slept []time.Duration
+	back := t0
+	z.Clock = clockFunc(func() time.Time { back = back.Add(-24 * time.Hour); return back })
+	z.Sleep = func(_ context.Context, d time.Duration) { slept = append(slept, d) }
+	z.Do(context.Background(), "sess8", tp, Opts{Wait: 30})
+	for _, d := range slept {
+		if d > 31*time.Second {
+			t.Errorf("slept %v", d)
+		}
+	}
+}
+
+type clockFunc func() time.Time
+
+func (f clockFunc) Now() time.Time { return f() }
+
+func TestAnIdThatLooksLikeAFlagIsStillAnId(t *testing.T) {
+	r := newRig(t)
+	tp := r.transcript("--wait", `{"type":"user","message":{"content":"x"}}`)
+	r.fire(`{"session_id":"--wait","hook_event_name":"Stop","transcript_path":"` + tp + `"}`)
+	if len(r.spawns) != 1 {
+		t.Fatalf("%v", r.spawns)
+	}
+	got := r.spawns[0]
+	if got[len(got)-3] != "--" || got[len(got)-2] != "--wait" {
+		t.Errorf("%v", got)
 	}
 }

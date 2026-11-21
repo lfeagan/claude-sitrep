@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 	"unicode/utf8"
 
 	"github.com/lfeagan/claude-sitrep/internal/clock"
@@ -250,7 +252,7 @@ func (s *session) stop() {
 		// a Stop inside the window schedules one deferred run for its end, so a quick follow-up turn is never left stale
 		wait := window - (now - fi.ModTime().Unix())
 		if nonce, ok := s.claimPending(now, now+wait, window); ok {
-			_ = s.Spawn("hook-summarize", "--wait", strconv.FormatInt(wait, 10), "--nonce", nonce, string(s.id), s.tp)
+			_ = s.Spawn("hook-summarize", "--wait", strconv.FormatInt(wait, 10), "--nonce", nonce, "--", string(s.id), s.tp)
 		}
 		return
 	}
@@ -259,9 +261,14 @@ func (s *session) stop() {
 }
 
 // claimPending makes the one deferred run of a session. The pending file holds when the run is due and a nonce that names the child that
-// owns it. A pending file whose time has long passed belongs to a child that died (a reboot, a kill), so it is taken over; the rename means
-// only one of two Stops that find it stale wins it.
+// owns it. A pending file whose time has long passed belongs to a child that died (a reboot, a kill), so it is replaced. The check and the
+// replacement happen under a lock, so two Stops that find it stale cannot both win it.
 func (s *session) claimPending(now, due, window int64) (string, bool) {
+	unlock, ok := lock(s.Store.Hidden(s.id, "lock"))
+	if !ok {
+		return "", false
+	}
+	defer unlock()
 	path := s.Store.Hidden(s.id, "pending")
 	if d, _, ok := ReadPending(path); ok {
 		if now <= d+5 {
@@ -270,28 +277,31 @@ func (s *session) claimPending(now, due, window int64) (string, bool) {
 	} else if fi, err := os.Stat(path); err == nil && now-fi.ModTime().Unix() <= window+5 {
 		return "", false // an older version's file, with no time in it
 	}
-	if _, err := os.Lstat(path); err == nil {
-		grave := path + "." + strconv.FormatInt(now, 36) + strconv.Itoa(os.Getpid())
-		if os.Rename(path, grave) != nil {
-			return "", false // another Stop took it first
-		}
-		_ = os.Remove(grave)
-	}
 	var raw [8]byte
 	if _, err := rand.Read(raw[:]); err != nil {
 		return "", false
 	}
 	nonce := hex.EncodeToString(raw[:])
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, state.FileMode)
-	if err != nil {
-		return "", false
-	}
-	_, werr := f.WriteString(strconv.FormatInt(due, 10) + " " + nonce + "\n")
-	if f.Close() != nil || werr != nil {
-		_ = os.Remove(path)
+	if err := s.Store.WriteFile(path, []byte(strconv.FormatInt(due, 10)+" "+nonce+"\n")); err != nil {
 		return "", false
 	}
 	return nonce, true
+}
+
+// lock takes an exclusive lock on a file, waiting a moment for another Stop to finish, and gives up rather than hold a prompt.
+func lock(path string) (unlock func(), ok bool) {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, state.FileMode)
+	if err != nil {
+		return nil, false
+	}
+	for i := 0; i < 50; i++ {
+		if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) == nil {
+			return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, true
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	f.Close()
+	return nil, false
 }
 
 // ReadPending reads a pending file: when the run is due, and the nonce of the child that owns it.
@@ -311,5 +321,5 @@ func touch(st state.Store, path string, now int64) {
 // summarizeNow starts the summarizer, telling it the prompt count it is for.
 func (s *session) summarizeNow() {
 	since := state.FirstLine(s.Store.Hidden(s.id, "count"))
-	_ = s.Spawn("hook-summarize", "--since", since, string(s.id), s.tp)
+	_ = s.Spawn("hook-summarize", "--since", since, "--", string(s.id), s.tp)
 }

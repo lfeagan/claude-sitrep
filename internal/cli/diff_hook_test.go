@@ -25,7 +25,7 @@ type hookWorld struct {
 const stubClaude = `#!/bin/bash
 { echo ARGS:; printf '[%s]\n' "$@"; echo "SUMMARIZING=$SITREP_SUMMARIZING"; echo STDIN:; cat; echo END; } >> "$STUB_REC"
 echo x >> "$STUB_CALLS"
-[ -e "$STUB_SLOW" ] && sleep 2
+[ -e "$STUB_SLOW" ] && sleep 1
 printf 'Objective: stub objective\nProgress: stub progress\nNow: stub now\n'
 `
 
@@ -212,10 +212,10 @@ func TestDiffHookSummarizer(t *testing.T) {
 		"stop inside the window is deferred": func(w *hookWorld) {
 			tp := w.transcript("sess0031", user("build it"))
 			w.fire(ev("sess0031", "UserPromptSubmit", "prompt", "build it", "transcript_path", tp))
-			w.fire(ev("sess0031", "Stop", "transcript_path", tp), "SITREP_DEBOUNCE=2")
+			w.fire(ev("sess0031", "Stop", "transcript_path", tp), "SITREP_DEBOUNCE=3")
 			w.settle("sess0031", 1)
-			w.fire(ev("sess0031", "Stop", "transcript_path", tp), "SITREP_DEBOUNCE=2")
-			w.fire(ev("sess0031", "Stop", "transcript_path", tp), "SITREP_DEBOUNCE=2") // already pending
+			w.fire(ev("sess0031", "Stop", "transcript_path", tp), "SITREP_DEBOUNCE=3")
+			w.fire(ev("sess0031", "Stop", "transcript_path", tp), "SITREP_DEBOUNCE=3") // already pending
 			w.settle("sess0031", 2)
 		},
 		"a newer prompt drops the summary": func(w *hookWorld) {
@@ -224,7 +224,7 @@ func TestDiffHookSummarizer(t *testing.T) {
 			w.fire(ev("sess0032", "UserPromptSubmit", "prompt", "first", "transcript_path", tp))
 			w.fire(ev("sess0032", "Stop", "transcript_path", tp))
 			w.fire(ev("sess0032", "UserPromptSubmit", "prompt", "second, while it was summarizing", "transcript_path", tp))
-			time.Sleep(3 * time.Second)
+			time.Sleep(4 * time.Second)
 			w.results = append(w.results, difftest.Result{Stdout: fmt.Sprintf("calls=%d\n%s", w.calls(), w.rec())})
 		},
 		"pinned objective survives": func(w *hookWorld) {

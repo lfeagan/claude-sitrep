@@ -24,9 +24,9 @@ var claudeArgs = []string{"-p", "--model", "haiku", "--no-session-persistence", 
 type Summarizer struct {
 	Hook
 	Run   runner.Runner
-	Sleep func(time.Duration)
-	Env   []string      // the environment of the claude call, without SITREP_SUMMARIZING
-	Limit time.Duration // how long claude may take; Deadline when zero
+	Sleep func(ctx context.Context, d time.Duration) // waits for d, or until ctx is done
+	Env   []string                                   // the environment of the claude call, without SITREP_SUMMARIZING
+	Limit time.Duration                              // how long claude may take; Deadline when zero
 }
 
 // Opts say when to run. Wait is the seconds to sleep first (the deferred run); Since is the prompt count the summary is for, and when it is
@@ -49,11 +49,14 @@ func (z Summarizer) Do(ctx context.Context, id state.ID, tp string, o Opts) {
 		// sleep toward the due time on the wall clock, which a suspended laptop moves past while the process sleeps
 		due := z.Clock.Now().Unix() + int64(o.Wait)
 		for i := 0; i < 5; i++ {
-			rem := due - z.Clock.Now().Unix()
+			rem := min(due-z.Clock.Now().Unix(), int64(o.Wait)+1) // a clock that stepped back must not make it sleep for a day
 			if rem <= 0 {
 				break
 			}
-			z.Sleep(time.Duration(rem) * time.Second)
+			z.Sleep(ctx, time.Duration(rem)*time.Second)
+		}
+		if ctx.Err() != nil {
+			return // told to stop while waiting: change nothing
 		}
 		pending := z.Store.Hidden(id, "pending")
 		if o.Nonce != "" {
@@ -88,7 +91,7 @@ func (z Summarizer) Do(ctx context.Context, id state.ID, tp string, o Opts) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
-	out, err := z.Run.Run(ctx, runner.Cmd{Name: "claude", Args: claudeArgs, Dir: work, Env: append(append([]string(nil), z.Env...), "SITREP_SUMMARIZING=1"), Stdin: strings.NewReader(prompt)})
+	out, err := z.Run.Run(ctx, runner.Cmd{Name: "claude", Args: claudeArgs, Dir: work, Env: append(append([]string(nil), z.Env...), "SITREP_SUMMARIZING=1"), Stdin: strings.NewReader(prompt), NewGroup: true})
 	if ctx.Err() != nil || (err != nil && len(out) == 0) {
 		return // out of time (or cancelled): half an answer is not used
 	}

@@ -179,8 +179,8 @@ func State(t testing.TB, home string) map[string]File {
 	}
 	m := map[string]File{}
 	for _, e := range entries {
-		if !e.Type().IsRegular() {
-			continue
+		if !e.Type().IsRegular() || strings.HasSuffix(e.Name(), ".lock") {
+			continue // a lock file is a Go-only artifact: the bash took no locks
 		}
 		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
 		if err != nil {

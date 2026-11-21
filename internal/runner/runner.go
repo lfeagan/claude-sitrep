@@ -19,6 +19,8 @@ type Cmd struct {
 	Dir   string    // working directory; empty means the caller's
 	Env   []string  // the whole environment; nil means the caller's
 	Stdin io.Reader // nil means none
+	// NewGroup runs the program in its own process group and, when the context ends, kills the whole group: for a program that starts others.
+	NewGroup bool
 }
 
 // Runner runs a program and returns its standard output.
@@ -32,8 +34,15 @@ type Exec struct{}
 func (Exec) Run(ctx context.Context, c Cmd) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, c.Name, c.Args...)
 	cmd.Dir, cmd.Env, cmd.Stdin = c.Dir, c.Env, c.Stdin
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} // its own group, so the deadline can end the whole tree
-	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	if c.NewGroup {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		cmd.Cancel = func() error {
+			if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
+				return err
+			}
+			return nil
+		}
+	}
 	cmd.WaitDelay = 2 * time.Second // a grandchild holding the pipe must not outlive the deadline
 	return cmd.Output()
 }

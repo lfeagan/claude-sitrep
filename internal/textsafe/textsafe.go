@@ -61,6 +61,22 @@ func cut(s string, max int) string {
 	return s
 }
 
+// head keeps the start of s that can matter for max characters: a character takes at most four bytes, so a longer text is cut before it is
+// filtered, and a huge prompt is not scanned in full. Only a start that is mostly control characters can then come out shorter than max.
+func head(s string, max int) string {
+	if max < 1 || len(s) <= max*4+64 {
+		return s
+	}
+	s = s[:max*4+64]
+	for len(s) > 0 && !utf8.RuneStart(s[len(s)-1]) {
+		s = s[:len(s)-1]
+	}
+	if len(s) > 0 && s[len(s)-1] >= 0xC0 { // a lead byte with its continuation cut off
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
 // flat makes one line without control or format characters.
 func flat(s string) string {
 	var b strings.Builder
@@ -79,11 +95,11 @@ func flat(s string) string {
 // Clean makes text for storing: one flat line, no control or format characters, no trailing spaces, at most max characters (a max below 1
 // means no limit). Invalid UTF-8 becomes U+FFFD, where perl kept the bad bytes, so state written by the Go version is always valid UTF-8.
 func Clean(s string, max int) Text {
-	return Text{cut(strings.TrimRight(flat(s), " "), max)}
+	return Text{cut(strings.TrimRight(flat(head(s, max)), " "), max)}
 }
 
 // Sane is Clean without the trailing-space trim, for the hook's own fields.
-func Sane(s string, max int) Text { return Text{cut(flat(s), max)} }
+func Sane(s string, max int) Text { return Text{cut(flat(head(s, max)), max)} }
 
 // Strip makes text for showing: it removes the same characters but keeps line breaks and tabs.
 func Strip(s string) Text {
