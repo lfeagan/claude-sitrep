@@ -30,7 +30,30 @@ Most tools show what your sessions are doing. sitrep also holds what you plan to
 
 ## Install
 
-Requires `jq`, `perl` and the `claude` CLI. Run `./install.sh`, which does the following:
+Requires `jq`, `perl` and the `claude` CLI. There are two ways to install it. Use one, not both.
+
+### As a Claude Code plugin
+
+```
+/plugin install sitrep --marketplace lfeagan/claude-sitrep
+/sitrep:setup
+```
+
+The first line adds this repository as a marketplace and installs the plugin, which brings the hooks and the `sitrep-queue` skill (as `/sitrep:sitrep-queue`) and keeps them current. A plugin cannot declare a status line, so `/sitrep:setup` does the rest, after Claude Code asks about the settings change:
+
+- It points the status line at a copy of the script in `~/.claude/sitrep/statusline.sh`, which keeps working when the plugin's folder is replaced. An existing status line, such as Claude HUD, is saved as `SITREP_HUD_CMD` in `~/.claude/sitrep/sitrep.conf` and runs first, as below.
+- It links `sitrep` into `~/bin`, through `~/.claude/sitrep/plugin`, a link to the installed plugin that the `SessionStart` hook keeps on the newest version. The hook never creates the link or the copy, so only setup does.
+- It registers no hooks and links no skill, because the plugin has them.
+
+If an install from a checkout (`./install.sh`) is still in place, setup stops and changes nothing, because that install's hooks would run beside the plugin's. It names what it found and the `uninstall.sh` to run first. In the same way `./install.sh` stops while the plugin is set up.
+
+To take sitrep out, run `/sitrep:setup remove` (it restores the saved upstream status line, and removes the copy, the link and `~/bin/sitrep`), then `/plugin uninstall sitrep`. State in `~/.claude/sitrep` stays. If Claude HUD's setup runs after sitrep's, it replaces the status line and the sitrep block disappears: run `/sitrep:setup` again. An upstream that is itself a plugin path breaks when that plugin updates, which is not something sitrep can prevent.
+
+The dashboard is optional and is built, not shipped: `sitrep tui --build` builds it into `~/.claude/sitrep/bin`, which a plugin update does not touch, and needs Go 1.26 or newer. Build it again after an update.
+
+### From a checkout
+
+Run `./install.sh`, which does the following:
 
 1. Backs up `~/.claude/settings.json` and adds `SessionStart`, `UserPromptSubmit`, `Stop` and `SessionEnd` hooks.
 2. Points the status line at `statusline/statusline.sh`. Any existing status line, such as Claude HUD, is saved to `~/.claude/sitrep/sitrep.conf` as `SITREP_HUD_CMD` and runs first, so its output stays above the sitrep block.

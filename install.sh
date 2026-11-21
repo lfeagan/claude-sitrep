@@ -12,6 +12,10 @@ R=$(cd "$(dirname "$0")" && pwd)
 S="$HOME/.claude/settings.json"; BIN_DIR=${BIN_DIR:-$HOME/bin}; SKILLS_DIR=${SKILLS_DIR:-$HOME/.claude/skills}; ND="$HOME/.claude/sitrep"; CONF="$ND/sitrep.conf"
 # shellcheck source=lib/conf.sh
 . "$R/lib/conf.sh"
+if [ -L "$ND/plugin" ] || [ -e "$ND/plugin" ]; then
+  echo "The sitrep plugin is set up here ($ND/plugin). Its hooks would run twice beside these. Run /sitrep:setup with remove first, or leave the plugin as it is." >&2
+  exit 1
+fi
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 command -v perl >/dev/null || { echo "perl is required" >&2; exit 1; }
 umask 077
@@ -37,7 +41,7 @@ if [ -d "$od" ] && [ -z "$(find "$od" -mindepth 1 ! \( -name '*.txt' -o -name '*
   for x in "$od"/* "$od"/.[!.]*; do [ -f "$x" ] && mv -n "$x" "$ND/"; done
   rmdir "$od" 2>/dev/null && echo "Moved state from $od to $ND."
 fi
-mkdir -p "$ND"; chmod 700 "$ND"; chmod 600 "$ND"/* 2>/dev/null || true
+mkdir -p "$ND"; chmod 700 "$ND"; find "$ND" -maxdepth 1 -type f -exec chmod 600 {} + 2>/dev/null || true   # files only: a link in here must not be followed
 [ -e "$HOME/.claude/sitrep.conf" ] && [ ! -e "$CONF" ] && mv "$HOME/.claude/sitrep.conf" "$CONF"
 # Only after settings are written: keep the old status line (e.g. Claude HUD) as the upstream, unless it is ours.
 case "$old" in

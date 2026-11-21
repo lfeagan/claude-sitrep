@@ -789,7 +789,7 @@ check "sitrep tui passes its arguments on" has "$out" "args: --tab top --once"
 check "sitrep tui tells the dashboard which sitrep to run" has "$out" "bin: $R/bin/sitrep"
 eq "sitrep tui becomes the dashboard, so its exit status comes through" 7 "$(SITREP_TUI="$fake" rc sitrep tui)"
 eq "a missing dashboard fails" 1 "$(SITREP_TUI="$T/nope" rc sitrep tui)"
-check "and says how to build it" has "$(SITREP_TUI="$T/nope" sitrep tui 2>&1)" "make tui"
+check "and says how to build it" has "$(SITREP_TUI="$T/nope" sitrep tui 2>&1)" "sitrep tui --build"
 printf 'plain file\n' > "$T/notexec"
 eq "a file that is not executable is not used" 1 "$(SITREP_TUI="$T/notexec" rc sitrep tui)"
 # the dashboard is found through relative and chained links, whatever the working directory
@@ -801,6 +801,27 @@ for l in rel chain abs; do
 done
 check "SITREP_BIN is an absolute path, even for a script run by a relative name" has "$(cd "$R/bin" && SITREP_TUI="$fake" bash sitrep tui)" "bin: $R/bin/sitrep"
 check "sitrep help tui mentions the build" has "$(sitrep help tui)" "make tui"
+check "and the build command" has "$(sitrep help tui)" "sitrep tui --build"
+# sitrep tui --build, with a stub go
+clone "$T/plug-tui"
+HB="$T/home-b"; mkdir -p "$HB/.claude" "$T/gobin"
+cat > "$T/gobin/go" <<'STUB'
+#!/bin/bash
+[ -f go.mod ] || exit 3
+echo "$*" > "$GO_ARGS"
+while [ $# -gt 0 ]; do [ "$1" = -o ] && { printf '#!/bin/sh\necho built-tui "$@"\n' > "$2"; chmod +x "$2"; }; shift; done
+STUB
+chmod +x "$T/gobin/go"
+out=$(HOME="$HB" PATH="$T/gobin:$PATH" GO_ARGS="$T/goargs" bash "$T/plug-tui/bin/sitrep" tui --build 2>&1); rcode=$?
+eq "tui --build succeeds" 0 "$rcode"
+check "tui --build says where it built" has "$out" "built $HB/.claude/sitrep/bin/sitrep-tui"
+eq "go runs read-only on the plugin's tui folder and writes outside the plugin" "build -mod=readonly -o $HB/.claude/sitrep/bin/sitrep-tui ." "$(cat "$T/goargs")"
+eq "the build folder is private" 700 "$(mode "$HB/.claude/sitrep/bin")"
+mkdir -p "$T/chk2/bin"; cp "$R/bin/sitrep" "$T/chk2/bin/sitrep"
+check "sitrep tui finds the one it built, outside the script's folder" has "$(cd / && env -u SITREP_TUI HOME="$HB" bash "$T/chk2/bin/sitrep" tui 2>&1)" "built-tui"
+eq "tui --build with another argument fails" 1 "$(HOME="$HB" PATH="$T/gobin:$PATH" GO_ARGS="$T/goargs" rc bash "$T/plug-tui/bin/sitrep" tui --build x)"
+printf '#!/bin/bash\nexit 1\n' > "$T/gobin/go"
+check "a failed build is reported" has "$(HOME="$HB" PATH="$T/gobin:$PATH" bash "$T/plug-tui/bin/sitrep" tui --build 2>&1)" "go build failed"
 check "the list has a line for tui" has "$(sitrep help)" "  tui "
 check "top is still the queue command, not the dashboard" has "$(sitrep help top)" "usage: sitrep top <id> <n>"
 
@@ -1069,6 +1090,165 @@ check "install still links sitrep after that" test -L "$H25/bin/sitrep"
 check "install still wrote the hooks after that" jq -e '.hooks.Stop|length==1' "$H25/.claude/settings.json"
 eq "watch refuses options after the interval" 1 "$(rc sitrep watch 5 -n 3)"
 eq "watch accepts options before the interval" 0 "$(rc sitrep watch -n 3 5)"
+
+# ---- plugin: manifests, hooks.json, setup, the checkout guard and the link refresh
+setupc() { HOME="$1" BIN_DIR="$1/bin" bash "$2/setup.sh" "${@:3}"; }   # home, plugin root, args
+tree_state() { (cd "$1" && find . \( -type f -o -type l \) ! -name 'settings.json.bak.*' | sort | while read -r f; do
+  if [ -L "$f" ]; then echo "$f -> $(readlink "$f")"; else echo "$f $(cksum < "$f")"; fi; done); }
+PJ="$R/.claude-plugin/plugin.json"; MJ="$R/.claude-plugin/marketplace.json"; HJ="$R/hooks/hooks.json"
+check "plugin.json, marketplace.json and hooks.json parse" bash -c "jq -e . '$PJ' && jq -e . '$MJ' && jq -e . '$HJ'"
+eq "the plugin is called sitrep" sitrep "$(jq -r .name "$PJ")"
+check "the plugin name does not start with claude-" bash -c "! jq -r .name '$PJ' | grep -q '^claude-'"
+check "the plugin has a version" jq -e '.version|test("^[0-9]+[.][0-9]+[.][0-9]+$")' "$PJ"
+eq "the marketplace lists that plugin from the repo root" "sitrep ./" "$(jq -r '.plugins[0]|"\(.name) \(.source)"' "$MJ")"
+eq "hooks.json has the four events" '["SessionEnd","SessionStart","Stop","UserPromptSubmit"]' "$(jq -c '.hooks|keys' "$HJ")"
+for e in SessionStart UserPromptSubmit Stop SessionEnd; do
+  # shellcheck disable=SC2016  # the variable is for Claude Code to expand
+  eq "hooks.json runs the hook script for $e" 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/sitrep-hook.sh"' "$(jq -r ".hooks.${e}[0].hooks[0].command" "$HJ")"
+done
+eq "the SessionEnd hook has a timeout" 10 "$(jq '.hooks.SessionEnd[0].hooks[0].timeout' "$HJ")"
+clone "$T/plug dir/p"
+hc=$(jq -r '.hooks.Stop[0].hooks[0].command' "$HJ")
+eq "the stored hook command runs from a path with spaces" 0 "$(echo '{}' | HOME="$T/home-hc" CLAUDE_PLUGIN_ROOT="$T/plug dir/p" bash -c "$hc" >/dev/null 2>&1; echo $?)"
+check "the setup skill is not model-invocable" grep -q '^disable-model-invocation: true' "$R/skills/setup/SKILL.md"
+
+# a fresh setup
+clone "$T/plug"; mode0=$(mode "$T/plug")
+HP="$T/home-p"; fresh "$HP" '{}'; SP="$HP/.claude/settings.json"
+out=$(setupc "$HP" "$T/plug" 2>&1); rcode=$?
+eq "setup exits 0" 0 "$rcode"
+# shellcheck disable=SC2016  # $HOME stays literal in the stored command
+eq "setup sets the status line to the stable copy" 'bash "$HOME/.claude/sitrep/statusline.sh" # claude-sitrep' "$(jq -r .statusLine.command "$SP")"
+eq "setup registers no hooks (the plugin has them)" null "$(jq .hooks "$SP")"
+eq "the stable link points at the plugin" "$(cd "$T/plug" && pwd -P)" "$(readlink "$HP/.claude/sitrep/plugin")"
+check "the status line copy is the plugin's script" cmp -s "$T/plug/statusline/statusline.sh" "$HP/.claude/sitrep/statusline.sh"
+eq "sitrep is linked through the stable link" "$HP/.claude/sitrep/plugin/bin/sitrep" "$(readlink "$HP/bin/sitrep")"
+check "setup links no skill" test ! -e "$HP/.claude/skills/sitrep-queue" -a ! -L "$HP/.claude/skills/sitrep-queue"
+check "setup says there was no status line" has "$out" "No existing status line"
+eq "setup leaves the plugin folder's mode alone" "$mode0" "$(mode "$T/plug")"
+slc=$(jq -r .statusLine.command "$SP")
+check "the stored status line command runs" has "$(jq -nc '{session_id:"sx"}' | HOME="$HP" bash -c "$slc")" "Queue: empty"
+HS="$T/home with space"; fresh "$HS" '{}'; setupc "$HS" "$T/plug" >/dev/null 2>&1
+check "the status line command runs with a space in HOME" has "$(jq -nc '{session_id:"sx"}' | HOME="$HS" bash -c "$(jq -r .statusLine.command "$HS/.claude/settings.json")")" "Queue: empty"
+mkdir -p "$HP/.claude/sitrep"; echo keep > "$HP/.claude/sitrep/abcd0001.txt"
+setupc "$HP" "$T/plug" --remove >/dev/null 2>&1
+eq "remove restores settings exactly" '{}' "$(jq -c . "$SP")"
+check "remove takes the link, the copy and the bin link away" test ! -e "$HP/.claude/sitrep/plugin" -a ! -L "$HP/.claude/sitrep/plugin" -a ! -e "$HP/.claude/sitrep/statusline.sh" -a ! -L "$HP/bin/sitrep"
+eq "remove keeps the state" keep "$(cat "$HP/.claude/sitrep/abcd0001.txt")"
+
+# an upstream status line, a second run, and remove
+HU="$T/home-pu"; orig='{"statusLine":{"type":"command","command":"echo hud","padding":2}}'; fresh "$HU" "$orig"; SU="$HU/.claude/settings.json"
+mkdir -p "$HU/bin"; echo mine > "$HU/bin/other"
+out=$(setupc "$HU" "$T/plug" 2>&1)
+check "setup says it wraps the existing status line" has "$out" "Wrapping the existing status line (it renders first): echo hud"
+eq "setup keeps other statusLine settings" 2 "$(jq .statusLine.padding "$SU")"
+eq "the upstream renders first" hud "$(jq -nc '{session_id:"sx"}' | HOME="$HU" bash -c "$(jq -r .statusLine.command "$SU")" | head -1)"
+s1=$(jq -S . "$SU"); c1=$(cat "$HU/.claude/sitrep/sitrep.conf")
+out=$(setupc "$HU" "$T/plug" 2>&1)
+check "a second setup says it is already set up" has "$out" "already set up"
+eq "a second setup changes no settings" "$s1" "$(jq -S . "$SU")"
+eq "a second setup keeps the saved upstream" "$c1" "$(cat "$HU/.claude/sitrep/sitrep.conf")"
+setupc "$HU" "$T/plug" --remove >/dev/null 2>&1
+eq "remove gives back the original settings" "$(jq -S . <<<"$orig")" "$(jq -S . "$SU")"
+eq "remove leaves another command in bin alone" mine "$(cat "$HU/bin/other")"
+check "remove drops the consumed upstream config" test ! -e "$HU/.claude/sitrep/sitrep.conf"
+out=$(setupc "$HU" "$T/plug" --remove 2>&1)
+check "remove twice is harmless" has "$out" "Removed"
+HF="$T/home-pf"; fresh "$HF" '{"statusLine":{"type":"command","command":"echo other"}}'
+out=$(setupc "$HF" "$T/plug" --remove 2>&1)
+check "remove leaves a status line that is not ours" has "$out" "left alone"
+eq "and the command is unchanged" "echo other" "$(jq -r .statusLine.command "$HF/.claude/settings.json")"
+
+# an install from a checkout: stop, change nothing, say what to run
+HC="$T/home-pc"; fresh "$HC" '{"statusLine":{"type":"command","command":"echo hud"}}'; clone "$T/clone-pa"
+instc "$HC" "$T/clone-pa" install.sh >/dev/null 2>&1
+t0=$(tree_state "$HC"); sj=$(cat "$HC/.claude/settings.json")
+out=$(setupc "$HC" "$T/plug" 2>&1); rcode=$?
+eq "setup stops when a checkout install is there" 1 "$rcode"
+check "and names the uninstall command to run" has "$out" "uninstall.sh"
+check "and the checkout it found" has "$out" "clone-pa"
+eq "and changes nothing" "$t0" "$(tree_state "$HC")"
+eq "and leaves settings.json byte for byte" "$sj" "$(cat "$HC/.claude/settings.json")"
+instc "$HC" "$T/clone-pa" uninstall.sh >/dev/null 2>&1
+eq "after the old uninstall, setup works" 0 "$(rc setupc "$HC" "$T/plug")"
+eq "and it wrapped the restored upstream" hud "$(jq -nc '{session_id:"sx"}' | HOME="$HC" bash -c "$(jq -r .statusLine.command "$HC/.claude/settings.json")" | head -1)"
+n=0
+for case in \
+  'hooks only, from a renamed copy|{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash /nowhere/renamed-copy/hooks/sitrep-hook.sh"}]}]}}|' \
+  'the old hook name|{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash /nowhere/c/hooks/notes-hook.sh"}]}]}}|' \
+  'a tagged status line only|{"statusLine":{"type":"command","command":"bash /nowhere/x/statusline/statusline.sh # claude-sitrep"}}|' \
+  'an untagged status line from a claude-sitrep checkout|{"statusLine":{"type":"command","command":"bash /nowhere/claude-sitrep/statusline/statusline.sh"}}|' \
+  'a skill link only|{}|skill' \
+  'a bin link only|{}|bin'; do
+  IFS='|' read -r what json extra <<<"$case"; n=$((n + 1)); HK="$T/home-pk$n"; fresh "$HK" "$json"; mkdir -p "$HK/bin" "$HK/.claude/skills"
+  [ "$extra" = skill ] && ln -s /nowhere/c/skills/sitrep-queue "$HK/.claude/skills/sitrep-queue"
+  [ "$extra" = bin ] && ln -s /nowhere/c/bin/sitrep "$HK/bin/sitrep"
+  t0=$(tree_state "$HK"); out=$(setupc "$HK" "$T/plug" 2>&1); rcode=$?
+  eq "setup stops for $what" 1 "$rcode"
+  eq "and changes nothing for $what" "$t0" "$(tree_state "$HK")"
+  check "and says the checkout is gone for $what" has "$out" "is gone"
+done
+HV="$T/home-pv"; fresh "$HV" "$(jq -nc --arg p "$(printf 'bash /nowhere/c/hooks/sitrep-hook.sh\033]0;x\007')" '{hooks:{Stop:[{hooks:[{type:"command",command:$p}]}]}}')"
+out=$(setupc "$HV" "$T/plug" 2>&1)
+check "a path from settings is printed without control characters" bash -c "! printf '%s' \"\$1\" | LC_ALL=C grep -q \$'\\033'" _ "$out"
+HX="$T/home-px"; fresh "$HX" '{"statusLine":{"type":"command","command":"echo hud"}}'; mkdir -p "$HX/bin"; echo mine > "$HX/bin/sitrep"
+out=$(setupc "$HX" "$T/plug" 2>&1)
+eq "a foreign sitrep in bin does not stop setup" mine "$(cat "$HX/bin/sitrep")"
+check "and is reported" has "$out" "exists and is not ours"
+HD="$T/home-pd"; fresh "$HD" '{}'; mkdir -p "$HD/.claude/sitrep/plugin"
+eq "setup refuses when the plugin link name is a real folder" 1 "$(rc setupc "$HD" "$T/plug")"
+check "and writes nothing" test "$(jq -c . "$HD/.claude/settings.json")" = '{}'
+eq "setup rejects an unknown argument" 1 "$(rc setupc "$HP" "$T/plug" --nope)"
+
+# install.sh and the plugin must not both be set up
+HI="$T/home-pi"; fresh "$HI" '{}'; setupc "$HI" "$T/plug" >/dev/null 2>&1
+sj=$(jq -S . "$HI/.claude/settings.json")
+eq "install.sh refuses while the plugin is set up" 1 "$(rc instc "$HI" "$R" install.sh)"
+eq "and changes no settings" "$sj" "$(jq -S . "$HI/.claude/settings.json")"
+setupc "$HI" "$T/plug" --remove >/dev/null 2>&1
+eq "install.sh works after remove" 0 "$(rc instc "$HI" "$R" install.sh)"
+# install.sh must not follow a link in the state folder
+HL="$T/home-pl"; fresh "$HL" '{}'; mkdir -p "$HL/.claude/sitrep" "$T/linked"; chmod 755 "$T/linked"; echo x > "$HL/.claude/sitrep/f.txt"; chmod 644 "$HL/.claude/sitrep/f.txt"
+ln -s "$T/linked" "$HL/.claude/sitrep/lnk"
+instc "$HL" "$R" install.sh >/dev/null 2>&1
+eq "install.sh does not chmod through a link in the state folder" 755 "$(mode "$T/linked")"
+eq "install.sh still makes state files private" 600 "$(mode "$HL/.claude/sitrep/f.txt")"
+
+# the SessionStart hook keeps the link and the copy current, but only once setup has made them
+mkroot() { mkdir -p "$1/statusline" "$1/.claude-plugin"; cp "$R/statusline/statusline.sh" "$1/statusline/"; printf '{"name":"sitrep","version":"%s"}' "$2" > "$1/.claude-plugin/plugin.json"; }
+CACHE="$T/c/plugins/cache/sitrep/sitrep"; mkroot "$CACHE/0.1.0" 0.1.0; mkroot "$CACHE/0.2.0" 0.2.0; mkroot "$CACHE/0.10.0" 0.10.0; mkroot "$T/dev/plugin" 9.9.9
+HR="$T/home-r"; fresh "$HR" '{}'; NDR="$HR/.claude/sitrep"; mkdir -p "$NDR"
+sstart() { ev "$2" SessionStart | HOME="$1" CLAUDE_PLUGIN_ROOT="$3" bash "$R/hooks/sitrep-hook.sh" >/dev/null 2>&1; echo $?; }   # home, session, root
+eq "the hook exits 0" 0 "$(sstart "$HR" sess0001 "$CACHE/0.1.0")"
+check "with no setup, the hook makes no link and no copy" test ! -e "$NDR/plugin" -a ! -L "$NDR/plugin" -a ! -e "$NDR/statusline.sh"
+ln -s "$CACHE/0.1.0" "$NDR/plugin"; echo '# old copy' > "$NDR/statusline.sh"
+eq "a newer version moves the link" 0 "$(sstart "$HR" sess0001 "$CACHE/0.2.0")"
+eq "the link follows" "$CACHE/0.2.0" "$(readlink "$NDR/plugin")"
+check "the copy is refreshed" cmp -s "$CACHE/0.2.0/statusline/statusline.sh" "$NDR/statusline.sh"
+eq "nothing strays into the plugin cache" "0.1.0 0.10.0 0.2.0" "$(cd "$CACHE" && printf '%s ' * | sed 's/ $//')"
+sstart "$HR" sess0001 "$CACHE/0.10.0" >/dev/null
+eq "versions compare as numbers: 0.10.0 beats 0.2.0" "$CACHE/0.10.0" "$(readlink "$NDR/plugin")"
+sstart "$HR" sess0001 "$CACHE/0.2.0" >/dev/null
+eq "an older version, still running in an older session, does not move it back" "$CACHE/0.10.0" "$(readlink "$NDR/plugin")"
+sstart "$HR" sess0001 "$T/dev/plugin" >/dev/null
+eq "a folder outside the plugin cache does not move a working link" "$CACHE/0.10.0" "$(readlink "$NDR/plugin")"
+for bad in "relative/path" "$CACHE/0.2.0/../0.1.0" "$T/dev/missing"; do
+  eq "a root like '${bad##*/}' exits 0 and moves nothing" "0 $CACHE/0.10.0" "$(sstart "$HR" sess0001 "$bad") $(readlink "$NDR/plugin")"
+done
+eq "no root exits 0 and moves nothing" "0 $CACHE/0.10.0" "$(ev sess0001 SessionStart | env -u CLAUDE_PLUGIN_ROOT HOME="$HR" bash "$R/hooks/sitrep-hook.sh" >/dev/null 2>&1; echo $?) $(readlink "$NDR/plugin")"
+ln -sfn /nowhere "$NDR/plugin"
+sstart "$HR" sess0001 "$T/dev/plugin" >/dev/null
+eq "a link to a missing folder is moved to any good root" "$T/dev/plugin" "$(readlink "$NDR/plugin")"
+sstart "$HR" sess0001 "$T/dev/plugin" >/dev/null
+eq "a second refresh changes nothing" "$T/dev/plugin" "$(readlink "$NDR/plugin")"
+ln -sfn "$CACHE/0.1.0" "$NDR/plugin"; bad=0
+for i in 1 2 3 4 5 6 7 8; do sstart "$HR" "sess000$i" "$CACHE/0.10.0" >/dev/null & done
+for _ in $(seq 1 40); do [ -f "$NDR/plugin/statusline/statusline.sh" ] || bad=1; done; wait
+eq "the link is never missing while hooks race" 0 "$bad"
+eq "and it ends on the newest version" "$CACHE/0.10.0" "$(readlink "$NDR/plugin")"
+mkdir -p "$NDR/bin"; echo "Objective: o" > "$NDR/real0001.txt"
+eq "sitrep ls ignores the link and a bin folder in the state folder" 0 "$(HOME="$HR" bash "$R/bin/sitrep" ls -a >/dev/null 2>&1; echo $?)"
+eq "and lists only the real session" 1 "$(HOME="$HR" bash "$R/bin/sitrep" ls --json -a | jq '.sessions|length')"
 
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]

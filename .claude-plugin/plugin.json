@@ -1,0 +1,10 @@
+{
+  "name": "sitrep",
+  "description": "A per-session Objective, Progress and Now block and a work queue for each Claude Code session, with a status line, an inbox, and an optional full-screen dashboard",
+  "version": "0.3.0",
+  "author": { "name": "Lance Feagan" },
+  "homepage": "https://github.com/lfeagan/claude-sitrep",
+  "repository": "https://github.com/lfeagan/claude-sitrep",
+  "license": "MIT",
+  "keywords": ["status-line", "queue", "sessions", "tmux", "cmux"]
+}

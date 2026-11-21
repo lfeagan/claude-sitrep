@@ -19,6 +19,33 @@ esac
 dir="$HOME/.claude/sitrep"; [ -d "$dir" ] || mkdir -p "$dir"; chmod 700 "$dir"
 f="$dir/$sid.txt"
 
+# Once /sitrep:setup has made the stable link and the status line copy, keep them on the newest installed plugin version, from the
+# plugin's own hook. It never creates them (that would undo a removal), never moves from a working version to an older one or to a
+# folder outside the plugin cache, and never fails.
+refresh_plugin() {
+  local root=${CLAUDE_PLUGIN_ROOT:-} cur cv nv t
+  case "$root" in /*) ;; *) return 0 ;; esac   # an absolute path, without ..: it becomes code the status line runs
+  case "$root" in */../*|*/..) return 0 ;; esac
+  [ -f "$root/statusline/statusline.sh" ] || return 0
+  cur=$(readlink "$dir/plugin" 2>/dev/null)
+  if [ "$cur" != "$root" ]; then
+    if [ -f "$cur/statusline/statusline.sh" ]; then
+      case "$root" in */plugins/cache/*) ;; *) return 0 ;; esac
+      cv=$(jq -r '.version // empty' "$cur/.claude-plugin/plugin.json" 2>/dev/null); nv=$(jq -r '.version // empty' "$root/.claude-plugin/plugin.json" 2>/dev/null)
+      if [ -z "$nv" ] || [ "$nv" = "$cv" ] || [ "$(printf '%s\n%s\n' "$cv" "$nv" | sort -V | tail -1)" != "$nv" ]; then return 0; fi
+    fi
+    t="$dir/.plugin.$$"; rm -f "$t"
+    if ! { ln -s "$root" "$t" && perl -e 'rename $ARGV[0], $ARGV[1] or exit 1' "$t" "$dir/plugin"; }; then rm -f "$t"; return 0; fi
+  fi
+  if [ -f "$dir/statusline.sh" ] && [ ! -L "$dir/statusline.sh" ] && ! cmp -s "$root/statusline/statusline.sh" "$dir/statusline.sh"; then
+    if t=$(mktemp "$dir/.statusline.XXXXXX"); then
+      if cat "$root/statusline/statusline.sh" > "$t"; then mv "$t" "$dir/statusline.sh"; else rm -f "$t"; fi
+    fi
+  fi
+  return 0
+}
+[ "$event" = SessionStart ] && [ -L "$dir/plugin" ] && { refresh_plugin; } 2>/dev/null
+
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 # Prompt and model text is untrusted terminal input. Flatten to one line, drop control (Cc, incl. C1) and
 # format (Cf, incl. bidi) characters, and cut to $1 characters.

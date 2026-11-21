@@ -301,14 +301,19 @@ watch_loop() { # seconds (with $items, $all, $wrapn and $hl set): redraw every N
   done
 }
 
-tui_bin() { # the optional Go dashboard: $SITREP_TUI, then next to this script (through a symlink), then PATH
-  local self=$0 d p t n=0
-  if [ -n "$SITREP_TUI" ]; then [ -f "$SITREP_TUI" ] && [ -x "$SITREP_TUI" ] && echo "$SITREP_TUI"; return; fi
-  while [ -L "$self" ] && [ "$n" -lt 20 ]; do   # follow a chain of links; a relative target is relative to the link's own directory
+self_dir() { # the folder this script lives in, found through a chain of links; a relative target is relative to the link's own directory
+  local self=$0 t n=0
+  while [ -L "$self" ] && [ "$n" -lt 20 ]; do
     t=$(readlink "$self"); case "$t" in /*) self=$t ;; *) self=$(dirname "$self")/$t ;; esac; n=$(( n + 1 ))
   done
-  d=$(cd "$(dirname "$self")" 2>/dev/null && pwd) && p="$d/sitrep-tui"
-  if [ -n "$p" ] && [ -f "$p" ] && [ -x "$p" ]; then echo "$p"; return; fi
+  cd "$(dirname "$self")" 2>/dev/null && pwd
+}
+tui_bin() { # the optional Go dashboard: $SITREP_TUI, then next to this script, then the one `sitrep tui --build` made, then PATH
+  local d p
+  if [ -n "$SITREP_TUI" ]; then [ -f "$SITREP_TUI" ] && [ -x "$SITREP_TUI" ] && echo "$SITREP_TUI"; return; fi
+  d=$(self_dir) && for p in "$d/sitrep-tui" "$dir/bin/sitrep-tui"; do
+    if [ -f "$p" ] && [ -x "$p" ]; then echo "$p"; return; fi
+  done
   command -v sitrep-tui
 }
 
@@ -454,11 +459,13 @@ EOF
     tui) cat <<'EOF'
 usage: sitrep tui [--tab watch|top] [--interval 3s] [--once] [--width n] [--quit-on-jump]
                   [--read-only] [--no-bell]
+       sitrep tui --build
 
 Run sitrep-tui, an optional full-screen dashboard with a Watch tab and a Top tab and a
 status bar. It gets everything from `sitrep ls --json` and changes nothing itself. It is
-not built by default: run `make tui` in the claude-sitrep checkout, which needs Go 1.26
-or newer.
+not built by default: `sitrep tui --build` builds it into ~/.claude/sitrep/bin, and
+`make tui` builds it in a checkout. Both need Go 1.26 or newer. Build it again after the
+plugin updates.
 
 Keys: up, down, j and k move the selection; enter jumps to the session's tmux pane or cmux
 surface; d or space opens the session in full; tab, shift-tab, left, right, 1 and 2 switch
@@ -560,8 +567,17 @@ case "$cmd" in
           case "$ans" in y|Y|yes) for (( i = 0; i < n; i++ )); do bash "$0" move "$sid" inbox 1 >/dev/null || break; moved=$(( moved + 1 )); done ;; esac
         done
         if [ "$dry" = 1 ]; then echo "would mark $marked ended, would ask about $asked item(s)"; else echo "$marked marked ended, $moved item(s) moved to the inbox"; fi ;;
-  tui)  bin=$(tui_bin)
-        [ -n "$bin" ] || die "sitrep-tui is not built; run 'make tui' in the claude-sitrep checkout (needs Go 1.26 or newer)"
+  tui)  if [ "${1:-}" = --build ]; then   # into our own folder, which a plugin update leaves alone
+          [ $# -eq 1 ] || die "usage: sitrep tui --build"
+          command -v go >/dev/null || die "go is not installed; the dashboard needs Go 1.26 or newer"
+          src=$(self_dir)/../tui; [ -f "$src/go.mod" ] || die "no dashboard source at $src"
+          mkdir -p "$dir/bin" || die "cannot create $dir/bin"
+          chmod 700 "$dir/bin"
+          (cd "$src" && go build -mod=readonly -o "$dir/bin/sitrep-tui" .) || die "go build failed"
+          echo "built $dir/bin/sitrep-tui"; exit 0
+        fi
+        bin=$(tui_bin)
+        [ -n "$bin" ] || die "sitrep-tui is not built; run 'sitrep tui --build' (or 'make tui' in the checkout); it needs Go 1.26 or newer"
         case $0 in /*) me=$0 ;; *) me=$PWD/$0 ;; esac   # an absolute path, so the dashboard never searches PATH for it
         SITREP_BIN=$me exec "$bin" "$@" ;;   # the dashboard runs this very script, so their versions match
   snooze) off=0; [ "$1" = --off ] && { off=1; shift; }
