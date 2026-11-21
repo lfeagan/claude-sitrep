@@ -21,4 +21,4 @@ If setup says it found an install from a checkout, it has changed nothing. Show 
 
 After a setup, the user restarts Claude Code sessions to see the status line. State in `~/.claude/sitrep` is kept by a removal.
 
-To update sitrep, the user updates the plugin first (`claude plugin marketplace update`, then `claude plugin update sitrep`, or `/plugin`) and restarts Claude Code, then runs this setup again, so that the program matches the new plugin; until then the hooks run the older program. The status line says "Update: sitrep X is out" when a newer release exists. A user with a clone updates with `git pull --tags && make install`.
+To update sitrep, the user updates the plugin first (`claude plugin marketplace update sitrep && claude plugin update sitrep@sitrep`, or `/plugin`) and restarts Claude Code, then runs this setup again, so that the program matches the new plugin; until then the hooks run the older program. The status line says "Update: sitrep X is out" when a newer release exists. A user with a clone updates with `git pull --tags && make install`.

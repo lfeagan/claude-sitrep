@@ -51,7 +51,7 @@ sitrep runs on macOS and Linux; it uses file locks and process groups, so there 
 
 When a newer release exists, the status line says so under the queue line (`Update: sitrep 0.6.0 is out (you have 0.5.0)`). Updating is two steps, because the hooks and the status line run the built program, and a plugin update does not rebuild it:
 
-1. Update the plugin: `claude plugin marketplace update` and then `claude plugin update sitrep`, or `/plugin` inside Claude Code. Restart Claude Code to apply it.
+1. Update the plugin with `claude plugin marketplace update sitrep && claude plugin update sitrep@sitrep`, or from `/plugin` inside Claude Code. Restart Claude Code to apply it.
 2. Run `/sitrep:setup` again, so that the program matches the new plugin. It is safe to run again. `sitrep version` prints the version of the program, and `.claude-plugin/plugin.json` the version of the plugin.
 
 Between the two steps the hooks run the older program, and if you skipped step 2 after the first install they name a program that does not exist yet, so each hook ends with a non-blocking error and a `+` prompt goes to Claude as written.
