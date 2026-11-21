@@ -64,17 +64,21 @@ end run`}
 end run`}
 )
 
-// jumpApp selects the window and tab of app that holds the terminal of process pid. ok is false when the application does not show it.
-func jumpApp(ctx context.Context, app termApp, pid int, run runner) (ok bool, err error) {
+// ttyOf is the terminal of process pid, or "" when it has none or an unusual one (a background session has none).
+func ttyOf(ctx context.Context, pid int, run runner) string {
 	out, err := run(ctx, "ps", "-o", "tty=", "-p", strconv.Itoa(pid))
-	if err != nil {
-		return false, nil // no terminal to look for
+	if tty := normTTY(out); err == nil && ttyRe.MatchString(tty) {
+		return tty
 	}
-	tty := normTTY(out)
-	if !ttyRe.MatchString(tty) {
+	return ""
+}
+
+// jumpApp selects the window and tab of app that shows tty. ok is false when the application does not show it.
+func jumpApp(ctx context.Context, app termApp, tty string, run runner) (ok bool, err error) {
+	if tty == "" {
 		return false, nil
 	}
-	out, err = run(ctx, "osascript", "-e", app.script, tty)
+	out, err := run(ctx, "osascript", "-e", app.script, tty)
 	if err != nil {
 		return false, appError(app, err)
 	}

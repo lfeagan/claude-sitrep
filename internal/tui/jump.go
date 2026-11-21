@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -181,21 +182,30 @@ func realRunner(ctx context.Context, name string, args ...string) (string, error
 	return out.buf.String(), nil
 }
 
-// jumpEnv says which multiplexers and terminal applications the dashboard itself runs inside.
-type jumpEnv struct{ Tmux, Cmux, ITerm, Terminal bool }
+// jumpEnv says which backends a jump may use. A session can run in a different terminal than the dashboard, so the terminal applications do
+// not depend on where the dashboard runs: they are tried on macOS, and each looks only at an application that is running.
+type jumpEnv struct {
+	Tmux            bool // the dashboard runs inside tmux
+	Cmux            bool // the dashboard runs inside cmux
+	Cmux2           bool // cmux is installed but the dashboard is outside it: cmux refuses a process started outside, so a refusal is no failure
+	ITerm, Terminal bool
+}
 
 func currentEnv() jumpEnv {
+	inCmux := os.Getenv("CMUX_SURFACE_ID") != "" || os.Getenv("CMUX_WORKSPACE_ID") != ""
+	_, noCmux := exec.LookPath("cmux")
 	return jumpEnv{
-		Tmux: os.Getenv("TMUX") != "", Cmux: os.Getenv("CMUX_SURFACE_ID") != "" || os.Getenv("CMUX_WORKSPACE_ID") != "",
-		ITerm: os.Getenv("TERM_PROGRAM") == "iTerm.app" || os.Getenv("ITERM_SESSION_ID") != "", Terminal: os.Getenv("TERM_PROGRAM") == "Apple_Terminal",
+		Tmux: os.Getenv("TMUX") != "", Cmux: inCmux, Cmux2: !inCmux && noCmux == nil,
+		ITerm: runtime.GOOS == "darwin", Terminal: runtime.GOOS == "darwin",
 	}
 }
 
-// jump brings the terminal that shows s to the front, through tmux, cmux, iTerm2 or Terminal.app, whichever
-// the dashboard runs inside, in that order: a pane inside tmux wins over the terminal application around it.
-// It returns a short message for the status bar, and never guesses.
+// jump brings the terminal that shows s to the front, through tmux, cmux, iTerm2 or Terminal.app, in that
+// order: a pane inside tmux wins over the terminal application around it. The session may run in another
+// terminal than the dashboard, so the applications are asked whichever one the dashboard is in. It returns a
+// short message for the status bar, and never guesses.
 func jump(ctx context.Context, s Session, env jumpEnv, run runner) (string, error) {
-	if !env.Tmux && !env.Cmux && !env.ITerm && !env.Terminal {
+	if !env.Tmux && !env.Cmux && !env.Cmux2 && !env.ITerm && !env.Terminal {
 		return "", errors.New("not in tmux, cmux, iTerm2 or Terminal: run the dashboard inside one to jump")
 	}
 	if s.PID == nil || *s.PID <= 1 {
@@ -209,6 +219,7 @@ func jump(ctx context.Context, s Session, env jumpEnv, run runner) (string, erro
 	}
 	procs := parseProcs(snapshot)
 	parents := parentMap(procs)
+	var cmuxErr error // why cmux could not be asked from outside, to say when nothing else finds the session
 	// head is the process whose terminal is looked for: the session, or the client attached to it
 	try := func(head int) (bool, error) {
 		chains := [][]int{ancestors(head, parents)}
@@ -222,13 +233,23 @@ func jump(ctx context.Context, s Session, env jumpEnv, run runner) (string, erro
 				return ok, err
 			}
 		}
-		if env.ITerm {
-			if ok, err := jumpApp(ctx, iterm2, head, run); err != nil || ok {
-				return ok, err
+		if env.Cmux2 && cmuxErr == nil {
+			if ok, err := jumpCmux(ctx, chains, run); ok {
+				return true, nil
+			} else {
+				cmuxErr = err
 			}
 		}
-		if env.Terminal {
-			return jumpApp(ctx, terminalApp, head, run)
+		if env.ITerm || env.Terminal {
+			tty := ttyOf(ctx, head, run)
+			if env.ITerm {
+				if ok, err := jumpApp(ctx, iterm2, tty, run); err != nil || ok {
+					return ok, err
+				}
+			}
+			if env.Terminal {
+				return jumpApp(ctx, terminalApp, tty, run)
+			}
 		}
 		return false, nil
 	}
@@ -252,6 +273,9 @@ func jump(ctx context.Context, s Session, env jumpEnv, run runner) (string, erro
 	hint := ""
 	if len(s.ID) >= 8 {
 		hint = "; if it runs in the background, open it with: claude attach " + s.ID[:8]
+	}
+	if cmuxErr != nil {
+		hint += "; cmux said: " + cmuxErr.Error()
 	}
 	return "", errors.New("not in a pane here" + hint)
 }

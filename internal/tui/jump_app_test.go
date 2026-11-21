@@ -3,6 +3,9 @@ package tui
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -111,21 +114,62 @@ func TestJumpAppDenied(t *testing.T) {
 	}
 }
 
-func TestCurrentEnvDetectsTerminalApps(t *testing.T) {
+func TestJumpFromCmuxToTerminalApp(t *testing.T) {
+	sess := Session{ID: "abcdef123456", Short: "abcd", PID: pidOf(70)}
+	f := &fake{answer: map[string]string{"cmux top": "", "ps -A": "70 1 claude\n", "ps -o tty= -p 70": "ttys003\n", "osascript": "found\n"}}
+	if _, err := jump(context.Background(), sess, jumpEnv{Cmux: true, ITerm: true, Terminal: true}, f.run); err != nil {
+		t.Fatalf("a dashboard in cmux jumps to a session in another application: %v", err)
+	}
+	if got := osascriptCalls(f); len(got) != 1 {
+		t.Errorf("osascript calls %q", got)
+	}
+}
+
+func TestJumpFromAppToCmuxIsRefused(t *testing.T) {
+	sess := Session{ID: "abcdef123456", Short: "abcd", PID: pidOf(70)}
+	refused := errors.New("cmux: Access denied - only processes started inside cmux can connect")
+	f := &fake{answer: map[string]string{"ps -A": "70 1 claude\n", "ps -o tty= -p 70": "ttys003\n"}, fail: map[string]error{"cmux top": refused}}
+	_, err := jump(context.Background(), sess, jumpEnv{Cmux2: true, ITerm: true, Terminal: true}, f.run)
+	if err == nil || !strings.Contains(err.Error(), "not in a pane here") || !strings.Contains(err.Error(), "cmux said: cmux: Access denied") {
+		t.Fatalf("a refusal by cmux is said, not hidden: %v", err)
+	}
+	// a session the applications do show is found, whatever cmux said
+	f = &fake{answer: map[string]string{"ps -A": "70 1 claude\n", "ps -o tty= -p 70": "ttys003\n", "osascript": "found\n"}, fail: map[string]error{"cmux top": refused}}
+	if msg, err := jump(context.Background(), sess, jumpEnv{Cmux2: true, ITerm: true}, f.run); err != nil || msg != "jumped to abcd" {
+		t.Fatalf("%q %v", msg, err)
+	}
+	// but when the dashboard is inside cmux, a failure of cmux is a failure
+	f = &fake{answer: map[string]string{"ps -A": "70 1 claude\n"}, fail: map[string]error{"cmux top": refused}}
+	if _, err := jump(context.Background(), sess, jumpEnv{Cmux: true, ITerm: true}, f.run); err == nil || !strings.Contains(err.Error(), "Access denied") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestCurrentEnvBackends(t *testing.T) {
+	t.Setenv("PATH", t.TempDir()) // no cmux
 	for _, tc := range []struct {
-		env  map[string]string
-		want jumpEnv
+		env map[string]string
+		in  func(jumpEnv) bool
 	}{
-		{map[string]string{"TERM_PROGRAM": "iTerm.app"}, jumpEnv{ITerm: true}},
-		{map[string]string{"TERM_PROGRAM": "tmux", "ITERM_SESSION_ID": "w0t0p0:ABC", "TMUX": "/tmp/x"}, jumpEnv{Tmux: true, ITerm: true}},
-		{map[string]string{"TERM_PROGRAM": "Apple_Terminal"}, jumpEnv{Terminal: true}},
-		{map[string]string{"TERM_PROGRAM": "ghostty"}, jumpEnv{}},
+		{map[string]string{"TMUX": "/tmp/x"}, func(e jumpEnv) bool { return e.Tmux && !e.Cmux }},
+		{map[string]string{"CMUX_SURFACE_ID": "x"}, func(e jumpEnv) bool { return e.Cmux && !e.Cmux2 && !e.Tmux }},
+		{map[string]string{}, func(e jumpEnv) bool { return !e.Tmux && !e.Cmux && !e.Cmux2 }},
 	} {
-		for _, k := range []string{"TERM_PROGRAM", "ITERM_SESSION_ID", "TMUX", "CMUX_SURFACE_ID", "CMUX_WORKSPACE_ID"} {
+		for _, k := range []string{"TMUX", "CMUX_SURFACE_ID", "CMUX_WORKSPACE_ID"} {
 			t.Setenv(k, tc.env[k])
 		}
-		if got := currentEnv(); got != tc.want {
-			t.Errorf("%v: %+v, want %+v", tc.env, got, tc.want)
+		got := currentEnv()
+		if !tc.in(got) || got.ITerm != (runtime.GOOS == "darwin") || got.Terminal != got.ITerm {
+			t.Errorf("%v: %+v", tc.env, got)
 		}
+	}
+	cmux := filepath.Join(t.TempDir(), "cmux")
+	if err := os.WriteFile(cmux, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", filepath.Dir(cmux))
+	t.Setenv("CMUX_SURFACE_ID", "")
+	if got := currentEnv(); !got.Cmux2 || got.Cmux {
+		t.Errorf("cmux installed, dashboard outside it: %+v", got)
 	}
 }
