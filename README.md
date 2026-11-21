@@ -73,7 +73,7 @@ To take sitrep out, run `/sitrep:setup remove` (it restores the saved upstream s
 1. `sitrep ls` lists running sessions with their queue (item count and next item), Objective and Now, and `sitrep ls <id>` lists one queue. `-a` adds ended sessions.
 2. `sitrep add <id> <text>` appends an item.
 3. `sitrep pin <id> <text>` pins that session's Objective, and `sitrep unpin <id>` lets the summarizer rewrite it again.
-4. `sitrep rm <id> [n]` removes item `n` (default 1) and prints it.
+4. `sitrep rm <id> [n]` removes item `n` (default 1) and prints it. `sitrep done <id> [n]` is the same command under a name that reads right for finished work; there is no separate done state.
 5. `sitrep move <from> <to> [n]` hands an item to another queue. With `--item <text>` it refuses unless item `n` is exactly that text, so a program that showed a list cannot move a different item. `rm`, `top` and `reorder` take the same `--item <text>`, which is checked against the item at `n` (or at `from`).
 6. `sitrep edit <id> <n> <text>` replaces the text of item `n` (a spelling fix, say) and keeps its place; it takes the same `--item <old text>` guard.
 7. `sitrep alias <id> <name>` gives a session a name, to use wherever an id goes (`sitrep ls sitrep`), and `sitrep alias <id> --off` takes it away; with no arguments it lists the names. A name is 1 to 32 lowercase letters, digits and hyphens, starts with a letter, and is neither `inbox` nor the start of a session id. A name that another session holds is refused, so free it first. An id always wins over a name, and a name must match whole (`sit` does not find `sitrep`). `sitrep ls` and the dashboard show the name in the first column in place of the four characters, and the status line shows `Queue [id c5d0 sitrep]`.

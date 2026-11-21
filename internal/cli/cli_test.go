@@ -355,3 +355,58 @@ func TestLsJSONCarriesTheContextWindow(t *testing.T) {
 		t.Errorf("ls text: %q", text)
 	}
 }
+
+func TestDoneIsRmUnderAnotherName(t *testing.T) {
+	home := t.TempDir()
+	for _, text := range []string{"first", "second", "third"} {
+		run(t, home, "add", "inbox", text)
+	}
+	if code, out, _ := run(t, home, "done", "inbox"); code != 0 || out != "first\n" {
+		t.Errorf("done: %d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "done", "inbox", "2"); code != 0 || out != "third\n" {
+		t.Errorf("done 2: %d %q", code, out)
+	}
+	if code, out, errs := run(t, home, "done", "inbox", "--item", "something else"); code != 1 || out != "" || errs == "" {
+		t.Errorf("the guard must refuse: %d %q %q", code, out, errs)
+	}
+	if _, out, _ := run(t, home, "ls", "inbox"); !strings.Contains(out, "1. second") {
+		t.Errorf("the guarded done removed something: %q", out)
+	}
+	if code, _, errs := run(t, home, "done", "inbox", "--item", "second"); code != 0 || errs != "" {
+		t.Errorf("a matching guard: %d %q", code, errs)
+	}
+	if code, _, errs := run(t, home, "done", "inbox"); code != 1 || errs != "sitrep: queue empty\n" {
+		t.Errorf("done on an empty queue: %d %q", code, errs)
+	}
+}
+
+func TestDoneHasItsOwnUsageAndHelp(t *testing.T) {
+	home := t.TempDir()
+	if code, _, errs := run(t, home, "done"); code != 1 || !strings.HasPrefix(errs, "sitrep: usage: sitrep done <id>") {
+		t.Errorf("usage: %d %q", code, errs)
+	}
+	if _, out, _ := run(t, home, "done", "--help"); !strings.HasPrefix(out, "usage: sitrep done <id> [n]") {
+		t.Errorf("help: %q", out)
+	}
+	if _, out, _ := run(t, home, "help"); !strings.Contains(out, "  done <id> [n]") {
+		t.Errorf("the list of commands: %q", out)
+	}
+	if _, errs := commandsWithoutHelp(); errs != "" {
+		t.Error(errs)
+	}
+}
+
+// commandsWithoutHelp names a command that has no help text, since every command that is offered should explain itself.
+func commandsWithoutHelp() (int, string) {
+	var missing []string
+	for name := range commands {
+		if _, ok := help[name]; !ok && !hidden[name] && name != "-h" && name != "--help" {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) == 0 {
+		return 0, ""
+	}
+	return len(missing), "commands without help: " + strings.Join(missing, ", ")
+}

@@ -25,6 +25,7 @@ var specs = map[string]spec{
 	"alias":   {flags: []string{"--off"}, ids: []int{0}, noInbox: true},
 	"edit":    {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
 	"rm":      {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
+	"done":    {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
 	"top":     {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
 	"reorder": {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
 	"move":    {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0, 1}},

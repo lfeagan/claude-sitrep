@@ -41,7 +41,7 @@ func TestCompleteCommandsAndFlags(t *testing.T) {
 	e := completionEnv(t)
 	ctx := context.Background()
 	cmds := e.complete(ctx, []string{""})
-	for _, want := range []string{"ls", "add", "rm", "move", "watch", "status", "setup", "prune", "snooze", "help", "completion", "version"} {
+	for _, want := range []string{"ls", "add", "rm", "done", "move", "watch", "status", "setup", "prune", "snooze", "help", "completion", "version"} {
 		if !contains(cmds, want) {
 			t.Errorf("no %q in %v", want, cmds)
 		}
@@ -56,7 +56,7 @@ func TestCompleteCommandsAndFlags(t *testing.T) {
 	}
 	for cmd, want := range map[string][]string{
 		"ls": {"--all", "--full", "--json", "-a", "-n", "-v"}, "prune": {"--dry-run", "--keep", "--yes", "-k", "-y"}, "setup": {"--remove"}, "snooze": {"--off"},
-		"rm": {"--item"}, "watch": {"--interval", "--no-bell", "--once", "--quit-on-jump", "--read-only", "--tab", "--width"},
+		"rm": {"--item"}, "done": {"--item"}, "watch": {"--interval", "--no-bell", "--once", "--quit-on-jump", "--read-only", "--tab", "--width"},
 	} {
 		if got := sorted(e.complete(ctx, []string{cmd, "-"})); !reflect.DeepEqual(got, sorted(want)) {
 			t.Errorf("%s flags: %v", cmd, got)

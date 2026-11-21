@@ -38,6 +38,12 @@ Remove item n (default 1) from a queue and print it. It refuses when the queue
 changed after it was read, so it never removes a different item. With --item, it
 also refuses unless item n is exactly that text, for a program that showed a list.
 `,
+	"done": `usage: sitrep done <id> [n] [--item <text>]
+
+The same as rm, for an item that is finished: it removes item n (default 1) from a queue
+and prints it. It refuses when the queue changed after it was read. With --item, it also
+refuses unless item n is exactly that text. There is no separate done state.
+`,
 	"top": `usage: sitrep top <id> <n> [--item <text>]
 
 Move item n to the front of a queue, so that it is the next item. With --item, it
@@ -191,6 +197,7 @@ const helpAll = `usage: sitrep <command> [args]
   alias [<id> <name>]        name a session (--off removes the name), or list the names
   edit <id> <n> <text>       replace the text of an item (--item <old text> guards it)
   rm <id> [n]                remove an item and print it (--item <text> guards it)
+  done <id> [n]              the same as rm, for an item that is finished
   top <id> <n>               move an item to the front of a queue
   reorder <id> <from> <to>   move an item to another position
   move <from> <to> [n]       hand an item to another queue (--item <text> guards it)

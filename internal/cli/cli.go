@@ -85,7 +85,7 @@ var commands map[string]command
 
 func init() {
 	commands = map[string]command{
-		"add": cmdAdd, "alias": cmdAlias, "edit": cmdEdit, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
+		"add": cmdAdd, "alias": cmdAlias, "edit": cmdEdit, "rm": cmdRm, "done": cmdDone, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
 		"setup": cmdSetup, "migrate": cmdMigrate, "version": cmdVersion, "completion": cmdCompletion, "__complete": cmdComplete, "watch": cmdWatch, "status": cmdStatus, "hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "update-check": cmdUpdateCheck, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
 	}
 }
@@ -212,8 +212,13 @@ func cmdAdd(e Env, args []string) error {
 	return nil
 }
 
-func cmdRm(e Env, args []string) error {
-	const usage = "usage: sitrep rm <id> [item=1] [--item <text>]"
+func cmdRm(e Env, args []string) error { return removeItem(e, "rm", args) }
+
+// cmdDone is rm under the name that reads right when the work is finished.
+func cmdDone(e Env, args []string) error { return removeItem(e, "done", args) }
+
+func removeItem(e Env, name string, args []string) error {
+	usage := "usage: sitrep " + name + " <id> [item=1] [--item <text>]"
 	args, guard, err := guarded(args)
 	if err != nil {
 		return err
