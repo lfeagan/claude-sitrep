@@ -4,6 +4,8 @@
   State     idle? 25m
   Process   not known here
   Quiet     25m
+  Context   not reported yet (the status line
+            records it)
 
   Objective 日本語の目的:
             データベースの性能を調べる
@@ -12,8 +14,6 @@
   Now       
 
   Queue     empty
-
-
 
 
 

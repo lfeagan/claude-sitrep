@@ -634,3 +634,44 @@ func TestContextOfTheDocumentIsChecked(t *testing.T) {
 		t.Errorf("left %d", s.Sessions[0].Context.Left())
 	}
 }
+
+func TestTokenAndPercentText(t *testing.T) {
+	for in, want := range map[int64]string{0: "0", 950: "950", 999: "999", 1000: "1k", 1500: "1.5k", 12_500: "12.5k", 186_800: "186.8k", 375_000: "375k", 999_999: "1000k", 1_000_000: "1M", 1_250_000: "1.25M", 2_000_000: "2M", 10_000_000_000: "10000M"} {
+		if got := tokenText(in); got != want {
+			t.Errorf("tokenText(%d) = %q, want %q", in, got, want)
+		}
+	}
+	for in, want := range map[float64]string{0: "0", 37.5: "37.5", 56: "56", 56.04: "56", 93.45: "93.5", 100: "100", 6.6: "6.6"} {
+		if got := percentText(in); got != want {
+			t.Errorf("percentText(%v) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestDetailShowsTheContextWindow(t *testing.T) {
+	x := Session{ID: "a1", Running: true, Context: &Context{UsedPercent: 37.5, Window: 1_000_000, Tokens: 375_000}}
+	if got := strings.Join(detailLines(x, 80), "\n"); !strings.Contains(got, "Context   375k / 1M tokens  (37.5% used, 62.5% left)") {
+		t.Errorf("a running session:\n%s", got)
+	}
+	x.Context = &Context{UsedPercent: 93.4, Window: 200_000, Tokens: 186_800}
+	if got := strings.Join(detailLines(x, 80), "\n"); !strings.Contains(got, "186.8k / 200k tokens  (93.4% used, 6.6% left)") {
+		t.Errorf("a nearly full window:\n%s", got)
+	}
+	x.Context = nil
+	if got := strings.Join(detailLines(x, 80), "\n"); !strings.Contains(got, "Context   not reported yet") {
+		t.Errorf("a running session that has not said:\n%s", got)
+	}
+	x.Running = false
+	if got := strings.Join(detailLines(x, 80), "\n"); strings.Contains(got, "Context") {
+		t.Errorf("an ended session has no line:\n%s", got)
+	}
+	x.Context = &Context{UsedPercent: 50, Window: 1000, Tokens: 500}
+	if got := strings.Join(detailLines(x, 80), "\n"); strings.Contains(got, "Context") {
+		t.Errorf("nor an ended one with an old record:\n%s", got)
+	}
+	// a narrow screen wraps the line and cuts nothing
+	x.Running, x.Context = true, &Context{UsedPercent: 37.5, Window: 1_000_000, Tokens: 375_000}
+	if got := strings.Join(strings.Fields(strings.Join(detailLines(x, 30), "\n")), " "); !strings.Contains(got, "375k / 1M tokens (37.5% used, 62.5% left)") {
+		t.Errorf("narrow:\n%s", got)
+	}
+}

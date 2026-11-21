@@ -3,6 +3,7 @@
   Directory /Users/x/timescaledb
   State     ● waiting 3m  (waiting for you)
   Process   not known here
+  Context   186.8k / 200k tokens  (93.4% used, 6.6% left)
 
   Objective evil [31mred]0;title bidi sep Tab
   Progress  p
@@ -10,7 +11,6 @@
 
   Queue     1 item
             1. one
-
 
 
 

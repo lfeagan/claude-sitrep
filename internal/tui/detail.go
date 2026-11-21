@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
@@ -41,6 +42,9 @@ func detailLines(x Session, width int) []string {
 	if x.QuietSecs != nil {
 		row("Quiet", fmt.Sprintf("%s", agoText(*x.QuietSecs)))
 	}
+	if text := contextText(x); text != "" {
+		row("Context", text)
+	}
 	if x.Pinned {
 		row("Pinned", "yes: the Objective is kept as set")
 	}
@@ -69,6 +73,40 @@ func detailLines(x Session, width int) []string {
 		}
 	}
 	return out
+}
+
+// contextText says how full the context window is: what is in it over its size, and the shares used and left. It is empty for a session
+// that has ended and said nothing.
+func contextText(x Session) string {
+	switch c := x.Context; {
+	case c != nil && x.Running:
+		used := math.Min(math.Max(c.UsedPercent, 0), 100)
+		return fmt.Sprintf("%s / %s tokens  (%s%% used, %s%% left)", tokenText(c.Tokens), tokenText(c.Window), percentText(used), percentText(100-used))
+	case x.Running:
+		return "not reported yet (the status line records it)"
+	}
+	return ""
+}
+
+// tokenText is a count of tokens in short form: 950, 12.5k, 375k, 1M, 1.25M.
+func tokenText(n int64) string {
+	switch {
+	case n < 1000:
+		return fmt.Sprint(n)
+	case n < 1_000_000:
+		return trimZeros(fmt.Sprintf("%.1f", float64(n)/1000)) + "k"
+	}
+	return trimZeros(fmt.Sprintf("%.2f", float64(n)/1_000_000)) + "M"
+}
+
+// percentText is a percentage to one decimal, without a trailing .0.
+func percentText(p float64) string { return trimZeros(fmt.Sprintf("%.1f", p)) }
+
+func trimZeros(s string) string {
+	if strings.Contains(s, ".") {
+		s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
+	}
+	return s
 }
 
 func agoText(secs int64) string {
