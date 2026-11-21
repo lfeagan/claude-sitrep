@@ -110,6 +110,12 @@ read on that machine (over ssh for a remote one).
   --json      one JSON object per line
   --clear     delete the log files, and nothing else
 
+With --json, each line is an entry with the fields e, t, host, id, op and, when they apply, text,
+old, from, to and dest. Process it with jq, not the raw files, which can hold repeats and a torn
+last line:
+
+  sitrep log --json -n 0 | jq -r 'select(.op=="queue.rm") | .text'
+
 The log is kept to SITREP_LOG_MAX megabytes (default 10) and SITREP_LOG_DAYS days
 (default 30), whichever is reached first, so it shows recent history, not all of it.
 `,

@@ -22,6 +22,10 @@ The operations are the ones that change state: `queue.add`, `queue.rm`, `queue.e
 
 `id` is a `state.ID`, or `inbox`. `text` has already been cleaned (invariant 1), and is cut at the same 200 characters as an item. `e` is a short random id for the entry.
 
+## Format
+
+The entry format is documented in the README, under The History Log, as it is a contract for programs that read `sitrep log --json`. A reader ignores a field it does not know.
+
 ## Entries describe what happened
 
 An entry records the outcome, not the command, so that it still means something a week later and does not depend on the state it was written against. A command such as `top 3` or `rm 2` names a position, and a position is only meaningful at that moment.
