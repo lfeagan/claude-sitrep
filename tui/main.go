@@ -23,11 +23,21 @@ func envOn(name string) bool {
 	return true
 }
 
+// envOff says whether a switch in the environment is explicitly off: 0, false or no.
+func envOff(name string) bool {
+	switch strings.ToLower(os.Getenv(name)) {
+	case "0", "false", "no":
+		return true
+	}
+	return false
+}
+
 func main() {
 	tabName := flag.String("tab", "watch", "the tab to start on: watch or top")
 	interval := flag.Duration("interval", 3*time.Second, "how often to refresh")
 	once := flag.Bool("once", false, "print one frame as plain text and exit")
 	readOnly := flag.Bool("read-only", envOn("SITREP_TUI_READONLY"), "turn off every key that changes state, such as p (or set SITREP_TUI_READONLY)")
+	noBell := flag.Bool("no-bell", envOff("SITREP_TUI_BELL"), "do not ring the terminal bell when a session starts needing you (or set SITREP_TUI_BELL=0)")
 	quitOnJump := flag.Bool("quit-on-jump", false, "leave the dashboard after a good jump (for a tmux popup)")
 	width := flag.Int("width", 100, "the frame width for --once")
 	flag.Parse()
@@ -59,7 +69,7 @@ func main() {
 		return
 	}
 	m := newModel(bin, *interval, tab)
-	m.quitJump, m.readOnly = *quitOnJump, *readOnly
+	m.quitJump, m.readOnly, m.bell = *quitOnJump, *readOnly, !*noBell
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "sitrep-tui:", err)
 		os.Exit(1)

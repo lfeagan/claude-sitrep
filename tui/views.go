@@ -223,10 +223,31 @@ func mark(lines []string, x Session, o viewOpts) []string {
 // stateText is the state as drawn: a ● leads the state of a session that needs the user,
 // so it shows in plain text, in screenshots, and for readers who cannot tell the colours apart.
 func stateText(x Session) string {
-	if x.NeedsInput && x.Running {
+	switch {
+	case x.NeedsInput && x.Running:
 		return "● " + x.StateLabel
+	case x.Snoozed && x.Running: // acknowledged: a hollow mark, no colour
+		return "○ " + x.StateLabel
 	}
 	return x.StateLabel
+}
+
+// newlyNeedYou is true when some session needs the user now and did not in the last snapshot,
+// that is, when something has just stopped and is waiting. A session that was already waiting
+// does not count, so a refresh does not ring again.
+func newlyNeedYou(prev, next Snapshot) bool {
+	was := map[string]bool{}
+	for _, x := range prev.Sessions {
+		if x.Running && x.NeedsInput {
+			was[x.ID] = true
+		}
+	}
+	for _, x := range next.Sessions {
+		if x.Running && x.NeedsInput && !was[x.ID] {
+			return true
+		}
+	}
+	return false
 }
 
 // needYou counts the running sessions that wait for the user.
@@ -445,6 +466,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  tab, shift+tab, left, right    switch tab (also 1 and 2)",
 		"  a                              show or hide ended sessions",
 		"  s                              cycle the Top sort: activity, state, dir, queue",
+		"  z                              snooze it until it changes; z again ends it",
 		"  p                              prune the sessions that are gone (asks first)",
 		"  r                              refresh now",
 		"  ?                              this list",
@@ -458,6 +480,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"Colours",
 		"",
 		"  ● pink-red   Claude has stopped and the next move is yours, until you reply",
+		"  ○            snoozed: waiting, but you said it can wait",
 		"  purple       the session changed in the last minute",
 		"",
 		"Any key closes this list.",
@@ -465,7 +488,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 	if readOnly { // the keys that change state are off, so they are not listed
 		kept := lines[:0]
 		for _, l := range lines {
-			if !strings.HasPrefix(l, "  p ") {
+			if !strings.HasPrefix(l, "  p ") && !strings.HasPrefix(l, "  z ") {
 				kept = append(kept, l)
 			}
 		}

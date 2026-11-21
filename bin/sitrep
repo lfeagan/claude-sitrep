@@ -440,7 +440,7 @@ EOF
     ;;
     tui) cat <<'EOF'
 usage: sitrep tui [--tab watch|top] [--interval 3s] [--once] [--width n] [--quit-on-jump]
-                  [--read-only]
+                  [--read-only] [--no-bell]
 
 Run sitrep-tui, an optional full-screen dashboard with a Watch tab and a Top tab and a
 status bar. It gets everything from `sitrep ls --json` and changes nothing itself. It is
@@ -449,12 +449,13 @@ or newer.
 
 Keys: up, down, j and k move the selection; enter jumps to the session's tmux pane or cmux
 surface; d or space opens the session in full; tab, shift-tab, left, right, 1 and 2 switch
-tabs; a shows or hides ended sessions; s sorts Top; p prunes sessions that are gone, after
-a preview and a y or n; r refreshes; ? lists the keys; q quits.
+tabs; a shows or hides ended sessions; s sorts Top; y or Y copies the session id or its
+resume command; z snoozes a session until it changes; p prunes sessions that are gone,
+after a preview and a y or n; r refreshes; ? lists the keys; q quits.
 
 --once prints one frame as plain text and exits, --quit-on-jump leaves the dashboard after
-a good jump, for a tmux popup, and --read-only turns off p and every other key that
-changes state.
+a good jump, for a tmux popup, --read-only turns off p, z and every other key that changes
+state, and --no-bell stops the bell that rings when a session starts needing you.
 
 sitrep-tui is found through $SITREP_TUI, then next to this script, then on PATH.
 EOF

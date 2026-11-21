@@ -18,13 +18,22 @@ type snapMsg struct {
 	err  error
 }
 
+// snoozeMsg is the answer to `sitrep snooze`.
+type snoozeMsg struct {
+	text string
+	err  error
+}
+
 // jumpMsg is the answer to a jump: text for the status bar, or an error.
 type jumpMsg struct {
 	text string
 	err  error
 }
 
-const messageTTL = 5 * time.Second
+const (
+	messageTTL    = 5 * time.Second
+	snoozeTimeout = 5 * time.Second
+)
 
 // say puts a message on the status bar for a few seconds.
 func (m *model) say(text string) {
@@ -47,6 +56,7 @@ type model struct {
 	selID     string // the selected session, by id, so a refresh or a re-sort does not move it
 	run       runner // runs tmux, ps, cmux and sitrep; tests replace it
 	readOnly  bool   // no key changes any state
+	bell      bool   // ring the terminal bell when a session starts needing the user
 	prune     int    // the phase of the prune screen
 	pruneText []string
 	acting    bool   // a jump is running, so another is ignored
@@ -63,7 +73,7 @@ type model struct {
 
 func newModel(bin string, interval time.Duration, tab int) model {
 	// fetching starts true because Init sends the first fetch; Init has a value receiver, so it cannot set it
-	return model{bin: bin, interval: interval, tab: tab, width: 100, height: 30, isDark: true, now: time.Now, fetching: true, started: 1, run: realRunner}
+	return model{bin: bin, interval: interval, tab: tab, width: 100, height: 30, isDark: true, now: time.Now, fetching: true, started: 1, run: realRunner, bell: true}
 }
 
 func (m model) fetchCmd() tea.Cmd {
@@ -165,6 +175,34 @@ func (m model) copyKey(resume bool) (tea.Model, tea.Cmd) {
 	return m, tea.SetClipboard(text)
 }
 
+// snoozeKey mutes the selected session's needs-you state, or ends the mute if it is already
+// on. It runs a fixed `sitrep snooze` command, so it is off in read-only mode.
+func (m model) snoozeKey() (tea.Model, tea.Cmd) {
+	x := m.selected()
+	switch {
+	case x == nil || m.acting:
+		return m, nil
+	case m.readOnly:
+		m.say("snooze: the dashboard is read-only")
+		return m, nil
+	case !idRe.MatchString(x.ID):
+		m.say("snooze: this session's id looks unusual, so it is left alone")
+		return m, nil
+	}
+	args := []string{"snooze", x.ID}
+	if x.Snoozed {
+		args = []string{"snooze", "--off", x.ID}
+	}
+	m.acting = true
+	run, bin := m.run, m.bin
+	return m, func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), snoozeTimeout)
+		defer cancel()
+		out, err := run(ctx, bin, args...)
+		return snoozeMsg{text: out, err: err}
+	}
+}
+
 // jumpCmd starts a jump to the selected session's tmux pane, unless one is already running.
 func (m *model) jumpCmd() tea.Cmd {
 	x := m.selected()
@@ -227,6 +265,8 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "y", "Y":
 		return m.copyKey(msg.String() == "Y")
+	case "z":
+		return m.snoozeKey()
 	case "up", "k":
 		m.moveSel(-1)
 		m.scroll = 0
@@ -300,11 +340,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err // the last good snapshot stays on screen
 			return m, nil
 		}
+		ring := m.bell && m.haveSnap && newlyNeedYou(m.snap, msg.snap) // never on the first load
 		m.snap, m.haveSnap, m.err, m.lastOK = msg.snap, true, nil, m.now()
 		m.fixSel()
 		m.clampScroll()
+		if ring {
+			return m, tea.Raw("\a")
+		}
 	case pruneMsg:
 		return m.pruneResult(msg)
+	case snoozeMsg:
+		m.acting = false
+		if msg.err != nil {
+			m.say("snooze: " + msg.err.Error())
+			return m, nil
+		}
+		if lines := pruneLines(msg.text); len(lines) > 0 {
+			m.say(lines[len(lines)-1])
+		}
+		if !m.fetching { // show the change without waiting for the next tick
+			m.fetching, m.started = true, m.started+1
+			return m, m.fetchCmd()
+		}
 	case jumpMsg:
 		m.acting = false
 		m.msgAt = m.now()
@@ -362,6 +419,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "y", "Y":
 			return m.copyKey(msg.String() == "Y")
+		case "z":
+			return m.snoozeKey()
 		case "p":
 			return m.pruneStart()
 		case "d", "space", " ":

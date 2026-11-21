@@ -24,8 +24,11 @@ func detailLines(x Session, width int) []string {
 		}
 	}
 	state := x.StateLabel
-	if x.NeedsInput && x.Running {
+	switch {
+	case x.NeedsInput && x.Running:
 		state = "● " + state + "  (waiting for you)"
+	case x.Snoozed && x.Running:
+		state = "○ " + state + "  (snoozed until it changes)"
 	}
 	proc := "not known here"
 	if x.PID != nil {
