@@ -41,7 +41,8 @@ The review cut the first round to what can be built without a new help state or 
 3. In the queue, `o` adds an item at the end, and `enter` edits the selected one. `a` and `E` stay as the same keys, so what is learned now still works. (`O`, add at the front, needs an add that takes a position, as two commands cannot hold the queue lock together.)
 4. `h` and `l` switch tab, beside `←` `→` `tab` `shift+tab` `1` `2`. `ctrl+d` and `ctrl+u` page the lists and the queue by the same page that `ctrl+d` has in the detail view (a screen less a line), and `pgdn` and `pgup` do the same.
 5. A number from `1` to `9` on a tab asks whether to move that inbox item into the selected session, and `y` does it. It takes the place of `1` and `2` as tab keys; `tab` `shift+tab` `h` `l` and the arrows still switch. Added after the review, at the user's request.
-6. `?` opens the help from every screen. The help state is checked first, and any key closes it, so a queue or a detail view that was open is open again after it.
+6. `m` in a queue opens a short list of the places to send the selected item: the inbox (unless the item is in it) and the running sessions other than the one it is in. `j` `k` `gg` `G` choose, `enter` sends it to the end of that queue (`sitrep move`, guarded by the item's text), and `esc` or `q` cancels. It is for the rare move between queues, so it takes two steps and has no key for each place. Added after the review, at the user's request.
+7. `?` opens the help from every screen. The help state is checked first, and any key closes it, so a queue or a detail view that was open is open again after it.
 
 ## Later
 

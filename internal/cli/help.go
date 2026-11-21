@@ -117,7 +117,8 @@ tabs; a number from 1 to 9 asks whether to move that inbox item into the selecte
 Y copies the session id or its resume command; z snoozes a session until it changes; / filters
 the sessions (enter keeps the filter, esc clears it); i opens the inbox and e the selected
 session's queue: there o (or a) adds an item (typed), enter (or E) edits the selected one, x
-removes one after a y or n, K and J move it up and down, T moves it to the front, P pins the
+removes one after a y or n, K and J move it up and down, T moves it to the front, m sends it to
+another queue (a list of the inbox and the running sessions: j and k, then enter), P pins the
 Objective and U unpins it, and in the inbox t takes the selected item into the session that was
 selected, after a y or n, to the end of its queue; p prunes sessions that are gone, after a
 preview and a y or n; r refreshes; ? lists the keys on every screen; q goes back from a screen

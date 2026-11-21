@@ -79,6 +79,7 @@ type model struct {
 	settling  bool         // a change finished and its snapshot has not arrived, so the list may be old
 	ask       *askState    // the open question, if any
 	prompt    *promptState // the open line of typing, if any
+	mover     *moverState  // the open list of places to send an item to, if any
 	scroll    int          // the top line of the detail pane
 	sortBy    int
 	help      bool
@@ -362,6 +363,10 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // goTop is gg: the first row of the list on screen, or the top of the detail view.
 func (m *model) goTop() {
 	switch {
+	case m.queue && m.mover != nil:
+		v := *m.mover
+		v.sel = 0
+		m.mover = &v
 	case m.queue:
 		m.selectQueue(0)
 	case m.detail:

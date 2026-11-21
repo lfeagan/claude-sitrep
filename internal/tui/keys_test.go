@@ -3,6 +3,8 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestGGAndGOnTheTabs(t *testing.T) {
@@ -352,5 +354,199 @@ func TestTheTakeQuestionIsDroppedWhenTheInboxChanges(t *testing.T) {
 	m = next.(model)
 	if m.ask != nil || !strings.Contains(m.statusText(), "the queue changed") {
 		t.Errorf("a changed inbox drops the question: %v %q", m.ask, m.statusText())
+	}
+}
+
+func moveModel(t *testing.T, kind int) (model, *fake) {
+	t.Helper()
+	m, f := queueModel(t, kind)
+	delete(f.answer, "/x/sitrep") // it answers every command; this one answers only the move
+	f.answer["/x/sitrep move"] = "moved to somewhere: x\n"
+	return m, f
+}
+
+func TestMSendsAnItemToAnotherQueue(t *testing.T) {
+	m, f := moveModel(t, qSession)
+	from := m.qTo
+	m, _ = press(t, m, "down")
+	item := m.queueItems()[1]
+	m, _ = press(t, m, "m")
+	if m.mover == nil || m.mover.from != from || m.mover.n != 2 || m.mover.item != item {
+		t.Fatalf("m opens the list: %+v", m.mover)
+	}
+	// the inbox first, then the other running sessions: never the queue it is in, and never an ended session
+	if m.mover.dests[0].id != "inbox" {
+		t.Errorf("the inbox comes first: %+v", m.mover.dests)
+	}
+	for _, d := range m.mover.dests {
+		x := m.session(d.id)
+		if d.id == from || (d.id != "inbox" && (x == nil || !x.Running)) {
+			t.Errorf("a place that is not offered: %+v", d)
+		}
+	}
+	if len(m.mover.dests) < 3 {
+		t.Fatalf("the fixture has more running sessions: %+v", m.mover.dests)
+	}
+	v := m.View().Content
+	if !strings.Contains(v, "Send item 2 to") || !strings.Contains(v, "Inbox") || !strings.Contains(v, "enter send here") {
+		t.Errorf("the list is drawn:\n%s", v)
+	}
+	m, _ = press(t, m, "j")
+	want := m.mover.dests[1].id
+	m, cmd := press(t, m, "enter")
+	if cmd == nil || m.mover != nil {
+		t.Fatalf("enter sends and closes the list: %v", m.mover)
+	}
+	m = feed(t, m, cmd)
+	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep move "+from+" "+want+" 2 --item "+item {
+		t.Errorf("the one fixed command, guarded by the item's text:\n got %v", f.calls)
+	}
+	if m.statusText() != "moved to somewhere: x" {
+		t.Errorf("the answer: %q", m.statusText())
+	}
+}
+
+func TestMSendsAnItemBackToTheInbox(t *testing.T) {
+	m, f := moveModel(t, qSession)
+	from, item := m.qTo, m.queueItems()[0]
+	m, _ = press(t, m, "m")
+	m, cmd := press(t, m, "enter") // the inbox is the first place
+	m = feed(t, m, cmd)
+	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep move "+from+" inbox 1 --item "+item {
+		t.Errorf("back to the inbox: %v", f.calls)
+	}
+}
+
+func TestMFromTheInboxHasNoInboxPlace(t *testing.T) {
+	m, f := moveModel(t, qInbox)
+	m, _ = press(t, m, "m")
+	if m.mover == nil || m.mover.from != "inbox" {
+		t.Fatalf("m in the inbox: %+v", m.mover)
+	}
+	for _, d := range m.mover.dests {
+		if d.id == "inbox" {
+			t.Errorf("the inbox offers itself: %+v", m.mover.dests)
+		}
+	}
+	m, _ = press(t, m, "G")
+	last := m.mover.dests[len(m.mover.dests)-1].id
+	m, cmd := press(t, m, "enter")
+	m = feed(t, m, cmd)
+	if len(f.calls) != 1 || !strings.HasPrefix(f.calls[0], "/x/sitrep move inbox "+last+" 1 --item ") {
+		t.Errorf("%v", f.calls)
+	}
+}
+
+func TestTheMoveListIsModal(t *testing.T) {
+	m, f := moveModel(t, qSession)
+	m, _ = press(t, m, "m")
+	for _, k := range []string{"x", "a", "o", "E", "K", "t", "T", "P", "i", "e", "d", "z", "1", "tab"} {
+		after, cmd := press(t, m, k)
+		if after.mover == nil || cmd != nil || after.ask != nil || after.prompt != nil || !after.queue || len(f.calls) != 0 {
+			t.Errorf("%q must do nothing while the list is open", k)
+		}
+	}
+	for _, k := range []string{"esc", "q", "backspace"} {
+		after, cmd := press(t, m, k)
+		if after.mover != nil || cmd != nil || !after.queue || len(f.calls) != 0 {
+			t.Errorf("%s cancels and stays in the queue", k)
+		}
+	}
+	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
+		t.Error("ctrl+c quits")
+	}
+	// the movement keys, bounded, and gg
+	m, _ = press(t, m, "G")
+	end := m.mover.sel
+	m, _ = press(t, m, "j")
+	if m.mover.sel != end || end != len(m.mover.dests)-1 {
+		t.Errorf("G and j stop at the last: %d", m.mover.sel)
+	}
+	m, _ = press(t, m, "g")
+	m, _ = press(t, m, "g")
+	if m.mover.sel != 0 {
+		t.Errorf("gg: %d", m.mover.sel)
+	}
+	m, _ = press(t, m, "k")
+	if m.mover.sel != 0 {
+		t.Errorf("k stops at the first: %d", m.mover.sel)
+	}
+	help, _ := press(t, m, "?")
+	if !help.help {
+		t.Error("? opens the help")
+	}
+}
+
+func TestMRefusals(t *testing.T) {
+	cases := map[string]func(m *model){
+		"the dashboard is read-only": func(m *model) { m.readOnly = true },
+		"busy":                       func(m *model) { m.acting = true },
+		"has ended":                  func(m *model) { m.snap.Sessions[0].Running = false },
+		"the queue is empty":         func(m *model) { m.snap.Sessions[0].Queue = Queue{} },
+	}
+	for want, set := range cases {
+		m, f := moveModel(t, qSession)
+		set(&m)
+		m, cmd := press(t, m, "m")
+		if m.mover != nil || cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), want) {
+			t.Errorf("%s: %v %q", want, m.mover, m.statusText())
+		}
+	}
+	// nowhere to send it: only one running session, and the item is in the inbox
+	m, _ := moveModel(t, qInbox)
+	for i := range m.snap.Sessions {
+		m.snap.Sessions[i].Running = false
+	}
+	m, _ = press(t, m, "m")
+	if m.mover != nil || !strings.Contains(m.statusText(), "no other queue") {
+		t.Errorf("%v %q", m.mover, m.statusText())
+	}
+}
+
+func TestTheDestinationMustStillBeRunningWhenTheListIsAnswered(t *testing.T) {
+	m, f := moveModel(t, qSession)
+	m, _ = press(t, m, "m")
+	m, _ = press(t, m, "j")
+	gone := m.mover.dests[m.mover.sel].id
+	for i := range m.snap.Sessions {
+		if m.snap.Sessions[i].ID == gone {
+			m.snap.Sessions[i].Running = false
+		}
+	}
+	m, cmd := press(t, m, "enter")
+	if cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "has ended") {
+		t.Errorf("%v %q", f.calls, m.statusText())
+	}
+}
+
+func TestTheMoveListIsDroppedWhenTheQueueChanges(t *testing.T) {
+	m, _ := moveModel(t, qSession)
+	m, _ = press(t, m, "m")
+	snap := loadFixture(t)
+	snap.Sessions[0].Queue.Items = snap.Sessions[0].Queue.Items[1:]
+	next, _ := m.Update(snapMsg{snap: snap})
+	m = next.(model)
+	if m.mover != nil || !strings.Contains(m.statusText(), "the queue changed") {
+		t.Errorf("%v %q", m.mover, m.statusText())
+	}
+}
+
+func TestTheMoveListFitsTheScreen(t *testing.T) {
+	m, _ := moveModel(t, qSession)
+	m, _ = press(t, m, "m")
+	for _, w := range []int{1, 2, 10, 20, 30, 60, 80, 120} {
+		for _, h := range []int{1, 2, 3, 6, 10, 24} {
+			mm := m
+			mm.width, mm.height = w, h
+			lines := strings.Split(mm.View().Content, "\n")
+			if len(lines) > h {
+				t.Errorf("%dx%d: %d lines", w, h, len(lines))
+			}
+			for _, l := range lines {
+				if ansi.StringWidth(l) > w {
+					t.Errorf("%dx%d: a line is %d wide: %q", w, h, ansi.StringWidth(l), l)
+				}
+			}
+		}
 	}
 }

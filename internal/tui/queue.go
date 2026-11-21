@@ -38,6 +38,21 @@ type askState struct {
 	target string // for take: the session that gets it
 }
 
+// moverState is the list of places to send the selected item to: the inbox and the running sessions, but not where the item is. It holds
+// the item's position and its text, which the move command checks, so that a queue that changed meanwhile is never moved at the wrong place.
+type moverState struct {
+	from  string // the queue the item is in
+	n     int    // its position, 1-based,
+	item  string // and its text
+	dests []moveDest
+	sel   int
+}
+
+type moveDest struct {
+	id    string // inbox, or a session id
+	label string // what is drawn
+}
+
 // promptState is a line being typed for `a` (add), `P` (pin), `E` (edit) or `n` (name). An edit also holds the item it is for and the text
 // that item had, which the command checks, so that a queue that changed meanwhile is never edited at the wrong place.
 type promptState struct {
@@ -110,6 +125,12 @@ func (m *model) queueRefresh() {
 		}
 	}
 	m.selectQueue(m.qSel)
+	if mv := m.mover; mv != nil {
+		if qi, ok := m.itemsOf(mv.from); !ok || mv.n < 1 || mv.n > len(qi) || qi[mv.n-1] != mv.item {
+			m.mover = nil
+			m.say("move: the queue changed")
+		}
+	}
 	if m.ask == nil {
 		return
 	}
@@ -194,6 +215,9 @@ func (m model) queueKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.ask != nil {
 		return m.askKey(key)
 	}
+	if m.mover != nil {
+		return m.moverKey(msg)
+	}
 	last, i := max(len(m.queueItems())-1, 0), m.queueIndex()
 	switch key {
 	case "q", "esc", "backspace": // q goes back; only ctrl+c quits from here
@@ -226,6 +250,8 @@ func (m model) queueKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.promptOpen("add")
 	case "E":
 		return m.editOpen()
+	case "m":
+		return m.moveOpen()
 	case "P":
 		if m.qKind == qSession {
 			return m.promptOpen("pin")
@@ -334,6 +360,66 @@ func (m model) takeStatus() string {
 		to = t.Label() + " " + t.Dir
 	}
 	return fmt.Sprintf("y/n  move inbox item %d to %s?  %s", m.ask.n, to, m.ask.item)
+}
+
+// moveOpen opens the list of places to send the selected item to. It is for the rare move between queues, so it is a short list to choose
+// from and not a key for each place.
+func (m model) moveOpen() (tea.Model, tea.Cmd) {
+	items, _, qid, _ := m.queueInfo()
+	if why := m.editCheck(qid, ""); why != "" {
+		return m.refuse("move", why)
+	}
+	if len(items) == 0 {
+		return m.refuse("move", "the queue is empty")
+	}
+	var dests []moveDest
+	if qid != "inbox" {
+		dests = append(dests, moveDest{id: "inbox", label: "Inbox"})
+	}
+	for _, x := range m.snap.Sessions {
+		if x.Running && x.ID != qid && idRe.MatchString(x.ID) {
+			dests = append(dests, moveDest{id: x.ID, label: x.Label() + "  " + x.Dir})
+		}
+	}
+	if len(dests) == 0 {
+		return m.refuse("move", "there is no other queue to send it to")
+	}
+	i := m.queueIndex()
+	m.msg = ""
+	m.mover = &moverState{from: qid, n: i + 1, item: items[i], dests: dests}
+	return m, nil
+}
+
+// moverKey handles keys while the list of places is open: choose with the movement keys, enter sends, esc or q cancels.
+func (m model) moverKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	v := *m.mover
+	last := len(v.dests) - 1
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "esc", "q", "backspace":
+		m.mover = nil
+		return m, nil
+	case "?":
+		m.help = true
+	case "up", "k":
+		v.sel = max(v.sel-1, 0)
+	case "down", "j":
+		v.sel = min(v.sel+1, last)
+	case "home":
+		v.sel = 0
+	case "end", "G":
+		v.sel = last
+	case "enter":
+		m.mover = nil
+		d := v.dests[v.sel]
+		if why := m.editCheck(v.from, d.id); why != "" {
+			return m.refuse("move", why)
+		}
+		return m.queueRun("move", v.n-1, "move", v.from, d.id, fmt.Sprint(v.n), "--item", v.item)
+	}
+	m.mover = &v
+	return m, nil
 }
 
 // moveStart moves the selected item up, down or to the front. A move that cannot happen says
@@ -548,6 +634,7 @@ type queueView struct {
 	Typed    string
 	Status   string
 	ReadOnly bool
+	Hints    []string // the keys of the screen, when the list is not the queue's own
 }
 
 func (m model) queueView() queueView {
@@ -576,6 +663,13 @@ func (m model) queueView() queueView {
 	}
 	if m.prompt != nil {
 		v.Prompt, v.Typed = m.prompt.verb, m.prompt.text
+	}
+	if mv := m.mover; mv != nil { // the places to choose from take the place of the items
+		v.Name, v.Items, v.Total, v.Sel, v.Inbox = fmt.Sprintf("Send item %d to", mv.n), nil, len(mv.dests), mv.sel, false
+		for _, d := range mv.dests {
+			v.Items = append(v.Items, d.label)
+		}
+		v.Hints = []string{"enter send here", "j/k choose", "esc cancel", "? help"}
 	}
 	return v
 }
@@ -623,14 +717,16 @@ func queueScreen(v queueView, width, height int, th Theme) string {
 	// the most useful keys first: a narrow screen drops from the end, and never the help
 	var hints []string
 	switch {
+	case v.Hints != nil:
+		hints = v.Hints
 	case v.ReadOnly:
 		hints = []string{"q back", "j/k move", "(read-only)", "? help"}
 	case v.Inbox && v.Target != "":
-		hints = []string{"q back", "t take into " + v.Target, "o add", "enter edit", "x remove", "K J T move", "? help"}
+		hints = []string{"q back", "t take into " + v.Target, "o add", "enter edit", "x remove", "m send", "K J T move", "? help"}
 	case v.Inbox:
-		hints = []string{"q back", "o add", "enter edit", "x remove", "K J T move", "(no session to take into)", "? help"}
+		hints = []string{"q back", "o add", "enter edit", "x remove", "m send", "K J T move", "(no session to take into)", "? help"}
 	default:
-		hints = []string{"q back", "o add", "enter edit", "x remove", "K J T move", "P pin", "U unpin", "? help"}
+		hints = []string{"q back", "o add", "enter edit", "x remove", "m send", "K J T move", "P pin", "U unpin", "? help"}
 	}
 	hint := fitHints(hints, width)
 	switch {
