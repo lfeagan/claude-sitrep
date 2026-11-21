@@ -27,13 +27,19 @@ type Env struct {
 	Stderr io.Writer
 	Clock  clock.Clock
 	Runner runner.Runner
+	TTY    func() (io.ReadCloser, error) // the controlling terminal, for questions; nil or an error means there is none
+	Alive  func(pid int) bool            // whether a process exists; nil means ask the system
 }
 
 // OSEnv is the real process environment.
 func OSEnv() Env {
 	home, _ := os.UserHomeDir()
-	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}}
+	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}, TTY: openTTY}
 }
+
+func openTTY() (io.ReadCloser, error) { return os.Open("/dev/tty") }
+
+func (e Env) configDir() string { return state.ConfigDir(e.Getenv, e.Home) }
 
 func (e Env) store() state.Store { return state.Open(e.Home) }
 func (e Env) queue() queue.Queue { return queue.Queue{Store: e.store()} }
@@ -51,7 +57,7 @@ var commands map[string]command
 
 func init() {
 	commands = map[string]command{
-		"add": cmdAdd, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin,
+		"add": cmdAdd, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
 		"help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
 	}
 }

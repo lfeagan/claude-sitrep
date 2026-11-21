@@ -4,6 +4,7 @@ package notes
 import (
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -46,6 +47,24 @@ func (n Notes) Pin(id state.ID, text textsafe.Text) error {
 // Unpin lets the summarizer rewrite the Objective again.
 func (n Notes) Unpin(id state.ID) error {
 	err := os.Remove(n.Store.Hidden(id, "pinned"))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// Snooze mutes the needs-you state of a session until its state next changes: it stores when the state last changed, and the snapshot
+// treats the mute as over once that time is no longer the one stored.
+func (n Notes) Snooze(id state.ID, changed int64) error {
+	if err := n.Store.Ensure(); err != nil {
+		return err
+	}
+	return n.Store.WriteFile(n.Store.Hidden(id, "snooze"), []byte(strconv.FormatInt(changed, 10)+"\n"))
+}
+
+// Unsnooze ends the mute at once.
+func (n Notes) Unsnooze(id state.ID) error {
+	err := os.Remove(n.Store.Hidden(id, "snooze"))
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}

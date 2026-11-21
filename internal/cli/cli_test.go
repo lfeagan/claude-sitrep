@@ -2,8 +2,15 @@ package cli
 
 import (
 	"bytes"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/lfeagan/claude-sitrep/internal/clock"
+	"github.com/lfeagan/claude-sitrep/internal/runner"
 )
 
 func run(t *testing.T, home string, args ...string) (int, string, string) {
@@ -51,5 +58,98 @@ func TestItemNo(t *testing.T) {
 	}
 	if n, err := itemNo("99999999999999999999999"); err != nil || n < 1<<30 {
 		t.Errorf("a huge number is a number past every item: %d, %v", n, err)
+	}
+}
+
+func TestSnoozeInProcess(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, ".claude", "sitrep")
+	os.MkdirAll(dir, 0o700)
+	os.WriteFile(filepath.Join(dir, "abcd1111.txt"), []byte("Objective: x\n"), 0o600)
+	at := time.Unix(1_700_000_000, 0)
+	os.Chtimes(filepath.Join(dir, "abcd1111.txt"), at, at)
+	if code, out, _ := run(t, home, "snooze", "abcd"); code != 0 || out != "snoozed abcd until it changes\n" {
+		t.Errorf("snooze: %d %q", code, out)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, ".abcd1111.snooze")); string(b) != "1700000000\n" {
+		t.Errorf("snooze file %q", b)
+	}
+	if code, out, _ := run(t, home, "snooze", "--off", "abcd"); code != 0 || out != "abcd is no longer snoozed\n" {
+		t.Errorf("snooze off: %d %q", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".abcd1111.snooze")); !os.IsNotExist(err) {
+		t.Error("the snooze file is still there")
+	}
+	if code, _, errs := run(t, home, "snooze", "inbox"); code != 1 || errs != "sitrep: the inbox is not a session\n" {
+		t.Errorf("snooze inbox: %d %q", code, errs)
+	}
+}
+
+// pruneEnv builds a world with one finished session holding two items, and a registry that has one live session.
+func pruneEnv(t *testing.T, tty string) (Env, *bytes.Buffer, *bytes.Buffer, string) {
+	t.Helper()
+	home := t.TempDir()
+	dir := filepath.Join(home, ".claude", "sitrep")
+	sess := filepath.Join(home, ".claude", "sessions")
+	os.MkdirAll(dir, 0o700)
+	os.MkdirAll(sess, 0o755)
+	os.WriteFile(filepath.Join(sess, "1.json"), []byte(`{"pid":1,"sessionId":"live0001"}`), 0o600)
+	for id, q := range map[string]string{"live0001": "", "done0001": "one\ntwo\n"} {
+		os.WriteFile(filepath.Join(dir, id+".txt"), []byte("Objective: x\n"), 0o600)
+		os.WriteFile(filepath.Join(dir, id+".cwd"), []byte("/w/"+id+"\n"), 0o600)
+		if q != "" {
+			os.WriteFile(filepath.Join(dir, id+".queue"), []byte(q), 0o600)
+		}
+	}
+	os.WriteFile(filepath.Join(dir, ".done0001.state"), []byte("ended\n"), 0o600)
+	var out, errb bytes.Buffer
+	e := Env{Home: home, Getenv: func(string) string { return "" }, Stdout: &out, Stderr: &errb,
+		Clock: clock.Real{}, Alive: func(int) bool { return true },
+		Runner: &runner.Fake{Answers: map[string]runner.Result{"ps -o lstart= -p 1": {}}}}
+	if tty != "none" {
+		e.TTY = func() (io.ReadCloser, error) { return io.NopCloser(strings.NewReader(tty)), nil }
+	}
+	return e, &out, &errb, dir
+}
+
+func TestPruneAsksOnATerminal(t *testing.T) {
+	for answer, moved := range map[string]string{"y\n": "2", "n\n": "0", "\n": "0", "": "0", "yes\n": "2"} {
+		e, out, errb, dir := pruneEnv(t, answer)
+		if code := Run([]string{"prune"}, e); code != 0 {
+			t.Fatalf("exit %d: %s", code, errb)
+		}
+		if !strings.Contains(errb.String(), "Move 2 item(s) from done (done0001) to the inbox? [y/N] ") {
+			t.Errorf("prompt %q", errb)
+		}
+		if want := "0 marked ended, " + moved + " item(s) moved to the inbox\n"; out.String() != want {
+			t.Errorf("answer %q: %q, want %q", answer, out, want)
+		}
+		_, err := os.Stat(filepath.Join(dir, "inbox.queue"))
+		if (moved == "2") != (err == nil) {
+			t.Errorf("answer %q: inbox exists %v", answer, err == nil)
+		}
+	}
+}
+
+func TestPruneWithoutATerminalLeavesTheItems(t *testing.T) {
+	e, out, errb, dir := pruneEnv(t, "none")
+	if code := Run([]string{"prune"}, e); code != 0 {
+		t.Fatal(code)
+	}
+	if errb.String() != "2 item(s) left on done (done0001): run prune in a terminal, or use -y\n" || out.String() != "0 marked ended, 0 item(s) moved to the inbox\n" {
+		t.Errorf("stderr %q, stdout %q", errb, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "inbox.queue")); err == nil {
+		t.Error("items moved without an answer")
+	}
+}
+
+func TestPruneKeepDoesNotAsk(t *testing.T) {
+	e, out, _, _ := pruneEnv(t, "y\n")
+	if code := Run([]string{"prune", "-k"}, e); code != 0 {
+		t.Fatal(code)
+	}
+	if out.String() != "kept 2 item(s) on done (done0001)\n0 marked ended, 0 item(s) moved to the inbox\n" {
+		t.Errorf("%q", out)
 	}
 }

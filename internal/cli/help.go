@@ -44,6 +44,43 @@ a prompt that starts with "+pin " does the same. See unpin.
 
 Let the summarizer rewrite a session's Objective again.
 `,
+	"ls": `usage: sitrep ls [-a] [-v] [-n items] [id]
+       sitrep ls --json [-a] [-n items | --full]
+
+List running sessions with their state, queue, Objective and Now. With an id, list
+that queue instead; an id of inbox lists the inbox.
+
+  -a, --all   include ended sessions
+  -v          add the Progress line, and list each queue
+  -n items    how many items each queue lists; implies -v, and 0 gives the count and
+              the next item only
+  --json      print one JSON document for programs, see the README; -n caps the items
+              in each queue, and --full lists them all
+
+The default for -n is 5, or SITREP_QUEUE_ITEMS from the environment or sitrep.conf.
+`,
+	"snooze": `usage: sitrep snooze [--off] <id>
+
+Mute the "waiting for you" state of one session, so that a program such as sitrep-tui stops
+drawing it as needing you. The mute ends by itself when the session changes: the next
+prompt, or the end of the next turn. ` + "`" + `--off` + "`" + ` ends it at once. Only the JSON changes: the
+` + "`" + `needs_input` + "`" + ` field turns false and ` + "`" + `snoozed` + "`" + ` turns true.
+`,
+	"prune": `usage: sitrep prune [-y | -k | --dry-run]
+
+Mark each session that is no longer running as ended. For a session that still holds
+queue items, ask whether to move them to the inbox.
+
+  -y          answer yes to every question
+  -k, --keep  mark the sessions ended, leave every queue where it is, and ask nothing;
+              for a program with no one to answer
+  --dry-run   say what would happen, and change nothing
+
+The three options exclude one another.
+
+It reads Claude Code's live-session registry and changes nothing if it cannot. It never
+touches a running session or one under two minutes old, and never deletes a queue.
+`,
 	"help": `usage: sitrep help [command]
 
 List the commands, or show the details of one. ` + "`sitrep <command> --help`" + ` shows the same.
@@ -53,6 +90,7 @@ List the commands, or show the details of one. ` + "`sitrep <command> --help`" +
 // helpAll is the list printed by `sitrep help`. Commands appear here as they are ported.
 const helpAll = `usage: sitrep <command> [args]
 
+  ls [id]                    list running sessions, or one queue
   add <id> <text>            append an item to a queue
   rm <id> [n]                remove an item and print it (--item <text> guards it)
   top <id> <n>               move an item to the front of a queue
@@ -60,6 +98,8 @@ const helpAll = `usage: sitrep <command> [args]
   move <from> <to> [n]       hand an item to another queue (--item <text> guards it)
   pin <id> <text>            fix a session's Objective
   unpin <id>                 let the summarizer rewrite the Objective
+  snooze [--off] <id>        mute the needs-you state of a session until it changes
+  prune                      clear out sessions that are gone
   help [command]             this list, or the details of one command
 
 An <id> is a unique prefix of a session id, or "inbox".
