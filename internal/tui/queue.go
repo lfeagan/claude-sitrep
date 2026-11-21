@@ -192,13 +192,7 @@ func (m model) queueKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	if m.ask != nil {
-		switch key {
-		case "y":
-			return m.askRun()
-		case "n", "esc", "q":
-			m.ask = nil
-		}
-		return m, nil
+		return m.askKey(key)
 	}
 	last, i := max(len(m.queueItems())-1, 0), m.queueIndex()
 	switch key {
@@ -299,6 +293,47 @@ func (m model) askRun() (tea.Model, tea.Cmd) {
 		return m.queueRun("take", a.n-1, "move", "inbox", a.target, n, "--item", a.item)
 	}
 	return m.queueRun("remove", a.n-1, "rm", a.qid, n, "--item", a.item)
+}
+
+// askKey answers the open question: only y, n and cancelling do anything, so a held key cannot start a second change.
+func (m model) askKey(key string) (tea.Model, tea.Cmd) {
+	switch key {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "y":
+		return m.askRun()
+	case "n", "esc", "q":
+		m.ask = nil
+	}
+	return m, nil
+}
+
+// takeDigit is a number on the Watch or Top tab: it asks whether to move that item of the inbox to the end of the selected session's queue.
+// What it asks, and runs, is what t does in the inbox, so the same checks and the same guard apply.
+func (m model) takeDigit(n int) (tea.Model, tea.Cmd) {
+	x := m.selected()
+	if x == nil {
+		return m.refuse("take", "no session is selected")
+	}
+	if why := m.editCheck("inbox", x.ID); why != "" {
+		return m.refuse("take", why)
+	}
+	items := m.snap.Inbox.Items
+	if n < 1 || n > len(items) {
+		return m.refuse("take", fmt.Sprintf("no inbox item %d", n))
+	}
+	m.msg = ""
+	m.ask = &askState{verb: "take", qid: "inbox", n: n, item: items[n-1], target: x.ID}
+	return m, nil
+}
+
+// takeStatus is the question on the status bar of a tab.
+func (m model) takeStatus() string {
+	to := m.ask.target
+	if t := m.session(to); t != nil {
+		to = t.Label() + " " + t.Dir
+	}
+	return fmt.Sprintf("y/n  move inbox item %d to %s?  %s", m.ask.n, to, m.ask.item)
 }
 
 // moveStart moves the selected item up, down or to the front. A move that cannot happen says

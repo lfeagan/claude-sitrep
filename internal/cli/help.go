@@ -111,8 +111,9 @@ terminal it prints one frame, as ` + "`sitrep status`" + ` does.
 
 Keys: up, down, j and k move the selection, gg and G go to the first and last session, and
 ctrl+d, ctrl+u, pgdn and pgup move by a page; enter jumps to the session's tmux pane or cmux
-surface; d or space opens the session in full; tab, shift-tab, h, l, left, right, 1 and 2
-switch tabs; a shows or hides ended sessions; s sorts Top; n names the session (an alias); y or
+surface; d or space opens the session in full; tab, shift-tab, h, l, left and right switch
+tabs; a number from 1 to 9 asks whether to move that inbox item into the selected session
+(y or n); a shows or hides ended sessions; s sorts Top; n names the session (an alias); y or
 Y copies the session id or its resume command; z snoozes a session until it changes; / filters
 the sessions (enter keeps the filter, esc clears it); i opens the inbox and e the selected
 session's queue: there o (or a) adds an item (typed), enter (or E) edits the selected one, x

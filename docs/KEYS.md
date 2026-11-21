@@ -1,6 +1,6 @@
 # Dashboard keys, version 0.7.0
 
-Status: first round built (0.7.0), later rounds not. Reviewed once. `q` going back from a sub-screen is already done (0.6.0). Changes from the review: `ctrl+f` and `ctrl+b` are dropped (tmux takes `ctrl+b`), `O`, `dd` and `yy` wait, `ctrl+d` keeps the page size it has, per-screen help is a later round, and the first round is the five items under First Round.
+Status: first round built (0.7.0), later rounds not. Reviewed once. `q` going back from a sub-screen is already done (0.6.0). Changes from the review: `ctrl+f` and `ctrl+b` are dropped (tmux takes `ctrl+b`), `O`, `dd` and `yy` wait, `ctrl+d` keeps the page size it has, per-screen help is a later round, and the first round is the items under First Round.
 
 ## Purpose
 
@@ -40,7 +40,8 @@ The review cut the first round to what can be built without a new help state or 
 2. The footers say what works on that screen. The tab footer drops `s sort` on Watch and lists `enter jump`, `/ filter` and `n name`, and `? help` stays last. Every footer is trimmed by priority, as `statusBar` is, so a narrow screen loses the least useful hint and never `? help`.
 3. In the queue, `o` adds an item at the end, and `enter` edits the selected one. `a` and `E` stay as the same keys, so what is learned now still works. (`O`, add at the front, needs an add that takes a position, as two commands cannot hold the queue lock together.)
 4. `h` and `l` switch tab, beside `←` `→` `tab` `shift+tab` `1` `2`. `ctrl+d` and `ctrl+u` page the lists and the queue by the same page that `ctrl+d` has in the detail view (a screen less a line), and `pgdn` and `pgup` do the same.
-5. `?` opens the help from every screen. The help state is checked first, and any key closes it, so a queue or a detail view that was open is open again after it.
+5. A number from `1` to `9` on a tab asks whether to move that inbox item into the selected session, and `y` does it. It takes the place of `1` and `2` as tab keys; `tab` `shift+tab` `h` `l` and the arrows still switch. Added after the review, at the user's request.
+6. `?` opens the help from every screen. The help state is checked first, and any key closes it, so a queue or a detail view that was open is open again after it.
 
 ## Later
 

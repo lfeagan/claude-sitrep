@@ -357,13 +357,13 @@ func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
 }
 
 func TestHelpScreen(t *testing.T) {
-	out := helpScreen(80, 34, false, plainTheme())
+	out := helpScreen(80, 35, false, plainTheme())
 	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Top sort", "refresh", "quit", "Watch", "Top ", "pink-red", "purple", "Any key closes"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the help should mention %q", want)
 		}
 	}
-	golden(t, "help_80x34", out)
+	golden(t, "help_80x35", out)
 	for w := 1; w <= 100; w += 7 {
 		for h := 1; h <= 40; h += 3 {
 			lines := strings.Split(helpScreen(w, h, false, plainTheme()), "\n")

@@ -511,6 +511,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.help = false
 			return m, nil
 		}
+		if m.ask != nil && !m.queue { // the question a number on a tab asked
+			return m.askKey(msg.String())
+		}
 		// one place holds a g for its second key, on every screen with a list: gg goes to the first row, and any other key is swallowed
 		// (g then x does nothing), as in vim. esc clears it too, and so does anything else, as the next key always clears it.
 		if m.pendingG {
@@ -540,10 +543,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tab = (m.tab + 1) % tabCount
 		case "shift+tab", "left", "h":
 			m.tab = (m.tab + tabCount - 1) % tabCount
-		case "1":
-			m.tab = tabWatch
-		case "2":
-			m.tab = tabTop
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			return m.takeDigit(int(msg.String()[0] - '0'))
 		case "up", "k":
 			m.moveSel(-1)
 		case "down", "j":
@@ -632,6 +633,9 @@ func (m model) View() tea.View {
 		status := m.statusText()
 		if m.prompt != nil && m.prompt.verb == "alias" {
 			status = m.aliasStatus()
+		}
+		if m.ask != nil {
+			status = m.takeStatus()
 		}
 		if status == "" && (m.filtering || m.filter != "") {
 			status = m.filterStatus()

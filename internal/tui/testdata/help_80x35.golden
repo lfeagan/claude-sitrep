@@ -5,7 +5,8 @@ Keys
   enter                          jump to its tmux pane or cmux surface
   y, Y                           copy the id, or its claude --resume command
   d, space                       the selected session in full (esc closes)
-  tab, shift+tab, h, l, 1, 2     switch tab (left and right too)
+  tab, shift+tab, h, l           switch tab (left and right too)
+  1-9                            move that inbox item into the selected session
   a                              show or hide ended sessions
   s                              cycle the Top sort: activity, state, dir, queue
   /                              filter the sessions; enter keeps it, esc clear…

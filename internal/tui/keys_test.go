@@ -234,3 +234,123 @@ func TestOAddsAndEnterEditsInTheQueue(t *testing.T) {
 		}
 	}
 }
+
+func takeModel(t *testing.T, tab int) (model, *fake) {
+	t.Helper()
+	m := loaded(t, tab)
+	m.bin = "/x/sitrep"
+	f := &fake{answer: map[string]string{"/x/sitrep move": "moved to 15f1: x\n"}}
+	m.run = f.run
+	return m, f
+}
+
+func TestANumberAsksToTakeAnInboxItem(t *testing.T) {
+	for _, tab := range []int{tabWatch, tabTop} {
+		m, f := takeModel(t, tab)
+		id := m.selID
+		items := m.snap.Inbox.Items
+		if len(items) < 2 {
+			t.Fatal("the fixture's inbox needs two items")
+		}
+		m, cmd := press(t, m, "2")
+		if m.ask == nil || m.ask.verb != "take" || m.ask.n != 2 || m.ask.item != items[1] || m.ask.target != id || cmd != nil || m.tab != tab {
+			t.Fatalf("tab %d: 2 asks and does not switch tab: %+v tab %d", tab, m.ask, m.tab)
+		}
+		if v := m.View().Content; !strings.Contains(v, "y/n") || !strings.Contains(v, "move inbox item 2") || !strings.Contains(v, items[1][:10]) {
+			t.Errorf("the question is on the status bar:\n%s", v)
+		}
+		if len(f.calls) != 0 {
+			t.Errorf("nothing runs before the answer: %v", f.calls)
+		}
+		m, cmd = press(t, m, "y")
+		m = feed(t, m, cmd)
+		want := "/x/sitrep move inbox " + id + " 2 --item " + items[1]
+		if len(f.calls) != 1 || f.calls[0] != want {
+			t.Errorf("tab %d: the one fixed command, guarded by the item's text:\n got %v\nwant %s", tab, f.calls, want)
+		}
+		if m.ask != nil || m.statusText() != "moved to 15f1: x" {
+			t.Errorf("the answer is shown: ask %v %q", m.ask, m.statusText())
+		}
+	}
+}
+
+func TestTheTakeQuestionAnswers(t *testing.T) {
+	for _, k := range []string{"n", "esc", "q"} {
+		m, f := takeModel(t, tabWatch)
+		m, _ = press(t, m, "1")
+		m, cmd := press(t, m, k)
+		if m.ask != nil || cmd != nil || len(f.calls) != 0 {
+			t.Errorf("%s cancels: %v %v", k, m.ask, f.calls)
+		}
+	}
+	m, f := takeModel(t, tabWatch)
+	m, _ = press(t, m, "1")
+	for _, k := range []string{"j", "2", "tab", "d", "e", "a", "g", "x", "enter", "p", "z", "/"} {
+		after, cmd := press(t, m, k)
+		if after.ask == nil || cmd != nil || after.tab != m.tab || after.detail || after.queue || after.filtering || after.selID != m.selID || len(f.calls) != 0 {
+			t.Errorf("%q must do nothing while the question is open", k)
+		}
+	}
+	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
+		t.Error("ctrl+c still quits")
+	}
+}
+
+func TestANumberRefusals(t *testing.T) {
+	cases := map[string]func(m *model){
+		"the dashboard is read-only": func(m *model) { m.readOnly = true },
+		"busy":                       func(m *model) { m.acting = true },
+		"refreshing":                 func(m *model) { m.settling = true },
+		"has ended":                  func(m *model) { m.snap.Sessions[0].Running = false },
+		"no session is selected":     func(m *model) { m.selID = "" },
+	}
+	for want, set := range cases {
+		m, f := takeModel(t, tabWatch)
+		set(&m)
+		m, cmd := press(t, m, "1")
+		if m.ask != nil || cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), want) {
+			t.Errorf("%s: ask %v status %q", want, m.ask, m.statusText())
+		}
+	}
+	m, _ := takeModel(t, tabWatch)
+	m, _ = press(t, m, "9")
+	if m.ask != nil || !strings.Contains(m.statusText(), "no inbox item 9") {
+		t.Errorf("a number past the inbox: %v %q", m.ask, m.statusText())
+	}
+	m2, _ := takeModel(t, tabWatch)
+	m2.snap.Inbox = Queue{}
+	m2, _ = press(t, m2, "1")
+	if m2.ask != nil || !strings.Contains(m2.statusText(), "no inbox item 1") {
+		t.Errorf("an empty inbox: %v %q", m2.ask, m2.statusText())
+	}
+}
+
+func TestNumbersAreTextOrNothingElsewhere(t *testing.T) {
+	f, _ := press(t, loaded(t, tabWatch), "/")
+	f = typed(t, f, "15")
+	if f.ask != nil || f.filter != "15" {
+		t.Errorf("in the filter a number is text: ask %v %q", f.ask, f.filter)
+	}
+	q, _ := queueModel(t, qSession)
+	q, _ = press(t, q, "1")
+	if q.ask != nil || !q.queue {
+		t.Error("in the queue a number does nothing")
+	}
+	d, _ := press(t, loaded(t, tabWatch), "d")
+	d, _ = press(t, d, "1")
+	if d.ask != nil || !d.detail {
+		t.Error("in the detail view a number does nothing")
+	}
+}
+
+func TestTheTakeQuestionIsDroppedWhenTheInboxChanges(t *testing.T) {
+	m, _ := takeModel(t, tabWatch)
+	m, _ = press(t, m, "1")
+	snap := loadFixture(t)
+	snap.Inbox.Items = snap.Inbox.Items[1:]
+	next, _ := m.Update(snapMsg{snap: snap})
+	m = next.(model)
+	if m.ask != nil || !strings.Contains(m.statusText(), "the queue changed") {
+		t.Errorf("a changed inbox drops the question: %v %q", m.ask, m.statusText())
+	}
+}

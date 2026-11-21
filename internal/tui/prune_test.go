@@ -201,10 +201,10 @@ func TestPruneScreenFits(t *testing.T) {
 }
 
 func TestReadOnlyHelpHidesPrune(t *testing.T) {
-	if !strings.Contains(helpScreen(80, 34, false, plainTheme()), "prune the sessions") {
+	if !strings.Contains(helpScreen(80, 35, false, plainTheme()), "prune the sessions") {
 		t.Errorf("the key list names p")
 	}
-	ro := helpScreen(80, 34, true, plainTheme())
+	ro := helpScreen(80, 35, true, plainTheme())
 	if strings.Contains(ro, "prune the sessions") || !strings.Contains(ro, "read-only") {
 		t.Errorf("read-only hides p and says why:\n%s", ro)
 	}

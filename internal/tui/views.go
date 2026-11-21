@@ -505,9 +505,9 @@ func statusBar(s Snapshot, width int, errText string, tab int, th Theme) string 
 	if errText != "" {
 		left = " " + errText
 	}
-	hints := []string{"q quit", "enter jump", "/ filter", "n name", "a ended", "tab switch", "? help"}
+	hints := []string{"q quit", "enter jump", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
 	if tab == tabTop { // only the Top view has a sort
-		hints = []string{"q quit", "enter jump", "s sort", "/ filter", "n name", "a ended", "tab switch", "? help"}
+		hints = []string{"q quit", "enter jump", "s sort", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
 	}
 	right := fitHints(hints, width-ansi.StringWidth(left)-1)
 	gap := width - ansi.StringWidth(left) - ansi.StringWidth(right)
@@ -542,7 +542,8 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  enter                          jump to its tmux pane or cmux surface",
 		"  y, Y                           copy the id, or its claude --resume command",
 		"  d, space                       the selected session in full (esc closes)",
-		"  tab, shift+tab, h, l, 1, 2     switch tab (left and right too)",
+		"  tab, shift+tab, h, l           switch tab (left and right too)",
+		"  1-9                            move that inbox item into the selected session",
 		"  a                              show or hide ended sessions",
 		"  s                              cycle the Top sort: activity, state, dir, queue",
 		"  /                              filter the sessions; enter keeps it, esc clears it",
@@ -572,7 +573,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 	if readOnly { // the keys that change state are off, so they are not listed
 		kept := lines[:0]
 		for _, l := range lines {
-			if !strings.HasPrefix(l, "  p ") && !strings.HasPrefix(l, "  z ") && !strings.HasPrefix(l, "  t, ") && !strings.HasPrefix(l, "  o, enter, x") && !strings.HasPrefix(l, "  n ") {
+			if !strings.HasPrefix(l, "  p ") && !strings.HasPrefix(l, "  z ") && !strings.HasPrefix(l, "  t, ") && !strings.HasPrefix(l, "  o, enter, x") && !strings.HasPrefix(l, "  n ") && !strings.HasPrefix(l, "  1-9") {
 				kept = append(kept, l)
 			}
 		}

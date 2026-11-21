@@ -68,14 +68,6 @@ func TestKeysSwitchTabs(t *testing.T) {
 	if m.tab != tabTop {
 		t.Errorf("shift+tab should wrap back to Top, got %d", m.tab)
 	}
-	m, _ = press(t, m, "1")
-	if m.tab != tabWatch {
-		t.Errorf("1 is Watch")
-	}
-	m, _ = press(t, m, "2")
-	if m.tab != tabTop {
-		t.Errorf("2 is Top")
-	}
 	m, _ = press(t, m, "left")
 	m, _ = press(t, m, "right")
 	if m.tab != tabTop {
