@@ -313,3 +313,29 @@ func TestThemeAndColors(t *testing.T) {
 		t.Error("nothing set")
 	}
 }
+
+func TestTUIInterval(t *testing.T) {
+	env := map[string]string{}
+	c := Conf{File: filepath.Join(t.TempDir(), "none"), Getenv: func(k string) string { return env[k] }}
+	if c.TUIInterval() != 3*time.Second {
+		t.Errorf("default %v", c.TUIInterval())
+	}
+	for in, want := range map[string]time.Duration{"5": 5 * time.Second, "10s": 10 * time.Second, "1m": time.Minute, "1500ms": 1500 * time.Millisecond, "1": time.Second, "86400": 24 * time.Hour} {
+		env["SITREP_TUI_INTERVAL"] = in
+		if got := c.TUIInterval(); got != want {
+			t.Errorf("%q: %v, want %v", in, got, want)
+		}
+	}
+	for _, bad := range []string{"0", "-5", "200ms", "x", "5 s", "1e3", "86401", "999h", "5\x1b[0m", "s"} {
+		env["SITREP_TUI_INTERVAL"] = bad
+		if got := c.TUIInterval(); got != 3*time.Second {
+			t.Errorf("%q gave %v, want the default", bad, got)
+		}
+	}
+	file := filepath.Join(t.TempDir(), "sitrep.conf")
+	os.WriteFile(file, []byte("SITREP_TUI_INTERVAL=7\n"), 0o600)
+	fc := Conf{File: file, Getenv: func(string) string { return "" }}
+	if fc.TUIInterval() != 7*time.Second {
+		t.Errorf("from the file: %v", fc.TUIInterval())
+	}
+}

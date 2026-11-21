@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Defaults of the settings that have one.
@@ -84,6 +85,26 @@ func (c Conf) CheckUpdates() bool {
 		return false
 	}
 	return true
+}
+
+// DefaultTUIInterval is how often the dashboard refreshes when nothing says otherwise.
+const DefaultTUIInterval = 3 * time.Second
+
+// TUIInterval is the dashboard's refresh interval (SITREP_TUI_INTERVAL): a number of seconds, or a duration such as 500ms, 5s or 1m. Anything
+// else, or a value below one second (which the dashboard would raise to one anyway), is the default.
+func (c Conf) TUIInterval() time.Duration {
+	v := c.Get("SITREP_TUI_INTERVAL")
+	if v == "" {
+		return DefaultTUIInterval
+	}
+	if _, err := strconv.Atoi(v); err == nil {
+		v += "s"
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil || d < time.Second || d > 24*time.Hour {
+		return DefaultTUIInterval
+	}
+	return d
 }
 
 // MaxColors is the longest SITREP_COLORS the dashboard is given.

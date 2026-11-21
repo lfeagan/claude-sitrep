@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/lfeagan/claude-sitrep/internal/snapshot"
 	"github.com/lfeagan/claude-sitrep/internal/tui"
@@ -93,7 +92,7 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 func cmdWatch(e Env, args []string) error {
 	fs := e.flags("watch")
 	tab := fs.String("tab", "watch", "the tab to start on: watch or top")
-	interval := fs.Duration("interval", 3*time.Second, "how often to refresh")
+	interval := fs.Duration("interval", e.conf().TUIInterval(), "how often to refresh (or set SITREP_TUI_INTERVAL)")
 	once := fs.Bool("once", false, "print one frame as plain text and exit")
 	readOnly := fs.Bool("read-only", envOn(e.Getenv, "SITREP_TUI_READONLY"), "turn off every key that changes state (or set SITREP_TUI_READONLY)")
 	noBell := fs.Bool("no-bell", envOff(e.Getenv, "SITREP_TUI_BELL"), "do not ring the bell when a session starts needing you (or set SITREP_TUI_BELL=0)")
