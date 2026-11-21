@@ -30,6 +30,16 @@ var presets = map[string]palette{
 		// a session waiting for the user: a soft pink-red that stands out from the grey of recent activity
 		attn: [2]string{"#ffd9e4", "#5c1f35"}, errc: [2]string{"#b3261e", "#ff8a80"},
 	},
+	// soft lavender, mint and peach, for a quiet screen: the accent is a periwinkle, recent activity a mint, a session that needs you a peach
+	"pastel": {
+		accent: [2]string{"#7565b8", "#b8a9f0"}, dim: [2]string{"#7a7a8c", "#9a9aae"}, hot: [2]string{"#d8f3e4", "#24433a"},
+		attn: [2]string{"#ffe0c2", "#5a3d20"}, errc: [2]string{"#c2476b", "#ff9eb5"},
+	},
+	// one colour of the spectrum for each role: green accent, blue for dim text, orange for recent activity, yellow for what needs you, red for errors
+	"rainbow": {
+		accent: [2]string{"#2e7d32", "#7ddc8a"}, dim: [2]string{"#4a6fa5", "#8fb0e0"}, hot: [2]string{"#ffe0b8", "#4a3217"},
+		attn: [2]string{"#fff2a8", "#4d4410"}, errc: [2]string{"#d32f2f", "#ff6b6b"},
+	},
 	"high-contrast": {
 		accent: [2]string{"#0000b3", "#ffd400"}, dim: [2]string{"#3a3a3a", "#c8c8c8"}, hot: [2]string{"#c8c8c8", "#505050"},
 		attn: [2]string{"#ff9a9a", "#a40000"}, errc: [2]string{"#a00000", "#ff7070"},
@@ -37,7 +47,7 @@ var presets = map[string]palette{
 }
 
 // ThemeNames are the themes SITREP_THEME may name. "mono" uses no colours, only bold, faint and reverse.
-var ThemeNames = []string{"default", "high-contrast", "mono"}
+var ThemeNames = []string{"default", "pastel", "rainbow", "high-contrast", "mono"}
 
 // colorNames are the entries of SITREP_COLORS.
 var colorNames = []string{"accent", "dim", "hot", "attn", "error"}

@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"math"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -152,5 +154,72 @@ func TestTextReadsOnAChosenBackground(t *testing.T) {
 	def := themeFor(true, Settings{HighlightSGR: "48;5;238"})
 	if strings.Contains(def.Attn.Render("x"), "38;") || strings.Contains(def.Hot.Render("x"), "38;") {
 		t.Errorf("the default theme sets text colours: %q %q", def.Attn.Render("x"), def.Hot.Render("x"))
+	}
+}
+
+// contrast is the WCAG contrast ratio of two colours given as #rrggbb or a terminal colour number.
+func contrast(a, b string) float64 {
+	lum := func(c string) float64 {
+		r, g, bl := rgbOf(c)
+		ch := func(v int) float64 {
+			f := float64(v) / 255
+			if f <= 0.03928 {
+				return f / 12.92
+			}
+			return math.Pow((f+0.055)/1.055, 2.4)
+		}
+		return 0.2126*ch(r) + 0.7152*ch(g) + 0.0722*ch(bl)
+	}
+	l1, l2 := lum(a), lum(b)
+	if l1 < l2 {
+		l1, l2 = l2, l1
+	}
+	return (l1 + 0.05) / (l2 + 0.05)
+}
+
+func TestPastelAndRainbowThemes(t *testing.T) {
+	for _, name := range []string{"pastel", "rainbow"} {
+		checkColourfulTheme(t, name)
+	}
+}
+
+func checkColourfulTheme(t *testing.T, name string) {
+	p := presets[name]
+	d := presets["default"]
+	if p.accent == d.accent || p.attn == d.attn || p.hot == d.hot {
+		t.Errorf("%s must have colours of its own", name)
+	}
+	for side, mode := range []string{"light", "dark"} {
+		who := name + " " + mode
+		// the status bar's text, chosen to read on the accent
+		if c := contrast(onColor(p.accent[side]), p.accent[side]); c < 4.5 {
+			t.Errorf("%s: text on the accent has contrast %.1f", who, c)
+		}
+		// what needs you must stand out from recent activity
+		if p.attn[side] == p.hot[side] {
+			t.Errorf("%s: attn and hot are the same", who)
+		}
+		// the terminal's own text colour (near black on light, near white on dark) must read on both backgrounds
+		text := map[int]string{0: "#1a1a1a", 1: "#e6e6e6"}[side]
+		for role, bg := range map[string]string{"hot": p.hot[side], "attn": p.attn[side]} {
+			if c := contrast(text, bg); c < 7 {
+				t.Errorf("%s %s: terminal text has contrast %.1f", who, role, c)
+			}
+		}
+		// the error and dim colours are text on the terminal's background
+		bgTerm := map[int]string{0: "#ffffff", 1: "#1e1e1e"}[side]
+		if c := contrast(p.errc[side], bgTerm); c < 3 {
+			t.Errorf("%s: error text has contrast %.1f", who, c)
+		}
+		if c := contrast(p.dim[side], bgTerm); c < 3 {
+			t.Errorf("%s: dim text has contrast %.1f", who, c)
+		}
+	}
+	th := themeFor(true, Settings{HighlightSGR: "48;5;238", Theme: name})
+	if th.Hot.Render("x") == themeFor(true, Settings{HighlightSGR: "48;5;238"}).Hot.Render("x") {
+		t.Errorf("the %s highlight shows when the setting has its default value", name)
+	}
+	if !slices.Contains(ThemeNames, name) {
+		t.Errorf("%s is not offered", name)
 	}
 }
