@@ -137,7 +137,7 @@ func TestJump(t *testing.T) {
 		t.Errorf("exactly one jump call: %d", n)
 	}
 
-	if _, err := jump(context.Background(), sess, jumpEnv{}, f.run); err == nil || !strings.Contains(err.Error(), "not in tmux or cmux") {
+	if _, err := jump(context.Background(), sess, jumpEnv{}, f.run); err == nil || !strings.Contains(err.Error(), "not in tmux, cmux, iTerm2 or Terminal") {
 		t.Errorf("outside tmux: %v", err)
 	}
 	if _, err := jump(context.Background(), Session{Short: "x"}, jumpEnv{Tmux: true}, f.run); err == nil || !strings.Contains(err.Error(), "process") {
