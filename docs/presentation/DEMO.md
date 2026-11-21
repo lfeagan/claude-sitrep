@@ -81,10 +81,10 @@ The first `ls` shows four-character ids, as the status line does, and the two `a
 In `api`, take the next item from the queue and give it to Claude as a normal prompt. The state changes to `working`, and the Now line follows what Claude is doing. When the turn is done:
 
 ```
-sitrep rm api
+sitrep done api
 ```
 
-`rm` prints the item it removed. There is no separate "done" state. Removing an item is how it is finished, and the dashboard's `dd` does the same. Back in the dashboard, the queue count goes down as we watch. A real turn takes longer than the scene, so it is cut or sped up when the recording is edited.
+`done` prints the item it removed. It is `rm` under a name that reads right: there is no separate "done" state, and removing an item is how it is finished. The dashboard's `dd` does the same. Back in the dashboard, the queue count goes down as we watch. A real turn takes longer than the scene, so it is cut or sped up when the recording is edited.
 
 ### 5. Fix a wrong turn (20 s)
 
@@ -118,4 +118,3 @@ Then back to `sitrep watch`: the rows now show a different picture from the open
 
 - Whether `sitrep watch` runs full screen or in a popup (`--quit-on-jump`).
 - Whether the script should name the other tools. We lean to no: the comparison slide has them.
-- Whether the lack of a "done" state should be fixed first. It is an inbox item, and today `rm` is the answer, which is honest but may read as "delete".
