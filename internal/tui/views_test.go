@@ -377,21 +377,21 @@ func TestSelectionMarker(t *testing.T) {
 	o.Sel = s.Sessions[2].ID
 	for _, tab := range []int{tabWatch, tabTop} {
 		out := render(s, tab, "", o)
-		if strings.Count(out, "▸ ") != 1 {
+		if strings.Count(out, "▶ ") != 1 {
 			t.Fatalf("tab %d: exactly one marker:\n%s", tab, out)
 		}
 		for _, l := range strings.Split(out, "\n") {
-			if strings.HasPrefix(l, "▸ ") && !strings.Contains(l, "b1fb") {
+			if strings.HasPrefix(l, "▶ ") && !strings.Contains(l, "b1fb") {
 				t.Errorf("tab %d: the marker is on the wrong row: %q", tab, l)
 			}
 		}
 	}
 	o.Sel = ""
-	if strings.Contains(render(s, tabWatch, "", o), "▸") {
+	if strings.Contains(render(s, tabWatch, "", o), "▶") {
 		t.Errorf("no selection, no marker")
 	}
 	o.Sel, o.Width = s.Sessions[2].ID, 19
-	if strings.Contains(render(s, tabTop, "", o), "▸") {
+	if strings.Contains(render(s, tabTop, "", o), "▶") {
 		t.Errorf("a narrow screen has no gutter")
 	}
 	golden(t, "watch_80x40_sel", render(s, tabWatch, "", viewOpts{Width: 80, Height: 40, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
@@ -409,7 +409,7 @@ func TestScrollingKeepsTheSelectionOnScreen(t *testing.T) {
 			for h := minH; h <= 30; h++ {
 				o := viewOpts{Width: 80, Height: h, Sel: sess.ID, Theme: plainTheme()}
 				out := render(s, tab, "", o)
-				if !strings.Contains(out, "▸ "+sess.Short) {
+				if !strings.Contains(out, "▶ "+sess.Short) {
 					t.Errorf("tab %d height %d: the selected session %s is not on screen:\n%s", tab, h, sess.Short, out)
 				}
 			}
@@ -481,5 +481,26 @@ func TestHostileAliasIsDroppedOnDecode(t *testing.T) {
 	}
 	if strings.Join(got, ",") != "ok-name,a2,a3,a4,a5" {
 		t.Errorf("labels %v", got)
+	}
+}
+
+func TestSelectionIsASolidBarOverTheWholeBlock(t *testing.T) {
+	s := loadFixture(t)
+	o := viewOpts{Width: 80, Height: 40, Theme: newTheme(true, "48;5;238"), Sel: s.Sessions[0].ID}
+	lines := strings.Split(render(s, tabWatch, "", o), "\n")
+	bar, first := 0, -1
+	for i, l := range lines {
+		if strings.HasPrefix(l, o.Theme.StatusKey.Render("  ")) || strings.HasPrefix(l, o.Theme.StatusKey.Render("▶ ")) {
+			bar++
+			if strings.HasPrefix(l, o.Theme.StatusKey.Render("▶ ")) {
+				first = i
+			}
+		}
+	}
+	if first < 0 || bar < 5 {
+		t.Errorf("the selected block has %d bar lines, arrow at %d:\n%s", bar, first, strings.Join(lines, "\n"))
+	}
+	if !strings.Contains(ansi.Strip(lines[first]), s.Sessions[0].Short) {
+		t.Errorf("the arrow is not on the session row: %q", ansi.Strip(lines[first]))
 	}
 }

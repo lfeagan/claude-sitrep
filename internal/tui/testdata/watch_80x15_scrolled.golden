@@ -6,9 +6,9 @@ Inbox: 3 items
        about the node deprecation
     +1 more
 +2 above
-▸ b1fb  timescaledb-storage-policy  ● waiting 3m  1 item                        
-    Objective: evil [31mred]0;title bidi sep Tab                                
-    Progress:  p                                                                
+▶ b1fb  timescaledb-storage-policy  ● waiting 3m  1 item                        
+│   Objective: evil [31mred]0;title bidi sep Tab                                
+│   Progress:  p                                                                
 +2 ended (a)
 2 items stranded in ended sessions (sitrep prune)
 

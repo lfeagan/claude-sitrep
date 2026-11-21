@@ -87,9 +87,31 @@ func gutter(id string, o viewOpts) string {
 	case o.Width < 20:
 		return ""
 	case id != "" && id == o.Sel:
-		return "▸ "
+		return "▶ "
 	}
 	return "  "
+}
+
+// selectBlock gives the selected session's lines a solid two-column bar in the gutter, over the whole block, with an arrow on the first
+// line. The bar uses the style of the status bar's keys (white on the accent colour) so it shows against the pink and purple row colours;
+// without colour the arrow is followed by a vertical line.
+func selectBlock(lines []string, x Session, o viewOpts) []string {
+	if o.Width < 20 || x.ID == "" || x.ID != o.Sel {
+		return lines
+	}
+	cont := "  "
+	if o.Theme.Plain {
+		cont = "│ "
+	}
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		glyph := cont
+		if i == 0 {
+			glyph = "▶ "
+		}
+		out[i] = o.Theme.StatusKey.Render(glyph) + ansi.TruncateLeft(l, 2, "")
+	}
+	return out
 }
 
 // indexOf finds the block of the selected session, or -1.
@@ -315,7 +337,7 @@ func watchBody(s Snapshot, o viewOpts) []string {
 		block = append(block, field("Progress:", x.Progress, o.Width, 3)...)
 		block = append(block, field("Now:", x.Now, o.Width, 3)...)
 		block = append(block, queueLines("Queue:", x.Queue, o.Width, 2, 4+11, s.Settings.QueueItems)...)
-		blocks = append(blocks, mark(block, x, o))
+		blocks = append(blocks, selectBlock(mark(block, x, o), x, o))
 	}
 	return fitBlocks(head, blocks, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
 }
@@ -454,7 +476,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 		}
 		prefix := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %-5d  ", idCell(x.Label(), iw), padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count)
 		line := prefix + ansi.Truncate(text, max(o.Width-ansi.StringWidth(prefix), 1), "…")
-		blocks = append(blocks, mark([]string{line}, x, o))
+		blocks = append(blocks, selectBlock(mark([]string{line}, x, o), x, o))
 	}
 	return fitBlocks(head, blocks, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
 }
