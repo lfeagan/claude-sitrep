@@ -611,6 +611,24 @@ func TestContextBoldNeverInsideAColouredRow(t *testing.T) {
 	}
 }
 
+func TestContextAgeComesFromTheDocumentsOwnTime(t *testing.T) {
+	doc := `{"version":1,"generated":2000,"registry":"ok","settings":{},"hidden":{},"inbox":{"count":0,"items":[]},"sessions":[
+	 {"id":"a1","short":"a1","running":true,"queue":{"count":0,"items":[]},"context":{"used_percent":40,"window":200000,"tokens":80000,"at":1940}},
+	 {"id":"a2","short":"a2","running":true,"queue":{"count":0,"items":[]},"context":{"used_percent":40,"window":200000,"tokens":80000,"at":5000}},
+	 {"id":"a3","short":"a3","running":true,"queue":{"count":0,"items":[]},"context":{"used_percent":40,"window":200000,"tokens":80000,"at":0}}]}`
+	s, err := decode(strings.NewReader(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ages []int64
+	for _, x := range s.Sessions {
+		ages = append(ages, x.Context.Age)
+	}
+	if want := []int64{60, 0, 0}; !reflect.DeepEqual(ages, want) { // a time after the listing's own (a clock that moved) is 0, not negative
+		t.Errorf("ages %v, want %v", ages, want)
+	}
+}
+
 func TestContextOfTheDocumentIsChecked(t *testing.T) {
 	doc := `{"version":1,"generated":1,"registry":"ok","settings":{},"hidden":{},"inbox":{"count":0,"items":[]},"sessions":[
 	 {"id":"a1","short":"a1","running":true,"queue":{"count":0,"items":[]},"context":{"used_percent":40,"window":200000,"tokens":80000,"at":1}},
@@ -649,10 +667,21 @@ func TestTokenAndPercentText(t *testing.T) {
 }
 
 func TestDetailShowsTheContextWindow(t *testing.T) {
-	x := Session{ID: "a1", Running: true, Context: &Context{UsedPercent: 37.5, Window: 1_000_000, Tokens: 375_000}}
-	if got := strings.Join(detailLines(x, 80), "\n"); !strings.Contains(got, "Context   375k / 1M tokens  (37.5% used, 62.5% left)") {
+	x := Session{ID: "a1", Running: true, Context: &Context{UsedPercent: 37.5, Window: 1_000_000, Tokens: 375_000, At: 1000, Age: 2}}
+	if got := strings.Join(detailLines(x, 80), "\n"); !strings.Contains(got, "Context   375k / 1M tokens  (37.5% used, 62.5% left)  seen now") {
 		t.Errorf("a running session:\n%s", got)
 	}
+	for age, want := range map[int64]string{4: "seen now", 5: "seen 5s ago", 59: "seen 59s ago", 60: "seen 1m ago", 3600: "seen 1h ago", 90000: "seen 25h ago"} {
+		x.Context.Age = age
+		if got := strings.Join(detailLines(x, 100), "\n"); !strings.Contains(got, "left)  "+want) {
+			t.Errorf("age %d: want %q in\n%s", age, want, got)
+		}
+	}
+	x.Context.At = 0 // a record with no time says nothing about it
+	if got := strings.Join(detailLines(x, 100), "\n"); strings.Contains(got, "seen") {
+		t.Errorf("no time:\n%s", got)
+	}
+	x.Context = &Context{UsedPercent: 37.5, Window: 1_000_000, Tokens: 375_000, At: 1000}
 	x.Context = &Context{UsedPercent: 93.4, Window: 200_000, Tokens: 186_800}
 	if got := strings.Join(detailLines(x, 80), "\n"); !strings.Contains(got, "186.8k / 200k tokens  (93.4% used, 6.6% left)") {
 		t.Errorf("a nearly full window:\n%s", got)

@@ -89,6 +89,7 @@ type Context struct {
 	Window      int64   `json:"window"`
 	Tokens      int64   `json:"tokens"`
 	At          int64   `json:"at"`
+	Age         int64   `json:"-"` // how long before the listing the status line last showed these numbers, worked out from the document's own time
 }
 
 // Left is the share of the window left, in whole per cent, rounded down.
@@ -135,6 +136,11 @@ func (s *Snapshot) sanitize() {
 		x.Age = max(x.Age, 0)
 		if c := x.Context; c != nil && !(c.UsedPercent >= 0 && c.UsedPercent <= 100 && c.Window >= 1) { // the document is untrusted: a NaN or a range error is no record
 			x.Context = nil
+		} else if c != nil {
+			c.Age = 0
+			if c.At > 0 && s.Generated > c.At {
+				c.Age = s.Generated - c.At
+			}
 		}
 		x.Queue.sanitize()
 	}

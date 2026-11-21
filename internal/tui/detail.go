@@ -81,7 +81,14 @@ func contextText(x Session) string {
 	switch c := x.Context; {
 	case c != nil && x.Running:
 		used := math.Min(math.Max(c.UsedPercent, 0), 100)
-		return fmt.Sprintf("%s / %s tokens  (%s%% used, %s%% left)", tokenText(c.Tokens), tokenText(c.Window), percentText(used), percentText(100-used))
+		text := fmt.Sprintf("%s / %s tokens  (%s%% used, %s%% left)", tokenText(c.Tokens), tokenText(c.Window), percentText(used), percentText(100-used))
+		if c.At > 0 { // 0 means the time is not known
+			if c.Age < 5 {
+				return text + "  seen now"
+			}
+			return text + "  seen " + agoText(c.Age) + " ago"
+		}
+		return text
 	case x.Running:
 		return "not reported yet (the status line records it)"
 	}

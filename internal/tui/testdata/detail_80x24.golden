@@ -4,7 +4,7 @@
   State     working 1m
   Process   pid 4242
   Quiet     4s
-  Context   375k / 1M tokens  (37.5% used, 62.5% left)
+  Context   375k / 1M tokens  (37.5% used, 62.5% left)  seen now
   Pinned    yes: the Objective is kept as set
 
   Objective Sitrep: add a Go front-end that reads sitrep ls --json, with a Watch
