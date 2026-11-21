@@ -16,7 +16,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/difftest"
 )
 
-var emptyAlias = regexp.MustCompile(`"alias":\s*"",\s*`)
+var emptyAlias = regexp.MustCompile(`"alias":\s*"",\s*|,\s*"theme":\s*"",\s*"colors":\s*""`)
 
 // jsonNorm blanks what changes between two runs a second apart (the time, ages, quiet times), and appends the order of every key, so a
 // change of the document's field order is a difference too.

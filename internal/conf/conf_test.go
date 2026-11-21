@@ -283,3 +283,33 @@ func TestCheckUpdates(t *testing.T) {
 		t.Error("it is on by default")
 	}
 }
+
+func TestThemeAndColors(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "sitrep.conf")
+	os.WriteFile(file, []byte("SITREP_THEME=High-Contrast\nSITREP_COLORS='accent=#ff8800, attn=1/2'\n"), 0o600)
+	env := map[string]string{}
+	c := Conf{File: file, Getenv: func(k string) string { return env[k] }}
+	if c.Theme() != "high-contrast" || c.Colors() != "accent=#ff8800, attn=1/2" {
+		t.Errorf("%q %q", c.Theme(), c.Colors())
+	}
+	env["SITREP_THEME"], env["SITREP_COLORS"] = "mono", "dim=8"
+	if c.Theme() != "mono" || c.Colors() != "dim=8" {
+		t.Errorf("the environment wins: %q %q", c.Theme(), c.Colors())
+	}
+	for _, bad := range []string{"mono\x1b[31m", "a b", "x_y", "1", strings.Repeat("a", 21), "é"} {
+		env["SITREP_THEME"] = bad
+		if c.Theme() != "" {
+			t.Errorf("theme %q accepted: %q", bad, c.Theme())
+		}
+	}
+	for _, bad := range []string{"accent=\x1b[31m", "accent=#fff;rm", "a=b\nc", strings.Repeat("a", 301), "accent=é"} {
+		env["SITREP_COLORS"] = bad
+		if c.Colors() != "" {
+			t.Errorf("colors %q accepted", bad)
+		}
+	}
+	empty := Conf{File: filepath.Join(t.TempDir(), "none"), Getenv: func(string) string { return "" }}
+	if empty.Theme() != "" || empty.Colors() != "" {
+		t.Error("nothing set")
+	}
+}

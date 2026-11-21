@@ -570,7 +570,7 @@ func (m model) errText() string {
 }
 
 func (m model) View() tea.View {
-	theme := newTheme(m.isDark, m.snap.Settings.HighlightSGR)
+	theme := themeFor(m.isDark, m.snap.Settings)
 	body := "waiting for sitrep…"
 	switch {
 	case m.prune != pruneNone:

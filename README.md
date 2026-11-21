@@ -159,6 +159,8 @@ Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the envi
 3. `SITREP_HIGHLIGHT_SGR=<codes>` is that colour as terminal SGR codes (default `48;5;238`, a dark grey). Only digits and semicolons are accepted.
 4. `SITREP_DEBOUNCE=<seconds>` is the time between summaries (default 45; a value that is not a number turns the debounce off).
 5. `SITREP_CHECK_UPDATES=<0|1>` lets sitrep look once a day for a newer release (default on; 0, false and no turn it off). See Updating.
+6. `SITREP_THEME=<name>` picks the dashboard's colours: `default`, `high-contrast` (stronger colours, for a bright room or a poor screen) or `mono` (no colour at all: bold for recent activity, reverse video for what needs you and for the bars). A name it does not know gives the default.
+7. `SITREP_COLORS=<name=colour,...>` changes single colours of the theme: `accent` (the tabs, the rule, the selection bar and the status bar), `dim` (muted text), `hot` (the background of recent activity), `attn` (the background of a session that needs you) and `error`. A colour is `#rrggbb` or a terminal colour number from 0 to 255, and `light/dark` gives one value for each kind of terminal, as in `SITREP_COLORS='attn=#ffc0c0/#601020,accent=#d9480f'`. The text on the accent colour is chosen to be readable. An entry it cannot read is ignored, and the others still apply. These win over the theme and over `SITREP_HIGHLIGHT_SGR`, which keeps working for the highlight.
 
 `sitrep.conf` holds `NAME=value` lines, with single quotes, double quotes and backslashes understood. It is read and never run, so it can hold no commands, and setup replaces or removes only its own `SITREP_HUD_CMD` line.
 
@@ -177,7 +179,7 @@ The top level holds these fields:
 |---|---|
 | `version`, `generated` | The contract version, and the time of the listing in epoch seconds. |
 | `registry` | `ok` when liveness came from Claude Code's session registry, `unavailable` when it fell back to the hook states. |
-| `settings` | `queue_items`, `highlight_seconds` and `highlight_sgr`, as set in the environment or `sitrep.conf`. |
+| `settings` | `queue_items`, `highlight_seconds`, `highlight_sgr`, `theme` and `colors`, as set in the environment or `sitrep.conf`. |
 | `hidden` | `ended` counts the finished sessions left out, and `stranded_items` counts the queue items they still hold. |
 | `inbox` | `count` is the true number of items, and `items` holds the first ones, up to the cap (all of them with `--full`). |
 | `sessions` | One object per session, below. |

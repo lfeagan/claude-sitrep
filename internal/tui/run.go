@@ -48,7 +48,7 @@ func tabByName(name string) (int, error) {
 // FromSnapshot makes the dashboard's own copy of a snapshot, cleaned again as everything it shows is.
 func FromSnapshot(s snapshot.Snapshot) Snapshot {
 	out := Snapshot{Version: s.Version, Generated: s.Generated, Registry: s.Registry,
-		Settings: Settings{QueueItems: s.Settings.QueueItems, HighlightSeconds: s.Settings.HighlightSeconds, HighlightSGR: s.Settings.HighlightSGR},
+		Settings: Settings{QueueItems: s.Settings.QueueItems, HighlightSeconds: s.Settings.HighlightSeconds, HighlightSGR: s.Settings.HighlightSGR, Theme: s.Settings.Theme, Colors: s.Settings.Colors},
 		Inbox:    queueFrom(s.Inbox), Hidden: Hidden{Ended: s.Hidden.Ended, StrandedItems: s.Hidden.StrandedItems}}
 	for _, x := range s.Sessions {
 		out.Sessions = append(out.Sessions, Session{

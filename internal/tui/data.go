@@ -35,6 +35,8 @@ type Settings struct {
 	QueueItems       int    `json:"queue_items"`
 	HighlightSeconds int    `json:"highlight_seconds"`
 	HighlightSGR     string `json:"highlight_sgr"`
+	Theme            string `json:"theme"`
+	Colors           string `json:"colors"`
 }
 
 type Queue struct {
@@ -98,6 +100,7 @@ func (s *Snapshot) sanitize() {
 		s.Registry = "unavailable"
 	}
 	s.Settings.HighlightSGR = clean(s.Settings.HighlightSGR)
+	s.Settings.Theme, s.Settings.Colors = clean(s.Settings.Theme), clean(s.Settings.Colors)
 	s.Hidden.Ended, s.Hidden.StrandedItems = max(s.Hidden.Ended, 0), max(s.Hidden.StrandedItems, 0)
 	s.Inbox.sanitize()
 	if len(s.Sessions) > maxSessions {

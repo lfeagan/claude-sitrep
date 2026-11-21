@@ -44,6 +44,8 @@ type Settings struct {
 	QueueItems       int    `json:"queue_items"`
 	HighlightSeconds int    `json:"highlight_seconds"`
 	HighlightSGR     string `json:"highlight_sgr"`
+	Theme            string `json:"theme"`  // SITREP_THEME, for the dashboard
+	Colors           string `json:"colors"` // SITREP_COLORS, for the dashboard
 }
 
 // Hidden counts what a listing without ended sessions left out.
@@ -119,7 +121,7 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 	q := queue.Queue{Store: b.Store}
 	snap := Snapshot{
 		Version: Version, Generated: now, Registry: "unavailable",
-		Settings: Settings{QueueItems: b.Conf.QueueItems(), HighlightSeconds: hlsec, HighlightSGR: b.Conf.HighlightSGR()},
+		Settings: Settings{QueueItems: b.Conf.QueueItems(), HighlightSeconds: hlsec, HighlightSGR: b.Conf.HighlightSGR(), Theme: b.Conf.Theme(), Colors: b.Conf.Colors()},
 		Sessions: []Session{},
 	}
 	if set.OK {

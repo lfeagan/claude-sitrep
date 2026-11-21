@@ -86,6 +86,39 @@ func (c Conf) CheckUpdates() bool {
 	return true
 }
 
+// MaxColors is the longest SITREP_COLORS the dashboard is given.
+const MaxColors = 300
+
+// Theme is the name of the dashboard's colour theme (SITREP_THEME): lowercase letters and hyphens, or "" for the default. What it names is
+// the dashboard's to know; a name it does not have gives the default theme.
+func (c Conf) Theme() string {
+	v := strings.ToLower(c.Get("SITREP_THEME"))
+	if len(v) > 20 {
+		return ""
+	}
+	for _, r := range v {
+		if !(r >= 'a' && r <= 'z' || r == '-') {
+			return ""
+		}
+	}
+	return v
+}
+
+// Colors is the dashboard's colour overrides (SITREP_COLORS), such as "accent=#ff8800,attn=#400020". Only the characters such a list is made
+// of are accepted, and the dashboard reads the entries itself, ignoring each one it cannot use.
+func (c Conf) Colors() string {
+	v := c.Get("SITREP_COLORS")
+	if len(v) > MaxColors {
+		return ""
+	}
+	for _, r := range v {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("#=,/- ", r)) {
+			return ""
+		}
+	}
+	return strings.TrimSpace(v)
+}
+
 func (c Conf) number(name string, def int) int {
 	v := c.Get(name)
 	for _, r := range v {
