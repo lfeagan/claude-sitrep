@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -464,5 +465,18 @@ func TestSnoozeOfABlockedSessionKeysOnTheBlock(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(st.Path("abcd1111", "snooze")); string(b) != "1700000500\n" {
 		t.Errorf("snooze file %q: it must name the time of the block", b)
+	}
+}
+
+func TestLsQueueShowsABlock(t *testing.T) {
+	home := t.TempDir()
+	st := state.Open(home)
+	statetest.PutAt(t, st, "abcd1111.txt", "Objective: x\n", time.Now().Add(-time.Minute))
+	statetest.PutAt(t, st, ".abcd1111.state", "working\n", time.Now().Add(-time.Minute))
+	if err := os.WriteFile(st.Path("abcd1111", "blocked"), []byte(strconv.FormatInt(time.Now().Unix()-30, 10)+" permission\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, _ := run(t, home, "ls", "abcd"); code != 0 || !strings.Contains(out, "(blocked <1m)") {
+		t.Errorf("%d %q", code, out)
 	}
 }

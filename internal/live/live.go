@@ -208,8 +208,8 @@ const (
 )
 
 // Blocked says whether a session is stopped at a dialog, and since when (seconds since the epoch). The permission hook wrote the file `blocked`;
-// the block counts only while the session is working and its transcript has not been written since, so that an answered dialog, a crash and an
-// interrupt leave nothing behind. A session without a readable transcript keeps the block until the file is removed.
+// the block counts only while the session is working and its transcript has not been written since, so that an answered dialog and a crash leave nothing behind
+// once the next transcript line is written, which for a long tool is when it finishes. A session without a readable transcript keeps the block until the file is removed.
 func Blocked(s state.Store, configDir, id, word string, now int64) (kind string, at int64, ok bool) {
 	if word != "working" || !state.SessionID(id) {
 		return "", 0, false
@@ -219,8 +219,8 @@ func Blocked(s state.Store, configDir, id, word string, now int64) (kind string,
 		return "", 0, false
 	}
 	at, err := strconv.ParseInt(f[0], 10, 64)
-	if err != nil || at <= 0 {
-		return "", 0, false
+	if err != nil || at <= 0 || at > now+BlockedSlack {
+		return "", 0, false // a time from the future, after a clock moved back, would block the session for good
 	}
 	if quiet, has := Quiet(configDir, id, now); has && now-quiet > at+BlockedSlack {
 		return "", 0, false

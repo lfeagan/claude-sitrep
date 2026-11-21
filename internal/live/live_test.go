@@ -283,6 +283,11 @@ func TestBlocked(t *testing.T) {
 			t.Errorf("state %q is not working", word)
 		}
 	}
+	write("2000100 permission\n") // from the future
+	os.RemoveAll(filepath.Join(cfg, "projects"))
+	if _, _, ok := Blocked(st, cfg, "abc", "working", now); ok {
+		t.Error("a block from the future must not stand")
+	}
 	if _, _, ok := Blocked(st, cfg, "../x", "working", now); ok {
 		t.Error("a bad id")
 	}

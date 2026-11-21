@@ -58,8 +58,13 @@ Option 2 is the better one. Its cost is one more file and a rule in the snapshot
 
 Remove the entry from `hooks.json` and the `blocked` files stop appearing. The snapshot rule is inert without a file, and the field is additive, so a program that never saw it is not affected.
 
+## Known Limit
+
+Claude Code writes the next transcript line when a tool finishes, not when the user approves it. A session whose approved tool runs for five minutes therefore shows `blocked` for those five minutes, with `needs_input` true, though it no longer needs the user. The review that found this is right, and our capture hid it, as its tool was instant. There is no hook at the moment of approval. A `PostToolUse` hook that only removes the record would end it at the tool's end, which is no better than the transcript, so the real fix is to learn the approval some other way, such as a child process of the session that appears after the dialog. Until then the false `needs you` is the price, and `sitrep snooze` (the `z` key) mutes it.
+
 ## Questions
 
-1. Which event a question dialog sends. We suspect `PermissionRequest` for the question tool as for the others, which would make the `Notification` entry unnecessary. We should open one in a real session before we register it.
-2. Whether three seconds of slack is right. One sample showed a write 0.3 seconds after the dialog, and the user's answer came much later. A user who answers inside the slack leaves the block in place until the next write, which is the `Stop` that removes it, so the cost is a short false `needs you`.
-3. Whether the history log should record a block (`session.blocked`). We lean to no, as it is a state of the session and not a change that sitrep made.
+1. How to see an approval before the tool ends (see Known Limit).
+2. Which event a question dialog sends. We suspect `PermissionRequest` for the question tool as for the others, which would make the `Notification` entry unnecessary. We should open one in a real session before we register it.
+3. Whether three seconds of slack is right. One sample showed a write 0.3 seconds after the dialog, and the user's answer came much later. A user who answers inside the slack leaves the block in place until the next write, which is the `Stop` that removes it, so the cost is a short false `needs you`.
+4. Whether the history log should record a block (`session.blocked`). We lean to no, as it is a state of the session and not a change that sitrep made.

@@ -269,6 +269,9 @@ func (e Env) lsQueue(prefix string) error {
 			quiet, hasQuiet = live.Quiet(e.configDir(), string(id), now)
 		}
 		label := live.Label(word, changed, now, quiet, hasQuiet)
+		if _, at, blocked := live.Blocked(st, e.configDir(), string(id), word, now); blocked {
+			label = "blocked " + live.Age(now-at)
+		}
 		suffix := ""
 		if label != "-" {
 			suffix = "  (" + label + ")"
