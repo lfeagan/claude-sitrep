@@ -115,6 +115,26 @@ func (s Store) Ensure() error {
 	return nil
 }
 
+// Check says whether the folder can be read, for a command that only shows state: it would otherwise show a folder that cannot be read, such
+// as a stale mount, as an empty one. A folder that does not exist is fine, since nothing has been written yet. A mount that hangs is not
+// caught, as nothing in the standard library can stop the call.
+func (s Store) Check() error {
+	_, err := os.ReadDir(s.Dir)
+	if err == nil || errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return fmt.Errorf("cannot read the state folder %s: %s", textsafe.Clean(s.Dir, 300), textsafe.Clean(unwrapErr(err), 200))
+}
+
+// unwrapErr is the reason of a file error without the operation and the path, which the message names itself.
+func unwrapErr(err error) string {
+	var pe *os.PathError
+	if errors.As(err, &pe) {
+		return pe.Err.Error()
+	}
+	return err.Error()
+}
+
 // SessionsDir is the folder that holds one folder per session.
 func (s Store) SessionsDir() string { return filepath.Join(s.Dir, "sessions") }
 

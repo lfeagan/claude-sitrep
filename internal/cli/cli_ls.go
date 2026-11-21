@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -37,6 +38,9 @@ func (e Env) builder() snapshot.Builder {
 
 func cmdLs(e Env, args []string) error {
 	const usage = "usage: sitrep ls [-a] [-v] [-n items] [--json [--full]] [id]"
+	if err := e.store().Check(); err != nil {
+		return err
+	}
 	var items string
 	var all, asJSON, full, verbose bool
 loop:
@@ -279,7 +283,10 @@ func (e Env) lsQueue(prefix string) error {
 			}
 		}
 	}
-	b, _ := state.ReadFile(st.Path(id, "queue"), 8<<20)
+	b, err := state.ReadFile(st.Path(id, "queue"), 8<<20)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("cannot read the queue of %s", e.label(id))
+	}
 	if len(b) == 0 {
 		fmt.Fprintln(e.Stdout, "  (queue empty)")
 		return nil

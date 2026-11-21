@@ -410,3 +410,43 @@ func commandsWithoutHelp() (int, string) {
 	}
 	return len(missing), "commands without help: " + strings.Join(missing, ", ")
 }
+
+func TestUnreadableStateFolderIsNotEmpty(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every folder")
+	}
+	home := t.TempDir()
+	st := state.Open(home)
+	if err := st.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(st.Dir, 0); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(st.Dir, 0o700)
+	for _, args := range [][]string{{"ls"}, {"ls", "--json"}, {"ls", "inbox"}, {"status"}, {"watch", "--once"}} {
+		code, out, errs := run(t, home, args...)
+		if code != 1 || out != "" || !strings.HasPrefix(errs, "sitrep: cannot read the state folder "+st.Dir+": ") {
+			t.Errorf("%v: %d %q %q", args, code, out, errs)
+		}
+	}
+}
+
+func TestMissingStateFolderIsEmpty(t *testing.T) {
+	for _, args := range [][]string{{"ls"}, {"ls", "inbox"}, {"status"}} {
+		if code, _, errs := run(t, t.TempDir(), args...); code != 0 {
+			t.Errorf("%v: %d %q", args, code, errs)
+		}
+	}
+}
+
+func TestUnreadableQueueIsNotEmpty(t *testing.T) {
+	home := t.TempDir()
+	st := state.Open(home)
+	if err := os.MkdirAll(filepath.Join(st.Dir, "inbox.queue"), 0o700); err != nil { // a folder where the queue file belongs
+		t.Fatal(err)
+	}
+	if code, out, errs := run(t, home, "ls", "inbox"); code != 1 || errs != "sitrep: cannot read the queue of inbox\n" {
+		t.Errorf("%d %q %q", code, out, errs)
+	}
+}

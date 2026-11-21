@@ -90,6 +90,9 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 
 // cmdWatch is the live dashboard. Without a terminal it prints one frame, as `status` does, never a loop of escape codes.
 func cmdWatch(e Env, args []string) error {
+	if err := e.store().Check(); err != nil {
+		return err
+	}
 	fs := e.flags("watch")
 	tab := fs.String("tab", "watch", "the tab to start on: watch or top")
 	interval := fs.Duration("interval", e.conf().TUIInterval(), "how often to refresh (or set SITREP_TUI_INTERVAL)")
@@ -113,6 +116,9 @@ func cmdWatch(e Env, args []string) error {
 
 // cmdStatus prints one frame of the dashboard as plain text.
 func cmdStatus(e Env, args []string) error {
+	if err := e.store().Check(); err != nil {
+		return err
+	}
 	fs := e.flags("status")
 	tab := fs.String("tab", "watch", "the tab: watch or top")
 	width := fs.Int("width", 100, "the frame width")
