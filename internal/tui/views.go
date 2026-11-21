@@ -535,7 +535,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  p                              prune the sessions that are gone (asks first)",
 		"  r                              refresh now",
 		"  ?                              this list",
-		"  q, ctrl+c                      quit",
+		"  q                              back; quit on the tabs (ctrl+c: anywhere)",
 		"",
 		"Tabs",
 		"",

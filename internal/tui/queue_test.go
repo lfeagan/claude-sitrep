@@ -72,8 +72,11 @@ func TestQueueOpensAndCloses(t *testing.T) {
 			t.Error("i inside a session queue does nothing")
 		}
 	}
-	if _, cmd := press(t, m, "q"); cmd == nil {
-		t.Error("q quits")
+	if back, cmd := press(t, m, "q"); cmd != nil || back.queue {
+		t.Errorf("q goes back from the queue and does not quit: queue %v", back.queue)
+	}
+	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
+		t.Error("ctrl+c quits from the queue")
 	}
 	ms, _ := queueModel(t, qSession)
 	if got := ms.queueItems(); len(got) != 3 || got[0] != sq1 {

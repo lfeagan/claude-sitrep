@@ -202,9 +202,7 @@ func (m model) queueKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	last, i := max(len(m.queueItems())-1, 0), m.queueIndex()
 	switch key {
-	case "q":
-		return m, tea.Quit
-	case "esc", "backspace":
+	case "q", "esc", "backspace": // q goes back; only ctrl+c quits from here
 		m.queue = false
 	case "i":
 		m.queue = m.qKind != qInbox
@@ -579,7 +577,7 @@ func queueScreen(v queueView, width, height int, th Theme) string {
 	for height > 0 && len(view) < body {
 		view = append(view, "")
 	}
-	hint := " esc back  up/down  a add  E edit  x remove  K J T move  "
+	hint := " q back  up/down  a add  E edit  x remove  K J T move  "
 	switch {
 	case v.ReadOnly:
 		hint = " esc back  up/down  (read-only) "

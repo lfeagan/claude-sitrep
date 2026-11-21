@@ -479,10 +479,11 @@ func TestDetailScrolls(t *testing.T) {
 
 func TestDetailQuitAndRefresh(t *testing.T) {
 	m, _ := press(t, loaded(t, tabWatch), "d")
-	for _, k := range []string{"q", "ctrl+c"} {
-		if _, cmd := press(t, m, k); cmd == nil {
-			t.Errorf("%s quits from the detail pane", k)
-		}
+	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
+		t.Errorf("ctrl+c quits from the detail pane")
+	}
+	if back, cmd := press(t, m, "q"); cmd != nil || back.detail {
+		t.Errorf("q goes back from the detail pane and does not quit: detail %v", back.detail)
 	}
 	next, _ := m.Update(snapMsg{snap: loadFixture(t)}) // a refresh must not close it
 	if !next.(model).detail {

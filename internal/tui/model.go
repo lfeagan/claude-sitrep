@@ -323,9 +323,9 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	m.scroll = min(m.scroll, maxScroll)
 	page := max(detailBody(m.height)-1, 1)
 	switch msg.String() {
-	case "q", "ctrl+c":
+	case "ctrl+c":
 		return m, tea.Quit
-	case "esc", "d", "backspace":
+	case "q", "esc", "d", "backspace": // q goes back; only ctrl+c quits from here
 		m.detail = false
 	case "enter":
 		if cmd := m.jumpCmd(); cmd != nil {
