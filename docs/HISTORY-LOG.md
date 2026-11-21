@@ -24,9 +24,19 @@ The operations are the ones that change state: `queue.add`, `queue.rm`, `queue.e
 
 ## Where it lives
 
-One file per host and month, for example `log/<host>/2026-11.jsonl`, in the state folder. A host appends to its own file only, so every file has one writer. That is the same rule the shared-folder proposal uses, and a reader on another machine can merge the hosts' files by time. Rotation by month needs no walk of the folder: the name of the file is worked out from the date, so invariant 5 (no recursion over the state folder) holds.
+Two files per host in the state folder: `log/<host>/current.jsonl` and `log/<host>/previous.jsonl`. A host appends to its own `current` only, so every file has one writer. That is the same rule the shared-folder proposal uses, and a reader on another machine can merge the hosts' files by time. Both names are fixed, so nothing walks the folder and invariant 5 (no recursion over the state folder) holds.
 
-The file is `0600` in a `0700` folder (invariant 2), and is opened for append without following a link.
+The files are `0600` in a `0700` folder (invariant 2), and are opened for append without following a link.
+
+## Opt-in
+
+The log is off until the user turns it on with `log = on` in `sitrep.conf` (or `SITREP_LOG=1`). While it is off nothing is written and no `log/` folder is made. `sitrep setup` does not turn it on, and says what the log keeps when it is asked about it. Turning it off stops writing and leaves the files. `sitrep log --clear` removes the two files of this host, each by its own path.
+
+## Size
+
+The log has a hard limit, so it can never grow without bound. When `current` reaches a cap (1 MiB by default, `log_max` in `sitrep.conf`), it is renamed over `previous` and a new `current` begins. Two files of at most the cap are all a host ever holds, so with entries of a few hundred bytes the log keeps the last few thousand changes and never more than twice the cap. Old entries fall off the end, and a reader sees a window of recent history, not all of it.
+
+Rolling over happens under a lock with a bounded wait, taken only when the size is over the cap, and the size is checked again once the lock is held. If the lock is busy the entry is appended anyway and the roll happens on a later call, so a hook never waits for it. A reader may find `current` replaced between two reads, and treats that as normal.
 
 ## Writing
 
@@ -40,8 +50,8 @@ Reading goes through `state.ReadFile` and takes each line as untrusted (invarian
 
 ## Questions
 
-- Whether to make it opt-in. A long-lived file keeps item text the user may have deleted. We lean to on by default, with `sitrep.conf` turning it off, and a command to remove a month's file by its own path.
-- How long to keep it. We propose no automatic deletion at first, since a month of entries is small.
+- The default cap. 1 MiB is a guess, and we should measure how many entries a heavy week produces before settling on it.
+- Whether a window of two files is enough history. If it is not, the cap can be raised, and a longer record would need a different design.
 - Whether `sitrep prune` and the dashboard keys write the same entries. They run `sitrep` commands, so they should, with nothing extra.
 - Whether the drop box in `SHARED-STATE.md` writes an entry on receipt, naming the sender's host, which would give us a trail of where an item came from.
 
