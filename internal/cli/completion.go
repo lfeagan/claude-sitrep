@@ -22,6 +22,7 @@ type spec struct {
 var specs = map[string]spec{
 	"ls":      {flags: []string{"-a", "--all", "-v", "-n", "--json", "--full"}, values: map[string][]string{"-n": nil}, ids: []int{0}, noIDWith: "--json"},
 	"add":     {ids: []int{0}},
+	"edit":    {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
 	"rm":      {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
 	"top":     {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},
 	"reorder": {flags: []string{"--item"}, values: map[string][]string{"--item": nil}, ids: []int{0}},

@@ -24,6 +24,7 @@ To see this session's queue, find the id as above and run `sitrep ls <id>`. It p
 - `sitrep add <id> <text>` appends an item.
 - `sitrep pin <id> <text>` pins the Objective.
 - `sitrep unpin <id>` lets the summarizer rewrite the Objective again.
+- `sitrep edit <id> <n> <text>` replaces the text of item `n` in place. Use it only when the user asks to fix or reword an item.
 - `sitrep rm <id> [n]` removes item `n` (default 1) and prints it.
 - `sitrep move <from> <to> [n]` hands an item to another queue.
 - `sitrep top <id> <n>` moves item `n` to the front, and `sitrep reorder <id> <from> <to>` moves it to any position. Reorder only when the user asks.

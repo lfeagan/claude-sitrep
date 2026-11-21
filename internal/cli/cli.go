@@ -73,7 +73,7 @@ var commands map[string]command
 
 func init() {
 	commands = map[string]command{
-		"add": cmdAdd, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
+		"add": cmdAdd, "edit": cmdEdit, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
 		"setup": cmdSetup, "migrate": cmdMigrate, "version": cmdVersion, "completion": cmdCompletion, "__complete": cmdComplete, "watch": cmdWatch, "status": cmdStatus, "hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "update-check": cmdUpdateCheck, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
 	}
 }
@@ -194,6 +194,31 @@ func cmdRm(e Env, args []string) error {
 		return err
 	}
 	fmt.Fprintln(e.Stdout, item)
+	return nil
+}
+
+func cmdEdit(e Env, args []string) error {
+	const usage = "usage: sitrep edit <id> <n> <text> [--item <old text>]"
+	args, guard, err := guarded(args)
+	if err != nil {
+		return err
+	}
+	if len(args) < 3 {
+		return usageError(usage)
+	}
+	id, err := e.resolve(args[0])
+	if err != nil {
+		return err
+	}
+	no, err := itemNo(args[1])
+	if err != nil {
+		return err
+	}
+	text := textsafe.Clean(strings.Join(args[2:], " "), queue.MaxItem)
+	if _, err := e.queue().Edit(id, no, text, guard); err != nil {
+		return err
+	}
+	fmt.Fprintf(e.Stdout, "item %d on %s: %s\n", no, queue.Label(id), text)
 	return nil
 }
 

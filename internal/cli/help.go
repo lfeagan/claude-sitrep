@@ -12,6 +12,15 @@ text is cut. Quote text that holds shell characters such as ( ) ; or &.
   sitrep add 15f1 'fix the flaky test (CI)'
   sitrep add inbox 'look at the nightly job'
 `,
+	"edit": `usage: sitrep edit <id> <n> <text> [--item <old text>]
+
+Replace the text of item n, which keeps its place. The text is one line of at most 200
+characters, and longer text is cut. It refuses when the queue changed after it was read.
+With --item, it also refuses unless item n is exactly that old text, for a program that
+showed a list.
+
+  sitrep edit c5d0 2 'add human friendly aliases for session names'
+`,
 	"rm": `usage: sitrep rm <id> [n] [--item <text>]
 
 Remove item n (default 1) from a queue and print it. It refuses when the queue
@@ -161,6 +170,7 @@ const helpAll = `usage: sitrep <command> [args]
 
   ls [id]                    list running sessions, or one queue
   add <id> <text>            append an item to a queue
+  edit <id> <n> <text>       replace the text of an item (--item <old text> guards it)
   rm <id> [n]                remove an item and print it (--item <text> guards it)
   top <id> <n>               move an item to the front of a queue
   reorder <id> <from> <to>   move an item to another position

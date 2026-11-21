@@ -211,3 +211,32 @@ func TestUpdateCheckCommand(t *testing.T) {
 		t.Errorf("env %v", c.Env)
 	}
 }
+
+func TestEditCommand(t *testing.T) {
+	home := t.TempDir()
+	run(t, home, "add", "inbox", "first")
+	run(t, home, "add", "inbox", "secnd")
+	if code, out, _ := run(t, home, "edit", "inbox", "2", "second", "\x1b[31mitem"); code != 0 || out != "item 2 on inbox: second [31mitem\n" {
+		t.Errorf("edit: %d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "ls", "inbox"); code != 0 || !strings.Contains(out, "1. first") || !strings.Contains(out, "2. second") {
+		t.Errorf("ls: %d %q", code, out)
+	}
+	if code, _, errs := run(t, home, "edit", "inbox", "1", "x", "--item", "other"); code != 1 || !strings.Contains(errs, "queue changed") {
+		t.Errorf("guard: %d %q", code, errs)
+	}
+	if code, out, _ := run(t, home, "edit", "inbox", "1", "x", "--item", "first"); code != 0 || out != "item 1 on inbox: x\n" {
+		t.Errorf("guarded edit: %d %q", code, out)
+	}
+	for _, a := range [][]string{{"edit"}, {"edit", "inbox"}, {"edit", "inbox", "1"}} {
+		if code, _, errs := run(t, home, a...); code != 1 || !strings.HasPrefix(errs, "sitrep: usage: sitrep edit") {
+			t.Errorf("%v: %d %q", a, code, errs)
+		}
+	}
+	if code, _, errs := run(t, home, "edit", "inbox", "0", "x"); code != 1 || errs != "sitrep: item must be a number\n" {
+		t.Errorf("item 0: %d %q", code, errs)
+	}
+	if code, _, errs := run(t, home, "edit", "inbox", "9", "x"); code != 1 || errs != "sitrep: no item 9 on inbox\n" {
+		t.Errorf("item 9: %d %q", code, errs)
+	}
+}

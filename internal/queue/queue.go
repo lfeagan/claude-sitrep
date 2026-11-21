@@ -176,6 +176,35 @@ func (q Queue) Remove(id state.ID, n int, guard *string) (textsafe.Text, error) 
 	return textsafe.Strip(it), nil
 }
 
+// Edit replaces the text of item n and returns the text it had. The item keeps its place.
+func (q Queue) Edit(id state.ID, n int, text textsafe.Text, guard *string) (textsafe.Text, error) {
+	if strings.TrimSpace(text.String()) == "" {
+		return textsafe.Text{}, ErrBlank
+	}
+	unlock, err := q.lock()
+	if err != nil {
+		return textsafe.Text{}, err
+	}
+	defer unlock()
+	lines, err := q.lines(id)
+	if err != nil {
+		return textsafe.Text{}, err
+	}
+	if len(lines) == 0 {
+		return textsafe.Text{}, ErrEmpty
+	}
+	it, err := q.item(id, lines, n, guard)
+	if err != nil {
+		return textsafe.Text{}, err
+	}
+	out := append([]string(nil), lines...)
+	out[n-1] = text.String()
+	if err := q.write(id, out); err != nil {
+		return textsafe.Text{}, err
+	}
+	return textsafe.Strip(it), nil
+}
+
 // Reorder moves item from to position to, and returns the item.
 func (q Queue) Reorder(id state.ID, from, to int, guard *string) (textsafe.Text, error) {
 	unlock, err := q.lock()

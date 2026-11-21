@@ -261,3 +261,42 @@ func TestChangesWorkBeforeTheFolderExists(t *testing.T) {
 		t.Error("reordering nothing worked")
 	}
 }
+
+func TestEdit(t *testing.T) {
+	q := newQueue(t, "s1", "a\nb\nc\n")
+	old, err := q.Edit("s1", 2, textsafe.Clean("better", MaxItem), nil)
+	if err != nil || old.String() != "b" || read(t, q, "s1") != "a\nbetter\nc\n" {
+		t.Errorf("edit: %v, %q, file %q", err, old, read(t, q, "s1"))
+	}
+	g := "better"
+	if _, err := q.Edit("s1", 2, textsafe.Clean("again", MaxItem), &g); err != nil || read(t, q, "s1") != "a\nagain\nc\n" {
+		t.Errorf("guarded: %v, file %q", err, read(t, q, "s1"))
+	}
+	var ch *ChangedError
+	if _, err := q.Edit("s1", 2, textsafe.Clean("x", MaxItem), &g); !errors.As(err, &ch) || read(t, q, "s1") != "a\nagain\nc\n" {
+		t.Errorf("stale guard: %v, file %q", err, read(t, q, "s1"))
+	}
+	var no *NoItemError
+	for _, n := range []int{0, 4, -1} {
+		if _, err := q.Edit("s1", n, textsafe.Clean("x", MaxItem), nil); !errors.As(err, &no) {
+			t.Errorf("item %d: %v", n, err)
+		}
+	}
+	if _, err := q.Edit("s1", 1, textsafe.Clean("  ", MaxItem), nil); !errors.Is(err, ErrBlank) || read(t, q, "s1") != "a\nagain\nc\n" {
+		t.Errorf("blank: %v, file %q", err, read(t, q, "s1"))
+	}
+	if _, err := newQueue(t, "s2", "").Edit("s2", 1, textsafe.Clean("x", MaxItem), nil); !errors.Is(err, ErrEmpty) {
+		t.Errorf("empty: %v", err)
+	}
+}
+
+func TestEditKeepsTheOtherLinesAsTheyAre(t *testing.T) {
+	q := newQueue(t, "s1", "a \n\nc\n") // a trailing space, and a blank line, which counts as a position but holds no item
+	var no *NoItemError
+	if _, err := q.Edit("s1", 2, textsafe.Clean("z", MaxItem), nil); !errors.As(err, &no) || read(t, q, "s1") != "a \n\nc\n" {
+		t.Errorf("the blank line: %v, %q", err, read(t, q, "s1"))
+	}
+	if _, err := q.Edit("s1", 3, textsafe.Clean("z", MaxItem), nil); err != nil || read(t, q, "s1") != "a \n\nz\n" {
+		t.Errorf("%v, %q", err, read(t, q, "s1"))
+	}
+}
