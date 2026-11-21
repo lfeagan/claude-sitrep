@@ -360,13 +360,13 @@ func TestHelpScreen(t *testing.T) {
 
 func TestVisibleIDsFollowTheTab(t *testing.T) {
 	s := loadFixture(t)
-	if got := strings.Join(visibleIDs(s, tabWatch, false, sortState), " "); !strings.HasPrefix(got, "15f1") {
+	if got := strings.Join(visibleIDs(s, tabWatch, false, sortState, ""), " "); !strings.HasPrefix(got, "15f1") {
 		t.Errorf("Watch ignores the sort and keeps activity order: %s", got)
 	}
-	if got := visibleIDs(s, tabTop, false, sortState); len(got) != 3 || !strings.HasPrefix(got[0], "b1fb") {
+	if got := visibleIDs(s, tabTop, false, sortState, ""); len(got) != 3 || !strings.HasPrefix(got[0], "b1fb") {
 		t.Errorf("Top follows the sort: %v", got)
 	}
-	if got := visibleIDs(s, tabWatch, true, sortActivity); len(got) != 4 {
+	if got := visibleIDs(s, tabWatch, true, sortActivity, ""); len(got) != 4 {
 		t.Errorf("ended sessions appear when asked for: %v", got)
 	}
 }

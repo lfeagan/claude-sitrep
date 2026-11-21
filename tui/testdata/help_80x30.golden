@@ -7,6 +7,7 @@ Keys
   tab, shift+tab, left, right    switch tab (also 1 and 2)
   a                              show or hide ended sessions
   s                              cycle the Top sort: activity, state, dir, queue
+  /                              filter the sessions; enter keeps it, esc clear…
   z                              snooze it until it changes; z again ends it
   p                              prune the sessions that are gone (asks first)
   r                              refresh now
@@ -25,6 +26,5 @@ Colours
   purple       the session changed in the last minute
 
 Any key closes this list.
-
 
  keys                                                                           

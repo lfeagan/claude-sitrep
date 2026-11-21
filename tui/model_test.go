@@ -521,3 +521,149 @@ func TestListsCapQueueItemsBySetting(t *testing.T) {
 		t.Errorf("the Watch view lists the setting's number of items and counts the rest:\n%s", out)
 	}
 }
+
+func typed(t *testing.T, m model, text string) model {
+	t.Helper()
+	for _, r := range text {
+		k := string(r)
+		if r == ' ' {
+			k = "space"
+		}
+		m, _ = press(t, m, k)
+	}
+	return m
+}
+
+func TestFilterMatchesCaseInsensitivelyOverEveryField(t *testing.T) {
+	s := loadFixture(t)
+	for _, c := range []struct{ text, want string }{
+		{"TIMESCALEDB", "b1fb"},  // directory
+		{"15f1", "15f1"},         // id
+		{"waiting", "b1fb"},      // state
+		{"go front-end", "15f1"}, // Objective
+		{"worktrees", "2cd8"},    // Progress
+		{"golden tests", "15f1"}, // Now
+		{"  Golden  ", "15f1"},   // trimmed
+	} {
+		got := visibleIDs(s, tabWatch, false, sortActivity, c.text)
+		if len(got) != 1 || !strings.HasPrefix(got[0], c.want) {
+			t.Errorf("filter %q: %v, want only %s", c.text, got, c.want)
+		}
+	}
+	if got := visibleIDs(s, tabWatch, false, sortActivity, "nothing like this"); len(got) != 0 {
+		t.Errorf("no match lists nothing: %v", got)
+	}
+}
+
+func TestFilterKeysAreTextNotCommands(t *testing.T) {
+	m := loaded(t, tabWatch)
+	m, _ = press(t, m, "/")
+	if !m.filtering {
+		t.Fatal("/ starts the filter")
+	}
+	m = typed(t, m, "pqaszy")
+	if m.filter != "pqaszy" || !m.filtering || m.showEnded || m.prune != pruneNone || m.tab != tabWatch {
+		t.Errorf("command letters are text while filtering: %+v", m)
+	}
+	if _, cmd := press(t, m, "q"); cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Error("q is text, it does not quit")
+		}
+	}
+	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
+		t.Error("ctrl+c still quits")
+	}
+}
+
+func TestFilterEnterKeepsAndEscClears(t *testing.T) {
+	m := loaded(t, tabWatch)
+	m, _ = press(t, m, "/")
+	m = typed(t, m, "timescale")
+	if got := m.visible(); len(got) != 1 || m.selID != got[0] {
+		t.Errorf("typing narrows the list and moves the selection: %v %q", got, m.selID)
+	}
+	m, _ = press(t, m, "enter")
+	if m.filtering || m.filter != "timescale" || len(m.visible()) != 1 {
+		t.Error("enter keeps the filter and returns to the normal keys")
+	}
+	if s := m.filterStatus(); !strings.Contains(s, "/timescale") || !strings.Contains(s, "(1 of 3)") {
+		t.Errorf("status shows the filter and the counts: %q", s)
+	}
+	m, _ = press(t, m, "esc")
+	if m.filter != "" || len(m.visible()) != 3 {
+		t.Error("esc clears a kept filter")
+	}
+	m, _ = press(t, m, "/")
+	m = typed(t, m, "zzz")
+	m, _ = press(t, m, "esc")
+	if m.filtering || m.filter != "" {
+		t.Error("esc while typing clears and leaves")
+	}
+}
+
+func TestFilterBackspaceAndSelectionKeys(t *testing.T) {
+	m := loaded(t, tabWatch)
+	m, _ = press(t, m, "/")
+	m = typed(t, m, "ab")
+	m, _ = press(t, m, "backspace")
+	if m.filter != "a" {
+		t.Errorf("backspace removes a character: %q", m.filter)
+	}
+	m, _ = press(t, m, "backspace")
+	m, _ = press(t, m, "backspace")
+	if m.filter != "" {
+		t.Errorf("backspace on an empty filter does nothing: %q", m.filter)
+	}
+	first, second := m.snap.Sessions[0].ID, m.snap.Sessions[1].ID
+	m, _ = press(t, m, "down")
+	if m.selID != second || !m.filtering {
+		t.Errorf("down moves the selection while typing: %q", m.selID)
+	}
+	m, _ = press(t, m, "up")
+	if m.selID != first {
+		t.Errorf("up moves it back: %q", m.selID)
+	}
+	m = typed(t, m, "go front")
+	if m.filter != "go front" {
+		t.Errorf("space is text: %q", m.filter)
+	}
+}
+
+func TestFilterPasteIsCleanedAndCapped(t *testing.T) {
+	m := loaded(t, tabWatch)
+	next, _ := m.Update(tea.PasteMsg{Content: "ignored"})
+	if next.(model).filter != "" {
+		t.Error("a paste outside the filter goes nowhere")
+	}
+	m, _ = press(t, m, "/")
+	next, _ = m.Update(tea.PasteMsg{Content: "ti\x1b[31mmes‮cale\nx" + strings.Repeat("y", 100)})
+	m = next.(model)
+	if strings.ContainsAny(m.filter, "\x1b‮\n") {
+		t.Errorf("control and format characters are removed: %q", m.filter)
+	}
+	if n := len([]rune(m.filter)); n != maxFilter {
+		t.Errorf("a paste is capped at %d, got %d", maxFilter, n)
+	}
+}
+
+func TestFilterSlashIsIgnoredInDetailAndHelp(t *testing.T) {
+	m := loaded(t, tabWatch)
+	m, _ = press(t, m, "d")
+	m, _ = press(t, m, "/")
+	if m.filtering {
+		t.Error("/ does nothing in the detail pane")
+	}
+}
+
+func TestFilterViewSaysWhenNothingMatches(t *testing.T) {
+	for _, tab := range []int{tabWatch, tabTop} {
+		m := loaded(t, tab)
+		m.width, m.height = 80, 20
+		m, _ = press(t, m, "/")
+		m = typed(t, m, "zzzz")
+		out := fmt.Sprint(m.View().Content)
+		if !strings.Contains(out, "no session matches the filter") || !strings.Contains(out, "/zzzz▏  (0 of 3)") {
+			t.Errorf("tab %d: no match is said, and the status bar shows the filter:\n%s", tab, out)
+		}
+	}
+}

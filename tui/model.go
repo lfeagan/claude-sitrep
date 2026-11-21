@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -54,6 +55,8 @@ type model struct {
 	tab       int
 	showEnded bool
 	selID     string // the selected session, by id, so a refresh or a re-sort does not move it
+	filter    string // only sessions that contain this text are listed
+	filtering bool   // keys type into the filter
 	run       runner // runs tmux, ps, cmux and sitrep; tests replace it
 	readOnly  bool   // no key changes any state
 	bell      bool   // ring the terminal bell when a session starts needing the user
@@ -226,6 +229,59 @@ func (m model) statusText() string {
 	return m.errText()
 }
 
+const maxFilter = 64
+
+// typeFilter adds text to the filter, cleaned and on one line, up to a limit.
+func (m *model) typeFilter(text string) {
+	text = strings.TrimSuffix(clean(text+"|"), "|") // the mark keeps clean from trimming a typed space
+	if r := []rune(m.filter + text); len(r) > maxFilter {
+		m.filter = string(r[:maxFilter])
+	} else {
+		m.filter = string(r)
+	}
+	m.fixSel()
+}
+
+// filterKey handles keys while the filter is being typed. Printable keys are text, even the
+// ones that are commands otherwise, so typing cannot quit or prune by accident.
+func (m model) filterKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch key := msg.String(); key {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "enter":
+		m.filtering = false
+	case "esc":
+		m.filtering, m.filter = false, ""
+		m.fixSel()
+	case "backspace":
+		if r := []rune(m.filter); len(r) > 0 {
+			m.filter = string(r[:len(r)-1])
+			m.fixSel()
+		}
+	case "up":
+		m.moveSel(-1)
+	case "down":
+		m.moveSel(1)
+	case "space":
+		m.typeFilter(" ")
+	default:
+		if msg.Text != "" && len(key) > 0 && !strings.HasPrefix(key, "ctrl+") && !strings.HasPrefix(key, "alt+") {
+			m.typeFilter(msg.Text)
+		}
+	}
+	return m, nil
+}
+
+// filterStatus is what the status bar says while a filter is on.
+func (m model) filterStatus() string {
+	list, _ := shown(m.snap, m.showEnded)
+	cursor := ""
+	if m.filtering {
+		cursor = "▏"
+	}
+	return fmt.Sprintf("/%s%s  (%d of %d)", m.filter, cursor, len(filterSessions(list, m.filter)), len(list))
+}
+
 // selected is the selected session, or nil.
 func (m model) selected() *Session {
 	for i := range m.snap.Sessions {
@@ -286,7 +342,9 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 // visible is the ids on the current tab, in drawing order.
-func (m model) visible() []string { return visibleIDs(m.snap, m.tab, m.showEnded, m.sortBy) }
+func (m model) visible() []string {
+	return visibleIDs(m.snap, m.tab, m.showEnded, m.sortBy, m.filter)
+}
 
 // fixSel keeps the selection on a session that is still shown, else on the first one.
 func (m *model) fixSel() {
@@ -380,7 +438,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, m.fetchCmd())
 		}
 		return m, tea.Batch(cmds...)
+	case tea.PasteMsg:
+		if m.filtering { // pasted text goes into the filter, cleaned
+			m.typeFilter(msg.Content)
+		}
 	case tea.KeyPressMsg:
+		if m.filtering {
+			return m.filterKey(msg)
+		}
 		if m.prune != pruneNone {
 			return m.pruneKey(msg)
 		}
@@ -421,6 +486,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.copyKey(msg.String() == "Y")
 		case "z":
 			return m.snoozeKey()
+		case "/":
+			if !m.detail && !m.help {
+				m.filtering = true
+			}
+		case "esc":
+			if m.filter != "" { // a filter left on is cleared by esc
+				m.filter = ""
+				m.fixSel()
+			}
 		case "p":
 			return m.pruneStart()
 		case "d", "space", " ":
@@ -469,7 +543,11 @@ func (m model) View() tea.View {
 	case m.help:
 		body = helpScreen(m.width, m.height, m.readOnly, theme)
 	case m.haveSnap || m.err != nil:
-		body = render(m.snap, m.tab, m.statusText(), viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Theme: theme})
+		status := m.statusText()
+		if status == "" && (m.filtering || m.filter != "") {
+			status = m.filterStatus()
+		}
+		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Theme: theme})
 	}
 	v := tea.NewView(body)
 	v.AltScreen = true

@@ -35,12 +35,14 @@ type viewOpts struct {
 	ShowEnded     bool
 	Sort          int
 	Sel           string // the id of the selected session, "" for none
+	Filter        string // only sessions that contain this text are listed
 	Theme         Theme
 }
 
 // visibleIDs lists the ids in the order a tab draws them, so selection moves the way the eye does.
-func visibleIDs(s Snapshot, tab int, showEnded bool, by int) []string {
+func visibleIDs(s Snapshot, tab int, showEnded bool, by int, filter string) []string {
 	list, _ := shown(s, showEnded)
+	list = filterSessions(list, filter)
 	if tab == tabTop {
 		list = sorted(list, by)
 	}
@@ -49,6 +51,34 @@ func visibleIDs(s Snapshot, tab int, showEnded bool, by int) []string {
 		ids[i] = x.ID
 	}
 	return ids
+}
+
+// matches says whether a session contains text, ignoring case, in the places a person looks:
+// its id, directory, state and the three lines of its status block.
+func matches(x Session, text string) bool {
+	text = strings.ToLower(strings.TrimSpace(text))
+	if text == "" {
+		return true
+	}
+	for _, f := range []string{x.ID, x.Dir, x.StateLabel, x.Objective, x.Progress, x.Now} {
+		if strings.Contains(strings.ToLower(f), text) {
+			return true
+		}
+	}
+	return false
+}
+
+func filterSessions(list []Session, text string) []Session {
+	if strings.TrimSpace(text) == "" {
+		return list
+	}
+	var out []Session
+	for _, x := range list {
+		if matches(x, text) {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // gutter is the two columns before a row: a marker on the selected session. A narrow screen has none.
@@ -264,6 +294,7 @@ func needYou(s Snapshot) int {
 // watchBody is today's multi-line view: a block per session.
 func watchBody(s Snapshot, o viewOpts) []string {
 	list, ended := shown(s, o.ShowEnded)
+	list = filterSessions(list, o.Filter)
 	var head []string
 	if s.Inbox.Count > 0 {
 		head = append(head, "Inbox: "+queueWord(s.Inbox.Count))
@@ -272,6 +303,9 @@ func watchBody(s Snapshot, o viewOpts) []string {
 	dw, sw := 9, 5
 	for _, x := range list {
 		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
+	}
+	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
+		head = append(head, "no session matches the filter")
 	}
 	var blocks [][]string
 	for _, x := range list {
@@ -396,7 +430,7 @@ func shortSummary(s Snapshot) string {
 // topBody is the one-line-per-session view.
 func topBody(s Snapshot, o viewOpts) []string {
 	list, ended := shown(s, o.ShowEnded)
-	list = sorted(list, o.Sort)
+	list = sorted(filterSessions(list, o.Filter), o.Sort)
 	head := []string{summary(s)}
 	if s.Inbox.Count > 0 {
 		head[0] += "   inbox " + queueWord(s.Inbox.Count)
@@ -408,6 +442,9 @@ func topBody(s Snapshot, o viewOpts) []string {
 	}
 	dw = min(dw, max((o.Width-20)/3, 6)) // a narrow screen gets a narrow directory column
 	head = append(head, o.Theme.Label.Render(gutter("", o)+fmt.Sprintf("%-4s  %s  %s  %-5s  %s", "ID", padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW   sort: "+sortNames[o.Sort])))
+	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
+		head = append(head, "no session matches the filter")
+	}
 	var blocks [][]string
 	for _, x := range list {
 		text := x.Now
@@ -466,6 +503,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  tab, shift+tab, left, right    switch tab (also 1 and 2)",
 		"  a                              show or hide ended sessions",
 		"  s                              cycle the Top sort: activity, state, dir, queue",
+		"  /                              filter the sessions; enter keeps it, esc clears it",
 		"  z                              snooze it until it changes; z again ends it",
 		"  p                              prune the sessions that are gone (asks first)",
 		"  r                              refresh now",
