@@ -107,7 +107,7 @@ func detailScreenKeys(x Session, width, height, scroll int, pending bool, th The
 	end := min(scroll+body, len(lines))
 	view := append([]string{}, lines[scroll:end]...)
 	title := th.Label.Render(ansi.Truncate(fmt.Sprintf(" %s  %s", x.Label(), x.Dir), max(width, 1), "…"))
-	hints := []string{"q back", "j/k session", "space/b scroll", "gg/G ends", "? help"}
+	hints := []string{"q back", "j/k session", "e queue", "space/b scroll", "gg/G ends", "? help"}
 	if len(lines) > body {
 		hints = append([]string{fmt.Sprintf("lines %d-%d of %d", scroll+1, end, len(lines))}, hints...)
 	}

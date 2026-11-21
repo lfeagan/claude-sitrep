@@ -651,3 +651,49 @@ func TestXAndDeleteStillRemove(t *testing.T) {
 		}
 	}
 }
+
+func TestEAndIOpenQueuesFromTheDetailView(t *testing.T) {
+	m, f := moveModel(t, qSession)
+	m, _ = press(t, m, "esc") // the queue screen first, only to get a model with the fake runner
+	m, _ = press(t, m, "v")
+	if !m.detail || m.queue {
+		t.Fatal("v opens the detail view")
+	}
+	id := m.selID
+	m, _ = press(t, m, "e")
+	if !m.queue || m.qKind != qSession || m.qTo != id || !m.detail {
+		t.Fatalf("e opens the session's queue, with the detail view under it: queue %v kind %d to %q detail %v", m.queue, m.qKind, m.qTo, m.detail)
+	}
+	if v := m.View().Content; !strings.Contains(v, "Queue ") {
+		t.Errorf("the queue is drawn:\n%s", v)
+	}
+	// send the first item back to the inbox: m, then enter on the first place
+	item := m.queueItems()[0]
+	m, _ = press(t, m, "m")
+	m, cmd := press(t, m, "enter")
+	m = feed(t, m, cmd)
+	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep move "+id+" inbox 1 --item "+item {
+		t.Errorf("back to the inbox from the detail view: %v", f.calls)
+	}
+	// q closes the queue and comes back to the detail view, and q again to the tabs
+	m, _ = press(t, m, "q")
+	if m.queue || !m.detail {
+		t.Errorf("q from the queue returns to the detail view: queue %v detail %v", m.queue, m.detail)
+	}
+	m, _ = press(t, m, "q")
+	if m.detail || m.queue {
+		t.Error("q again closes the detail view")
+	}
+	// the inbox too
+	d, _ := press(t, loaded(t, tabWatch), "v")
+	d, _ = press(t, d, "i")
+	if !d.queue || d.qKind != qInbox || !d.detail {
+		t.Errorf("i opens the inbox from the detail view: %v %d", d.queue, d.qKind)
+	}
+	// the detail footer says so
+	e, _ := press(t, loaded(t, tabWatch), "v")
+	e.width, e.height = 100, 30
+	if v := e.View().Content; !strings.Contains(v, "e queue") {
+		t.Errorf("the detail bar names e:\n%s", v)
+	}
+}

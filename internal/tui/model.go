@@ -356,6 +356,10 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.scroll = maxScroll
 	case "?":
 		m.help = true
+	case "i":
+		return m.queueOpen(qInbox) // closing the queue comes back to the detail view
+	case "e":
+		return m.queueOpen(qSession)
 	}
 	return m, nil
 }

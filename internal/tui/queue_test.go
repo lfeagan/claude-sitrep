@@ -451,8 +451,8 @@ func TestQueueKeyInOtherModes(t *testing.T) {
 		t.Error("i in the key list only closes it")
 	}
 	m, _ = press(t, m, "v")
-	if m, _ = press(t, m, "e"); m.queue || !m.detail {
-		t.Error("e does nothing in the detail pane")
+	if m, _ = press(t, m, "e"); !m.queue || !m.detail || m.qKind != qSession {
+		t.Error("e opens the session's queue from the detail pane, which stays open under it")
 	}
 }
 
