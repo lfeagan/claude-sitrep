@@ -5,10 +5,14 @@ import (
 	"fmt"
 
 	"github.com/lfeagan/claude-sitrep/internal/migrate"
+	"github.com/lfeagan/claude-sitrep/internal/state"
 )
 
 // cmdMigrate moves state of the old flat layout into one folder per session.
 func cmdMigrate(e Env, args []string) error {
+	if e.Getenv(state.EnvDir) != "" {
+		return errors.New(state.EnvDir + " is set, and migrate works on ~/.claude/sitrep: unset it for this command, and nothing was changed")
+	}
 	dry := false
 	switch {
 	case len(args) == 0:

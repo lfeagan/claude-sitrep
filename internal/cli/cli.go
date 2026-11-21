@@ -35,6 +35,8 @@ type Env struct {
 	Spawn      func(args ...string) error       // starts this program again, detached; the hook uses it for the summarizer
 	Alive      func(pid int) bool               // whether a process exists; nil means ask the system
 	TermSize   func() (rows, cols int, ok bool) // the size of the terminal on standard output; nil or !ok means there is none
+
+	located *state.Store // the state folder, as Run found it
 }
 
 // OSEnv is the real process environment.
@@ -52,7 +54,17 @@ func openTTY() (io.ReadCloser, error) { return os.Open("/dev/tty") }
 
 func (e Env) configDir() string { return state.ConfigDir(e.Getenv, e.Home) }
 
-func (e Env) store() state.Store { return state.Open(e.Home) }
+// store is the state folder. Run has refused a bad SITREP_STATE_DIR before a command gets here, so the default below only serves a caller that
+// does not go through Run.
+func (e Env) store() state.Store {
+	if e.located != nil {
+		return *e.located
+	}
+	if s, err := state.Locate(e.Home, e.Getenv); err == nil {
+		return s
+	}
+	return state.Open(e.Home)
+}
 func (e Env) queue() queue.Queue { return queue.Queue{Store: e.store()} }
 func (e Env) notes() notes.Notes { return notes.Notes{Store: e.store()} }
 
@@ -102,6 +114,13 @@ func Run(args []string, e Env) int {
 	if !ok {
 		return e.die(fmt.Errorf("unknown command '%s'; run 'sitrep help'", textsafe.Clean(cmd, 200)))
 	}
+	st, err := state.Locate(e.Home, e.Getenv)
+	switch {
+	case err == nil:
+		e.located = &st
+	case usesState(cmd):
+		return e.badStateDir(cmd, err)
+	}
 	if err := run(e, args); err != nil {
 		var code exitError
 		if errors.As(err, &code) {
@@ -110,6 +129,28 @@ func Run(args []string, e Env) int {
 		return e.die(err)
 	}
 	return 0
+}
+
+// usesState says whether a command reads or writes the state folder.
+func usesState(cmd string) bool {
+	switch cmd {
+	case "help", "-h", "--help", "version", "completion":
+		return false
+	}
+	return true
+}
+
+// badStateDir answers a SITREP_STATE_DIR that cannot be used. A hook, the update check and the completion say nothing and succeed, as a hook
+// must never fail or hold a prompt (invariant 4). The status line says what is wrong in place of the block. Every other command fails.
+func (e Env) badStateDir(cmd string, err error) int {
+	switch cmd {
+	case "hook", "hook-summarize", "update-check", "__complete":
+		return 0
+	case "statusline":
+		fmt.Fprintf(e.Stdout, "sitrep: %s\n", textsafe.Strip(err.Error()))
+		return 0
+	}
+	return e.die(err)
 }
 
 // die prints `sitrep: <message>` to standard error and returns the exit status 1.

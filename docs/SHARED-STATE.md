@@ -1,6 +1,6 @@
 # Shared state -- a custom state folder and a view across machines
 
-Status: proposal, 2026-11-21. Nothing here is built. It replaces the idea in the inbox of a remote server (WebDAV or a proprietary one).
+Status: proposal, 2026-11-21. Step 1 is built (0.9.0); the rest is not. It replaces the idea in the inbox of a remote server (WebDAV or a proprietary one).
 
 ## Claim
 
@@ -14,13 +14,15 @@ We should let the state folder live anywhere, and let several machines share one
 
 From one machine, watch the sessions of other machines, and put an item on a remote session's queue or on a remote inbox. The first goal is a view. The second is a write.
 
-## Step 1 -- a state folder path
+## Step 1 -- a state folder path (built in 0.9.0)
 
-Add `SITREP_STATE_DIR`, and a matching key in `sitrep.conf`, that replaces `~/.claude/sitrep`. This is small and useful by itself (a NAS, an encrypted volume, a test folder). All the invariants carry over to the new path unchanged: owner-only modes, `state.ID` for names, regular files only, and reads only through `state.ReadFile`.
+`SITREP_STATE_DIR` replaces `~/.claude/sitrep`. It is small and useful by itself (a NAS, an encrypted volume, a demo, a test folder). All the invariants carry over to the new path unchanged: owner-only modes, `state.ID` for names, regular files only, and reads only through `state.ReadFile`.
 
-Open questions:
-- Whether the setting lives in the environment, in `sitrep.conf`, or both. `sitrep.conf` is inside the state folder, so it cannot name the folder. The environment, or a small pointer file in `~/.claude`, has to come first.
-- Whether `sitrep setup` and `sitrep migrate` should accept the new path, or refuse it until the folder has been opened once by hand.
+What we decided:
+- **The environment only.** `sitrep.conf` is inside the state folder, so it cannot name the folder, and a pointer file in `~/.claude` would be a second place to look. The hooks, the status line and the summarizer take the variable from the shell that starts `claude`.
+- **Only the state moves.** The program stays in `~/.claude/sitrep/bin`, because the plugin's hooks run it from there.
+- **A bad value does nothing, and never falls back.** A value that is not an absolute path (a relative path, `~/x`), or that is the home folder, Claude's own folder or a folder above them, is refused: a hook exits 0 and does nothing, the status line says what is wrong, and every other command fails. Falling back to the default folder would write the state of a demo into the real one.
+- **`setup` and `migrate` refuse** while it is set, and change nothing. They work on `~/.claude/sitrep`.
 
 ## Step 2 -- a folder per machine
 

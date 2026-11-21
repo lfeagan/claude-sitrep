@@ -64,18 +64,55 @@ func ConfigDir(getenv func(string) string, home string) string {
 // Store is the state folder.
 type Store struct{ Dir string }
 
-// Open names the state folder, always ~/.claude/sitrep, whatever CLAUDE_CONFIG_DIR says. It creates nothing.
+// Open names the default state folder, ~/.claude/sitrep, whatever CLAUDE_CONFIG_DIR says. It creates nothing.
 func Open(home string) Store { return Store{Dir: filepath.Join(home, ".claude", "sitrep")} }
 
-// Ensure creates the folder if needed and makes it owner-only.
+// EnvDir is the variable that moves the state folder.
+const EnvDir = "SITREP_STATE_DIR"
+
+// Locate names the state folder: the path in SITREP_STATE_DIR when it is set, or else the default. Only the state moves. The program, which
+// the hooks run from ~/.claude/sitrep/bin, stays where setup put it. A value that is not an absolute path is refused, and never read as
+// relative to wherever the program happens to run, so that a hook cannot write state somewhere by accident. So is the home folder, Claude's
+// own folder, the registry and the transcripts in it, and any folder above them: the state is made owner-only and fills the folder with its
+// own files, so it needs one of its own.
+func Locate(home string, getenv func(string) string) (Store, error) {
+	d := ""
+	if getenv != nil {
+		d = getenv(EnvDir)
+	}
+	if d == "" {
+		return Open(home), nil
+	}
+	if !filepath.IsAbs(d) || strings.ContainsRune(d, 0) || sharedFolder(filepath.Clean(d), home, ConfigDir(getenv, home)) {
+		return Store{}, fmt.Errorf("%s must be an absolute path to a folder of its own, not '%s'", EnvDir, textsafe.Clean(d, 200))
+	}
+	return Store{Dir: filepath.Clean(d)}, nil
+}
+
+// sharedFolder says whether dir is, or holds, a folder that belongs to the user or to Claude Code.
+func sharedFolder(dir, home, config string) bool {
+	for _, p := range []string{home, config, filepath.Join(config, "sessions"), filepath.Join(config, "projects")} {
+		if rel, err := filepath.Rel(dir, filepath.Clean(p)); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return true // p is dir, or below it
+		}
+	}
+	return false
+}
+
+// Ensure creates the folder if needed and makes it owner-only. A folder that exists, such as one chosen with SITREP_STATE_DIR, only loses
+// its group and other bits: its mode is never widened (invariant 5).
 func (s Store) Ensure() error {
 	if err := os.MkdirAll(s.Dir, DirMode); err != nil {
 		return err
 	}
-	if fi, err := os.Lstat(s.Dir); err != nil || fi.Mode()&os.ModeSymlink != 0 {
+	fi, err := os.Lstat(s.Dir)
+	if err != nil || fi.Mode()&os.ModeSymlink != 0 {
 		return err // a link is the user's: never chmod through it
 	}
-	return os.Chmod(s.Dir, DirMode)
+	if mode := fi.Mode().Perm(); mode&^DirMode != 0 {
+		return os.Chmod(s.Dir, mode&DirMode)
+	}
+	return nil
 }
 
 // SessionsDir is the folder that holds one folder per session.

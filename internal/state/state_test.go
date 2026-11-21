@@ -58,6 +58,25 @@ func TestEnsureTightensTheFolder(t *testing.T) {
 	}
 }
 
+func TestEnsureNeverWidensAFolder(t *testing.T) {
+	for _, c := range []struct{ before, after os.FileMode }{{0o755, 0o700}, {0o775, 0o700}, {0o750, 0o700}, {0o700, 0o700}, {0o500, 0o500}, {0o555, 0o500}} {
+		dir := filepath.Join(t.TempDir(), "state")
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(dir, c.before); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { os.Chmod(dir, 0o700) })
+		if err := (Store{Dir: dir}).Ensure(); err != nil {
+			t.Fatalf("%v: %v", c.before, err)
+		}
+		if fi, _ := os.Stat(dir); fi.Mode().Perm() != c.after {
+			t.Errorf("a folder of %v became %v, want %v", c.before, fi.Mode().Perm(), c.after)
+		}
+	}
+}
+
 func TestPaths(t *testing.T) {
 	s := Store{Dir: "/d"}
 	for got, want := range map[string]string{
@@ -318,5 +337,65 @@ func TestParseLegacy(t *testing.T) {
 		if got, ok := ParseLegacy(name); ok {
 			t.Errorf("%q parsed as %+v", name, got)
 		}
+	}
+}
+
+func TestLocate(t *testing.T) {
+	env := func(v string) func(string) string {
+		return func(k string) string {
+			if k == EnvDir {
+				return v
+			}
+			return ""
+		}
+	}
+	for name, c := range map[string]struct {
+		getenv func(string) string
+		want   string
+		bad    bool
+	}{
+		"unset":            {env(""), "/home/u/.claude/sitrep", false},
+		"no environment":   {nil, "/home/u/.claude/sitrep", false},
+		"absolute":         {env("/mnt/nas/sitrep"), "/mnt/nas/sitrep", false},
+		"cleaned":          {env("/mnt/nas//sitrep/./"), "/mnt/nas/sitrep", false},
+		"relative":         {env("state"), "", true},
+		"home shorthand":   {env("~/state"), "", true},
+		"the root":         {env("/"), "", true},
+		"the root, spelt":  {env("/a/.."), "", true},
+		"the home folder":  {env("/home/u"), "", true},
+		"above the home":   {env("/home"), "", true},
+		"claude's folder":  {env("/home/u/.claude"), "", true},
+		"its registry":     {env("/home/u/.claude/sessions/"), "", true},
+		"its transcripts":  {env("/home/u/.claude/projects"), "", true},
+		"inside claude's":  {env("/home/u/.claude/demo"), "/home/u/.claude/demo", false},
+		"beside the home":  {env("/home/u-demo"), "/home/u-demo", false},
+		"below the home":   {env("/home/u/demo-state"), "/home/u/demo-state", false},
+		"a null byte":      {env("/a\x00b"), "", true},
+		"a control string": {env("rel\x1b[31m"), "", true},
+	} {
+		got, err := Locate("/home/u", c.getenv)
+		if c.bad {
+			if err == nil || strings.ContainsAny(err.Error(), "\x1b\x00") || !strings.Contains(err.Error(), EnvDir) {
+				t.Errorf("%s: want a clean error naming the variable, got %v", name, err)
+			}
+			continue
+		}
+		if err != nil || got.Dir != c.want {
+			t.Errorf("%s: Locate = %q, %v; want %q", name, got.Dir, err, c.want)
+		}
+	}
+}
+
+func TestLocateRefusesTheConfigFolderWhereverItIs(t *testing.T) {
+	getenv := func(dir string) func(string) string {
+		return func(k string) string { return map[string]string{EnvDir: dir, "CLAUDE_CONFIG_DIR": "/data/claude"}[k] }
+	}
+	for _, dir := range []string{"/data/claude", "/data/claude/sessions", "/data"} {
+		if _, err := Locate("/home/u", getenv(dir)); err == nil {
+			t.Errorf("%s was accepted", dir)
+		}
+	}
+	if s, err := Locate("/home/u", getenv("/data/demo-state")); err != nil || s.Dir != "/data/demo-state" {
+		t.Errorf("a folder beside it: %q %v", s.Dir, err)
 	}
 }
