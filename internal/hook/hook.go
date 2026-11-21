@@ -11,8 +11,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"syscall"
-	"time"
 	"unicode/utf8"
 
 	"github.com/lfeagan/claude-sitrep/internal/clock"
@@ -264,8 +262,8 @@ func (s *session) stop() {
 // owns it. A pending file whose time has long passed belongs to a child that died (a reboot, a kill), so it is replaced. The check and the
 // replacement happen under a lock, so two Stops that find it stale cannot both win it.
 func (s *session) claimPending(now, due, window int64) (string, bool) {
-	unlock, ok := lock(s.Store.Hidden(s.id, "lock"))
-	if !ok {
+	unlock, err := state.Lock(s.Store.Hidden(s.id, "lock"))
+	if err != nil {
 		return "", false
 	}
 	defer unlock()
@@ -286,22 +284,6 @@ func (s *session) claimPending(now, due, window int64) (string, bool) {
 		return "", false
 	}
 	return nonce, true
-}
-
-// lock takes an exclusive lock on a file, waiting a moment for another Stop to finish, and gives up rather than hold a prompt.
-func lock(path string) (unlock func(), ok bool) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, state.FileMode)
-	if err != nil {
-		return nil, false
-	}
-	for i := 0; i < 50; i++ {
-		if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) == nil {
-			return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, true
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	f.Close()
-	return nil, false
 }
 
 // ReadPending reads a pending file: when the run is due, and the nonce of the child that owns it.

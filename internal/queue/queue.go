@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -108,6 +109,15 @@ func (q Queue) item(id state.ID, lines []string, n int, guard *string) (string, 
 	return lines[n-1], nil
 }
 
+// lock takes the lock every change to a queue takes, so that an append, a removal, a move and a reorder cannot lose one another's work. One
+// lock covers the whole folder, which keeps a move between two queues free of ordering problems.
+func (q Queue) lock() (func(), error) {
+	if _, err := os.Stat(q.Store.Dir); os.IsNotExist(err) {
+		return func() {}, nil // nothing exists yet, so there is nothing to protect
+	}
+	return state.Lock(filepath.Join(q.Store.Dir, ".queue.lock"))
+}
+
 // Add appends an item and returns how many items the queue now holds.
 func (q Queue) Add(id state.ID, text textsafe.Text) (int, error) {
 	if strings.TrimSpace(text.String()) == "" {
@@ -116,6 +126,11 @@ func (q Queue) Add(id state.ID, text textsafe.Text) (int, error) {
 	if err := q.Store.Ensure(); err != nil {
 		return 0, err
 	}
+	unlock, err := q.lock()
+	if err != nil {
+		return 0, err
+	}
+	defer unlock()
 	if err := q.append(id, text.String()); err != nil {
 		return 0, err
 	}
@@ -136,6 +151,11 @@ func (q Queue) append(id state.ID, item string) error {
 
 // Remove takes item n out and returns it.
 func (q Queue) Remove(id state.ID, n int, guard *string) (textsafe.Text, error) {
+	unlock, err := q.lock()
+	if err != nil {
+		return textsafe.Text{}, err
+	}
+	defer unlock()
 	lines, err := q.lines(id)
 	if err != nil {
 		return textsafe.Text{}, err
@@ -155,6 +175,11 @@ func (q Queue) Remove(id state.ID, n int, guard *string) (textsafe.Text, error) 
 
 // Reorder moves item from to position to, and returns the item.
 func (q Queue) Reorder(id state.ID, from, to int, guard *string) (textsafe.Text, error) {
+	unlock, err := q.lock()
+	if err != nil {
+		return textsafe.Text{}, err
+	}
+	defer unlock()
 	lines, err := q.lines(id)
 	if err != nil {
 		return textsafe.Text{}, err
@@ -178,6 +203,14 @@ func (q Queue) Reorder(id state.ID, from, to int, guard *string) (textsafe.Text,
 // Move hands item n from one queue to the end of another and returns it. The item reaches the destination before it leaves the source, so
 // a failure can leave a duplicate but never lose it.
 func (q Queue) Move(from, to state.ID, n int, guard *string) (textsafe.Text, error) {
+	if err := q.Store.Ensure(); err != nil {
+		return textsafe.Text{}, err
+	}
+	unlock, err := q.lock()
+	if err != nil {
+		return textsafe.Text{}, err
+	}
+	defer unlock()
 	lines, err := q.lines(from)
 	if err != nil {
 		return textsafe.Text{}, err

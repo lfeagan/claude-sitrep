@@ -2,12 +2,14 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
 )
@@ -180,4 +182,24 @@ func FirstLine(path string) string {
 func IsRegular(path string) bool {
 	fi, err := os.Stat(path)
 	return err == nil && fi.Mode().IsRegular()
+}
+
+// ErrBusy says a lock could not be taken in time.
+var ErrBusy = errors.New("busy: another sitrep is changing the same files")
+
+// Lock takes an exclusive lock on a file (made if needed), waiting a moment for another holder, and gives up rather than hang a prompt. The
+// returned function releases it. Locks are advisory: every writer of what the lock guards takes it.
+func Lock(path string) (unlock func(), err error) {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, FileMode)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < 100; i++ {
+		if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) == nil {
+			return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, nil
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	f.Close()
+	return nil, ErrBusy
 }

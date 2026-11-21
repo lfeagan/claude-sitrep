@@ -2,8 +2,11 @@ package queue
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -168,5 +171,92 @@ func TestLines(t *testing.T) {
 	got, _ := q.lines("s1")
 	if !reflect.DeepEqual(got, []string{"a", "", "b"}) {
 		t.Errorf("lines %q", got)
+	}
+}
+
+// Changes to a queue must not lose one another's work: an append that lands between a reorder's read and its rewrite used to vanish.
+func TestConcurrentChangesLoseNothing(t *testing.T) {
+	q := newQueue(t, "s1", "seed\n")
+	const writers, each = 8, 40
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+	var errs atomic.Int64
+	wg.Add(1)
+	go func() { // keeps rewriting the file
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			if n := q.Count("s1"); n > 1 {
+				if _, err := q.Reorder("s1", 1, n, nil); err != nil {
+					errs.Add(1)
+				}
+			}
+		}
+	}()
+	var adders sync.WaitGroup
+	for w := 0; w < writers; w++ {
+		adders.Add(1)
+		go func(w int) {
+			defer adders.Done()
+			for i := 0; i < each; i++ {
+				if _, err := q.Add("s1", textsafe.Clean(fmt.Sprintf("w%d-%d", w, i), 0)); err != nil {
+					errs.Add(1)
+				}
+			}
+		}(w)
+	}
+	adders.Wait()
+	close(stop)
+	wg.Wait()
+	if errs.Load() != 0 {
+		t.Errorf("%d operations failed", errs.Load())
+	}
+	if got := q.Count("s1"); got != 1+writers*each {
+		t.Errorf("%d items, want %d: appends were lost", got, 1+writers*each)
+	}
+}
+
+func TestMovesBetweenQueuesLoseAndDuplicateNothing(t *testing.T) {
+	q := newQueue(t, "s1", "")
+	for i := 0; i < 100; i++ {
+		q.Add("inbox", textsafe.Clean(fmt.Sprintf("item%d", i), 0))
+	}
+	var wg sync.WaitGroup
+	for w := 0; w < 8; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				if _, err := q.Move("inbox", "s1", 1, nil); err != nil {
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if a, b := q.Count("inbox"), q.Count("s1"); a != 0 || b != 100 {
+		t.Errorf("inbox %d, session %d", a, b)
+	}
+	seen := map[string]bool{}
+	lines, _ := q.lines("s1")
+	for _, l := range lines {
+		if seen[l] {
+			t.Errorf("%q twice", l)
+		}
+		seen[l] = true
+	}
+}
+
+func TestChangesWorkBeforeTheFolderExists(t *testing.T) {
+	q := Queue{Store: state.Open(t.TempDir())}
+	if _, err := q.Remove("inbox", 1, nil); !errors.Is(err, ErrEmpty) {
+		t.Errorf("%v", err)
+	}
+	if _, err := q.Reorder("inbox", 1, 1, nil); err == nil {
+		t.Error("reordering nothing worked")
 	}
 }
