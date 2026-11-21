@@ -54,7 +54,7 @@ func FromSnapshot(s snapshot.Snapshot) Snapshot {
 		out.Sessions = append(out.Sessions, Session{
 			ID: string(x.ID), Short: x.Short, Alias: x.Alias, Dir: x.Dir.String(), Cwd: x.Cwd.String(), Running: x.Running, State: x.State, StateLabel: x.StateLabel,
 			Age: x.Age, StateChanged: x.StateChanged, Idle: x.Idle, NeedsInput: x.NeedsInput, Snoozed: x.Snoozed, QuietSecs: x.QuietSecs, PID: pidFrom(x.PID),
-			Pinned: x.Pinned, Highlight: x.Highlight, Objective: x.Objective.String(), Progress: x.Progress.String(), Now: x.Now.String(), Queue: queueFrom(x.Queue)})
+			Pinned: x.Pinned, Highlight: x.Highlight, Objective: x.Objective.String(), Progress: x.Progress.String(), Now: x.Now.String(), Queue: queueFrom(x.Queue), Context: contextFrom(x.Context)})
 	}
 	out.sanitize()
 	return out
@@ -125,4 +125,11 @@ func Run(opts Options, eng Engine) error {
 	m.quitJump, m.readOnly, m.bell = opts.QuitOnJump, opts.ReadOnly, !opts.NoBell
 	_, err = tea.NewProgram(m).Run()
 	return err
+}
+
+func contextFrom(c *snapshot.Context) *Context {
+	if c == nil {
+		return nil
+	}
+	return &Context{UsedPercent: c.UsedPercent, Window: c.Window, Tokens: c.Tokens, At: c.At}
 }

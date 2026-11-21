@@ -128,7 +128,7 @@ It never touches a running session or one under two minutes old, and it never de
 The two tabs are:
 
 1. **Watch** shows Objective, Progress, Now and the queue of each session, wrapped with a hanging indent.
-2. **Top** is a summary line (`3 running: 1 working, 1 waiting, 1 idle?, 2 ended`) and one line per session, with its state, queue size and what it is doing now.
+2. **Top** is a summary line (`3 running: 1 working, 1 waiting, 1 idle?, 2 ended`) and one line per session, with its state, queue size, the share of its context window left (CTX) and what it is doing now. CTX is `62%`, drawn as `!9%` at 10% or less (and bold at 20% or less) so the plain text carries the warning, and `-` where the session has not said (a background session with no status line, or one that has not drawn it yet under 0.8). It is dropped on a narrow screen before the text of NOW is cut. The numbers come from the status line: Claude Code gives `sitrep statusline` the window size and what is in it, and it records them in `sessions/<id>/context`.
 
 A session that waits for you, meaning Claude has stopped and the next move is yours, is drawn with a soft pink-red background and a `●` before its state, until you send it a prompt. The status bar then leads with `● 2 need you`. The rule is the `needs_input` field of `sitrep ls --json`.
 
@@ -200,11 +200,12 @@ Each session has these fields:
 | `pinned`, `highlight` | Whether the Objective is pinned, and whether the session changed within `highlight_seconds`. |
 | `dir`, `cwd` | The last part of the working directory, and the whole path. |
 | `objective`, `progress`, `now` | The three lines of the status block. |
+| `context` | How full the context window was when the session's status line last drew: `used_percent` (0 to 100), `window` and `tokens` (the size and what is in it), and `at` (when it last drew, in epoch seconds). `null` for an ended session or one that has not said. The share left is `100 - used_percent`. |
 | `queue` | `count` is the true number of items, and `items` holds the first ones, up to the cap (all of them with `--full`). |
 
 ## How It Works
 
-State lives in `~/.claude/sitrep/`: a folder `sessions/<session_id>/` per session, holding `notes`, `queue`, `cwd`, `state`, `count`, `stamp`, `pending`, `pinned`, `snooze` and `alias`, then `inbox.queue` for the inbox, `bin/` and `sitrep.conf`. Version 0.4 and before kept every file in the root; `/sitrep:setup` moves them, and `sitrep migrate [--dry-run]` does the same by hand (it never overwrites, merges queues, and is safe to run again). The program is `~/.claude/sitrep/bin/sitrep`. The status line only reads files, so it renders instantly. The hooks run `sitrep hook`, which answers within milliseconds; the Haiku call runs afterwards in a detached child of the same program, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window. A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
+State lives in `~/.claude/sitrep/`: a folder `sessions/<session_id>/` per session, holding `notes`, `queue`, `cwd`, `state`, `count`, `stamp`, `pending`, `pinned`, `snooze`, `alias` and `context`, then `inbox.queue` for the inbox, `bin/` and `sitrep.conf`. Version 0.4 and before kept every file in the root; `/sitrep:setup` moves them, and `sitrep migrate [--dry-run]` does the same by hand (it never overwrites, merges queues, and is safe to run again). The program is `~/.claude/sitrep/bin/sitrep`. The status line reads files, so it renders instantly, and records the context window of its session (one small file, written only when it changed). The hooks run `sitrep hook`, which answers within milliseconds; the Haiku call runs afterwards in a detached child of the same program, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window. A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
 
 ## Privacy And Safety
 

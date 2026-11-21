@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -58,28 +59,40 @@ func (x Session) Label() string {
 }
 
 type Session struct {
-	ID           string `json:"id"`
-	Short        string `json:"short"`
-	Alias        string `json:"alias"`
-	Dir          string `json:"dir"`
-	Cwd          string `json:"cwd"`
-	Running      bool   `json:"running"`
-	State        string `json:"state"`
-	StateLabel   string `json:"state_label"`
-	Age          int64  `json:"age"`
-	StateChanged int64  `json:"state_changed"`
-	Idle         bool   `json:"idle"`
-	NeedsInput   bool   `json:"needs_input"`
-	Snoozed      bool   `json:"snoozed"`
-	QuietSecs    *int64 `json:"quiet_secs"`
-	PID          *int64 `json:"pid"`
-	Pinned       bool   `json:"pinned"`
-	Highlight    bool   `json:"highlight"`
-	Objective    string `json:"objective"`
-	Progress     string `json:"progress"`
-	Now          string `json:"now"`
-	Queue        Queue  `json:"queue"`
+	ID           string   `json:"id"`
+	Short        string   `json:"short"`
+	Alias        string   `json:"alias"`
+	Dir          string   `json:"dir"`
+	Cwd          string   `json:"cwd"`
+	Running      bool     `json:"running"`
+	State        string   `json:"state"`
+	StateLabel   string   `json:"state_label"`
+	Age          int64    `json:"age"`
+	StateChanged int64    `json:"state_changed"`
+	Idle         bool     `json:"idle"`
+	NeedsInput   bool     `json:"needs_input"`
+	Snoozed      bool     `json:"snoozed"`
+	QuietSecs    *int64   `json:"quiet_secs"`
+	PID          *int64   `json:"pid"`
+	Pinned       bool     `json:"pinned"`
+	Highlight    bool     `json:"highlight"`
+	Objective    string   `json:"objective"`
+	Progress     string   `json:"progress"`
+	Now          string   `json:"now"`
+	Queue        Queue    `json:"queue"`
+	Context      *Context `json:"context"`
 }
+
+// Context is how full the context window of a session was at its last status line.
+type Context struct {
+	UsedPercent float64 `json:"used_percent"`
+	Window      int64   `json:"window"`
+	Tokens      int64   `json:"tokens"`
+	At          int64   `json:"at"`
+}
+
+// Left is the share of the window left, in whole per cent, rounded down.
+func (c Context) Left() int { return int(math.Floor(100 - c.UsedPercent)) }
 
 // decode reads one document. It tolerates fields it does not know, refuses a version it
 // does not understand, and cleans every string, so nothing downstream sees raw text.
@@ -120,6 +133,9 @@ func (s *Snapshot) sanitize() {
 			x.State = "-"
 		}
 		x.Age = max(x.Age, 0)
+		if c := x.Context; c != nil && !(c.UsedPercent >= 0 && c.UsedPercent <= 100 && c.Window >= 1) { // the document is untrusted: a NaN or a range error is no record
+			x.Context = nil
+		}
 		x.Queue.sanitize()
 	}
 }

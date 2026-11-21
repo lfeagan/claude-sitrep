@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/lfeagan/claude-sitrep/internal/conf"
 	"github.com/lfeagan/claude-sitrep/internal/queue"
@@ -28,6 +30,8 @@ type Line struct {
 	Env   []string // the environment of the upstream command, which gets SITREP_RENDERING=1 added
 	// Version is this program's version; a newer release recorded by the daily check is announced after the queue line. Empty means no notice.
 	Version string
+	// Now is the time recorded with the context window; time.Now when nil.
+	Now func() time.Time
 }
 
 // Render reads the event from in and writes the status line to out. It never fails: whatever goes wrong, what could be drawn is drawn.
@@ -87,5 +91,59 @@ func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 		if n := update.Notice(l.Store, l.Version); n != "" {
 			fmt.Fprintln(out, n)
 		}
+	}
+	l.recordContext(id, input) // last, and best effort: the line is already written
+}
+
+// window is the part of Claude Code's input that says how full the context window is.
+type window struct {
+	ContextWindow *struct {
+		Size           *float64 `json:"context_window_size"`
+		UsedPercentage *float64 `json:"used_percentage"`
+		CurrentUsage   *struct {
+			Input         float64 `json:"input_tokens"`
+			CacheCreation float64 `json:"cache_creation_input_tokens"`
+			CacheRead     float64 `json:"cache_read_input_tokens"`
+		} `json:"current_usage"`
+	} `json:"context_window"`
+}
+
+// ContextOf reads the context window of a session from the status line's input, and says whether there is one. The percentage is
+// used_percentage when that is above 0: Claude Code sends 0 or null before the first answer though current_usage is real, so otherwise it
+// is the tokens over the size. A window and no usage (a new session, or just after /compact) is empty, 0 used.
+func ContextOf(input []byte, now time.Time) (state.Context, bool) {
+	var w window
+	if json.Unmarshal(input, &w) != nil || w.ContextWindow == nil || w.ContextWindow.Size == nil {
+		return state.Context{}, false
+	}
+	cw := w.ContextWindow
+	size := *cw.Size
+	if size != math.Trunc(size) || size < 1 || size > state.MaxWindow {
+		return state.Context{}, false
+	}
+	c := state.Context{Window: int64(size), At: now.Unix()}
+	if u := cw.CurrentUsage; u != nil {
+		sum := u.Input + u.CacheCreation + u.CacheRead
+		if sum < 0 || sum > state.MaxTokens || sum != math.Trunc(sum) {
+			return state.Context{}, false
+		}
+		c.Tokens = int64(sum)
+	}
+	switch {
+	case cw.UsedPercentage != nil && *cw.UsedPercentage > 0:
+		c.UsedPercent = *cw.UsedPercentage
+	case c.Tokens > 0:
+		c.UsedPercent = math.Min(float64(c.Tokens)/size*100, 100)
+	}
+	return c, c.Valid()
+}
+
+func (l Line) recordContext(id state.ID, input []byte) {
+	now := time.Now
+	if l.Now != nil {
+		now = l.Now
+	}
+	if c, ok := ContextOf(input, now()); ok {
+		_ = l.Store.RecordContext(id, c) // a failed write is not the line's concern
 	}
 }

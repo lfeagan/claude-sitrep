@@ -153,6 +153,8 @@ prints nothing but a block answer. The plugin runs it; you do not.
 
 Print the sitrep block of the status line for the session Claude Code describes as JSON on
 standard input, after the output of the status line saved by setup, if any. Claude Code runs it.
+It also records how full the session's context window is (in the session's folder), for the CTX
+column of the dashboard and the context field of ls --json.
 `,
 	"version": `usage: sitrep version
 

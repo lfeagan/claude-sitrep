@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lfeagan/claude-sitrep/internal/conf"
 	"github.com/lfeagan/claude-sitrep/internal/runner"
@@ -148,5 +149,78 @@ func TestAliasAfterTheId(t *testing.T) {
 	l.Render(context.Background(), strings.NewReader(`{"session_id":"abcdef"}`), &out)
 	if strings.ContainsAny(out.String(), "\x1b") || !strings.HasSuffix(out.String(), "Queue [id abcd]: empty\n") {
 		t.Errorf("%q", out.String())
+	}
+}
+
+var ctxNow = time.Unix(1_800_000_000, 0)
+
+func TestContextOf(t *testing.T) {
+	for name, c := range map[string]struct {
+		in   string
+		want state.Context
+		ok   bool
+	}{
+		"percent and size":         {`{"context_window":{"used_percentage":37.5,"context_window_size":1000000,"current_usage":{"input_tokens":5,"cache_creation_input_tokens":70000,"cache_read_input_tokens":304995}}}`, state.Context{UsedPercent: 37.5, Window: 1_000_000, Tokens: 375_000, At: 1_800_000_000}, true},
+		"percent only":             {`{"context_window":{"used_percentage":45,"context_window_size":200000}}`, state.Context{UsedPercent: 45, Window: 200_000, At: 1_800_000_000}, true},
+		"zero percent, real usage": {`{"context_window":{"used_percentage":0,"context_window_size":200000,"current_usage":{"input_tokens":50000,"cache_read_input_tokens":50000}}}`, state.Context{UsedPercent: 50, Window: 200_000, Tokens: 100_000, At: 1_800_000_000}, true},
+		"null percent, real usage": {`{"context_window":{"used_percentage":null,"context_window_size":200000,"current_usage":{"input_tokens":20000}}}`, state.Context{UsedPercent: 10, Window: 200_000, Tokens: 20_000, At: 1_800_000_000}, true},
+		"window and no usage":      {`{"context_window":{"used_percentage":null,"context_window_size":200000,"current_usage":null}}`, state.Context{Window: 200_000, At: 1_800_000_000}, true},
+		"zero percent, no usage":   {`{"context_window":{"used_percentage":0,"context_window_size":1000000}}`, state.Context{Window: 1_000_000, At: 1_800_000_000}, true},
+		"usage over the window":    {`{"context_window":{"context_window_size":1000,"current_usage":{"input_tokens":5000}}}`, state.Context{UsedPercent: 100, Window: 1000, Tokens: 5000, At: 1_800_000_000}, true},
+		"no window":                {`{"context_window":{"used_percentage":45}}`, state.Context{}, false},
+		"no context_window":        {`{"session_id":"x"}`, state.Context{}, false},
+		"null context_window":      {`{"context_window":null}`, state.Context{}, false},
+		"zero size":                {`{"context_window":{"context_window_size":0,"used_percentage":5}}`, state.Context{}, false},
+		"fractional size":          {`{"context_window":{"context_window_size":2.5}}`, state.Context{}, false},
+		"huge size":                {`{"context_window":{"context_window_size":1e12}}`, state.Context{}, false},
+		"percent over 100":         {`{"context_window":{"used_percentage":150,"context_window_size":1000}}`, state.Context{}, false},
+		"negative percent":         {`{"context_window":{"used_percentage":-5,"context_window_size":1000}}`, state.Context{UsedPercent: 0, Window: 1000, At: 1_800_000_000}, true},
+		"negative tokens":          {`{"context_window":{"context_window_size":1000,"current_usage":{"input_tokens":-5}}}`, state.Context{}, false},
+		"text instead of numbers":  {`{"context_window":{"used_percentage":"high","context_window_size":1000}}`, state.Context{}, false},
+		"not json":                 {`{not json`, state.Context{}, false},
+		"empty":                    {``, state.Context{}, false},
+	} {
+		got, ok := ContextOf([]byte(c.in), ctxNow)
+		if ok != c.ok || (ok && got != c.want) {
+			t.Errorf("%s: %+v %v, want %+v %v", name, got, ok, c.want, c.ok)
+		}
+	}
+}
+
+func TestTheStatusLineRecordsTheContextWindow(t *testing.T) {
+	s := state.Open(t.TempDir())
+	s.Ensure()
+	s.WriteFile(s.Path("abcdef", "notes"), []byte("Objective: x\n"))
+	l := Line{Store: s, Conf: conf.Conf{File: filepath.Join(s.Dir, "sitrep.conf"), Getenv: func(string) string { return "" }}, Run: &runner.Fake{}, Now: func() time.Time { return ctxNow }}
+	draw := func(in string) string {
+		var out bytes.Buffer
+		l.Render(context.Background(), strings.NewReader(in), &out)
+		return out.String()
+	}
+	plain := draw(`{"session_id":"abcdef"}`)
+	with := draw(`{"session_id":"abcdef","context_window":{"used_percentage":12.5,"context_window_size":200000,"current_usage":{"input_tokens":25000}}}`)
+	if plain != with {
+		t.Errorf("the line is the same with or without the window:\n%q\n%q", plain, with)
+	}
+	if c, ok := s.Context("abcdef"); !ok || c.UsedPercent != 12.5 || c.Window != 200000 || c.Tokens != 25000 || c.At != ctxNow.Unix() {
+		t.Errorf("record %+v %v", c, ok)
+	}
+	// an unknown session, the inbox and a bad id make no folder
+	for _, id := range []string{"ghost001", "inbox", "../x"} {
+		draw(`{"session_id":"` + id + `","context_window":{"used_percentage":5,"context_window_size":1000}}`)
+	}
+	if _, err := os.Stat(s.SessionDir("ghost001")); !os.IsNotExist(err) {
+		t.Error("a folder was made for an unknown session")
+	}
+	// no window, no record change
+	draw(`{"session_id":"abcdef","context_window":{"used_percentage":99}}`)
+	if c, _ := s.Context("abcdef"); c.UsedPercent != 12.5 {
+		t.Errorf("a window-less input changed the record: %+v", c)
+	}
+	// a folder that cannot be written does not stop the line
+	os.Chmod(s.SessionDir("abcdef"), 0o500)
+	defer os.Chmod(s.SessionDir("abcdef"), 0o700)
+	if got := draw(`{"session_id":"abcdef","context_window":{"used_percentage":50,"context_window_size":1000}}`); got != plain {
+		t.Errorf("a read-only folder changes the line: %q", got)
 	}
 }

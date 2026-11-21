@@ -83,6 +83,15 @@ type Session struct {
 	Progress     textsafe.Text `json:"progress"`
 	Now          textsafe.Text `json:"now"`
 	Queue        Queue         `json:"queue"`
+	Context      *Context      `json:"context"` // how full the context window was at the last status line, or null
+}
+
+// Context is how full a session's context window is, as its status line last said.
+type Context struct {
+	UsedPercent float64 `json:"used_percent"`
+	Window      int64   `json:"window"`
+	Tokens      int64   `json:"tokens"`
+	At          int64   `json:"at"` // when the status line last showed these numbers, in epoch seconds
 }
 
 // Label is the name a person is shown for the session: its alias, or the Short.
@@ -140,6 +149,9 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 		}
 		age := now - f.changed
 		s := Session{ID: id, Short: shortOf(f.id), Alias: b.Store.Alias(id), Running: !dead, State: word, Age: age, StateChanged: f.changed}
+		if c, ok := b.Store.Context(id); ok && !dead { // an ended session shows no window
+			s.Context = &Context{UsedPercent: c.UsedPercent, Window: c.Window, Tokens: c.Tokens, At: c.At}
+		}
 		var quiet int64
 		var hasQuiet bool
 		if dead {

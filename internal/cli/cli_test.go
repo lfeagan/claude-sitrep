@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -301,5 +302,56 @@ func TestTheHookReadsItsSettingsFromTheConfFile(t *testing.T) {
 	}
 	if got := e.conf().Get("SITREP_TUI_BELL"); got != "" {
 		t.Errorf("a commented line is not a setting: %q", got)
+	}
+}
+
+func TestLsJSONCarriesTheContextWindow(t *testing.T) {
+	home := t.TempDir()
+	st := state.Open(home)
+	for _, id := range []string{"c5d05701", "dfc08fd7"} {
+		st.WriteFile(st.Path(state.ID(id), "notes"), []byte("Objective: x\n"))
+		st.WriteFile(st.Path(state.ID(id), "state"), []byte("waiting\n"))
+	}
+	if err := st.RecordContext("c5d05701", state.Context{UsedPercent: 37.5, Window: 1_000_000, Tokens: 375_000, At: 1_800_000_000}); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errs := run(t, home, "ls", "--json")
+	if code != 0 {
+		t.Fatalf("%d %s", code, errs)
+	}
+	var doc struct {
+		Sessions []struct {
+			ID      string `json:"id"`
+			Context *struct {
+				UsedPercent float64 `json:"used_percent"`
+				Window      int64   `json:"window"`
+				Tokens      int64   `json:"tokens"`
+				At          int64   `json:"at"`
+			} `json:"context"`
+		} `json:"sessions"`
+	}
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	seen := map[string]bool{}
+	for _, s := range doc.Sessions {
+		seen[s.ID] = true
+		switch s.ID {
+		case "c5d05701":
+			if s.Context == nil || s.Context.UsedPercent != 37.5 || s.Context.Window != 1_000_000 || s.Context.Tokens != 375_000 || s.Context.At != 1_800_000_000 {
+				t.Errorf("context %+v", s.Context)
+			}
+		case "dfc08fd7":
+			if s.Context != nil {
+				t.Errorf("no record is null: %+v", s.Context)
+			}
+		}
+	}
+	if !seen["c5d05701"] || !seen["dfc08fd7"] || !strings.Contains(out, `"context": null`) {
+		t.Errorf("sessions %v\n%s", seen, out)
+	}
+	// the plain listing does not change
+	if code, text, _ := run(t, home, "ls"); code != 0 || strings.Contains(text, "37") || strings.Contains(text, "CTX") {
+		t.Errorf("ls text: %q", text)
 	}
 }

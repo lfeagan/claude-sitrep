@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -523,5 +524,113 @@ func TestSelectionIsASolidBarOverTheWholeBlock(t *testing.T) {
 	}
 	if !strings.Contains(ansi.Strip(lines[first]), s.Sessions[0].Short) {
 		t.Errorf("the arrow is not on the session row: %q", ansi.Strip(lines[first]))
+	}
+}
+
+func TestContextColumn(t *testing.T) {
+	s := loadFixture(t)
+	o := opts(100, 20)
+	for want, x := range map[string]Context{"62%": {UsedPercent: 37.5, Window: 1}, "100%": {UsedPercent: 0, Window: 1}, "20%": {UsedPercent: 80, Window: 1}, "21%": {UsedPercent: 78.2, Window: 1}, "!10%": {UsedPercent: 90, Window: 1}, "!9%": {UsedPercent: 90.1, Window: 1}, "!0%": {UsedPercent: 100, Window: 1}} {
+		x := x
+		sess := Session{Running: true, Context: &x}
+		if got := strings.TrimSpace(ansi.Strip(ctxCell(sess, o))); got != want {
+			t.Errorf("%+v: %q, want %q", x, got, want)
+		}
+	}
+	for name, sess := range map[string]Session{"no record": {Running: true}, "ended": {Running: false, Context: &Context{UsedPercent: 5, Window: 1}}} {
+		if got := strings.TrimSpace(ctxCell(sess, o)); got != "-" {
+			t.Errorf("%s: %q", name, got)
+		}
+	}
+	for _, w := range []int{80, 100, 120} {
+		top := render(s, tabTop, "", opts(w, 12))
+		if !strings.Contains(top, "CTX") || !strings.Contains(top, "62%") || !strings.Contains(top, "!6%") {
+			t.Errorf("width %d: the column and its values are drawn:\n%s", w, top)
+		}
+	}
+	if w := ansi.StringWidth(ctxCell(Session{Running: true, Context: &Context{UsedPercent: 0}}, o)); w != ctxWidth {
+		t.Errorf("width %d", w)
+	}
+}
+
+func TestContextColumnDropsByTheRoomNowHas(t *testing.T) {
+	s := loadFixture(t)
+	for w := 1; w <= 140; w++ {
+		top := render(s, tabTop, "", opts(w, 12))
+		for _, l := range strings.Split(top, "\n") {
+			if ansi.StringWidth(l) > w {
+				t.Fatalf("width %d: a line is %d wide: %q", w, ansi.StringWidth(l), l)
+			}
+		}
+		// when the column is there, the text of NOW keeps its room
+		for _, l := range strings.Split(top, "\n") {
+			if strings.Contains(l, "15f1") && strings.Contains(l, "62%") {
+				i := strings.Index(l, "62%") + len("62%") + 2
+				if room := w - ansi.StringWidth(l[:i]); room < minNow {
+					t.Errorf("width %d: NOW has %d columns: %q", w, room, l)
+				}
+			}
+		}
+	}
+	if top := render(s, tabTop, "", opts(50, 12)); strings.Contains(top, "CTX") {
+		t.Errorf("a narrow screen has no CTX column:\n%s", top)
+	}
+	if top := render(s, tabTop, "", opts(80, 12)); !strings.Contains(top, "CTX") {
+		t.Errorf("80 columns has it:\n%s", top)
+	}
+	// the column appears, and disappears, with a change of width: both are exercised
+	seen := map[bool]bool{}
+	for w := 40; w <= 120; w++ {
+		seen[strings.Contains(render(s, tabTop, "", opts(w, 12)), "CTX")] = true
+	}
+	if !seen[true] || !seen[false] {
+		t.Errorf("the sweep must cross the threshold: %v", seen)
+	}
+}
+
+func TestContextBoldNeverInsideAColouredRow(t *testing.T) {
+	th := newTheme(true, "48;5;238")
+	o := viewOpts{Width: 100, Height: 20, Theme: th}
+	low := &Context{UsedPercent: 85, Window: 1} // 15% left: bold
+	plainRow := Session{Running: true, Context: low}
+	if got := ctxCell(plainRow, o); !strings.Contains(got, "\x1b[1m") {
+		t.Errorf("a plain row gets bold: %q", got)
+	}
+	for name, x := range map[string]Session{"needs you": {Running: true, NeedsInput: true, Context: low}, "recent": {Running: true, Highlight: true, Context: low}} {
+		if got := ctxCell(x, o); strings.Contains(got, "\x1b") {
+			t.Errorf("%s: a style inside a coloured row would end its colour: %q", name, got)
+		}
+	}
+	ok := &Context{UsedPercent: 50, Window: 1}
+	if got := ctxCell(Session{Running: true, Context: ok}, o); strings.Contains(got, "\x1b") {
+		t.Errorf("no bold above 20%%: %q", got)
+	}
+	// the plain theme has no style, and the marker is still there
+	if got := ctxCell(Session{Running: true, Context: &Context{UsedPercent: 95, Window: 1}}, opts(100, 20)); strings.TrimSpace(got) != "!5%" {
+		t.Errorf("plain: %q", got)
+	}
+}
+
+func TestContextOfTheDocumentIsChecked(t *testing.T) {
+	doc := `{"version":1,"generated":1,"registry":"ok","settings":{},"hidden":{},"inbox":{"count":0,"items":[]},"sessions":[
+	 {"id":"a1","short":"a1","running":true,"queue":{"count":0,"items":[]},"context":{"used_percent":40,"window":200000,"tokens":80000,"at":1}},
+	 {"id":"a2","short":"a2","running":true,"queue":{"count":0,"items":[]},"context":{"used_percent":150,"window":200000}},
+	 {"id":"a3","short":"a3","running":true,"queue":{"count":0,"items":[]},"context":{"used_percent":-1,"window":200000}},
+	 {"id":"a4","short":"a4","running":true,"queue":{"count":0,"items":[]},"context":{"used_percent":5,"window":0}},
+	 {"id":"a5","short":"a5","running":true,"queue":{"count":0,"items":[]},"context":null},
+	 {"id":"a6","short":"a6","running":true,"queue":{"count":0,"items":[]}}]}`
+	s, err := decode(strings.NewReader(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []bool
+	for _, x := range s.Sessions {
+		got = append(got, x.Context != nil)
+	}
+	if want := []bool{true, false, false, false, false, false}; !reflect.DeepEqual(got, want) {
+		t.Errorf("records kept: %v, want %v", got, want)
+	}
+	if s.Sessions[0].Context.Left() != 60 {
+		t.Errorf("left %d", s.Sessions[0].Context.Left())
 	}
 }

@@ -12,13 +12,13 @@ import (
 
 // Theme holds every style the views use. The plain theme has none, so tests compare text.
 type Theme struct {
-	Tab, TabActive, Rule, Label, Dim, Err, Status, StatusKey, Hot, Attn lipgloss.Style
-	Plain                                                               bool
+	Tab, TabActive, Rule, Label, Dim, Err, Status, StatusKey, Hot, Attn, Warn lipgloss.Style
+	Plain                                                                     bool
 }
 
 func plainTheme() Theme {
 	s := lipgloss.NewStyle()
-	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Plain: true}
+	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Plain: true}
 }
 
 // palette is the colours a theme is made of, each as a light and a dark value: a hex colour or the number of a terminal colour.
@@ -96,6 +96,7 @@ func themeFor(isDark bool, st Settings) Theme {
 		StatusKey: lipgloss.NewStyle().Foreground(on).Background(accent).Bold(true),
 		Hot:       withText(lipgloss.NewStyle().Background(pick(p.hot)), custom["hot"], p.hot[side]),
 		Attn:      withText(lipgloss.NewStyle().Background(pick(p.attn)), custom["attn"], p.attn[side]),
+		Warn:      lipgloss.NewStyle().Bold(true),
 	}
 }
 
@@ -112,7 +113,7 @@ func monoTheme() Theme {
 	s := lipgloss.NewStyle()
 	return Theme{
 		Tab: s.Faint(true).Padding(0, 1), TabActive: s.Bold(true).Underline(true).Padding(0, 1), Rule: s, Label: s.Faint(true), Dim: s.Faint(true),
-		Err: s.Bold(true), Status: s.Reverse(true), StatusKey: s.Reverse(true).Bold(true), Hot: s.Bold(true), Attn: s.Reverse(true),
+		Err: s.Bold(true), Status: s.Reverse(true), StatusKey: s.Reverse(true).Bold(true), Hot: s.Bold(true), Attn: s.Reverse(true), Warn: s.Bold(true),
 	}
 }
 

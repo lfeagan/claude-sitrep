@@ -1,6 +1,6 @@
 # Context window column, version 0.8.0
 
-Status: design, reviewed once. Changes from the review: the percentage is not taken from `used_percentage` when it is 0 (Claude Code sends 0 or null before the first answer), `at` means last seen, a record is made only for a session that has notes, the claim that the write cannot delay the line is gone, a low value is marked with `!` and not a colour inside a coloured row, the column drops by the room NOW has left, the sort and the Watch line are a second round, and `left_percent` is not in the JSON.
+Status: first round built (0.8.0): the record, the snapshot and JSON field, and the Top column. The sort, the Watch line and the transcript are not. Reviewed once. Changes from the review: the percentage is not taken from `used_percentage` when it is 0 (Claude Code sends 0 or null before the first answer), `at` means last seen, a record is made only for a session that has notes, the claim that the write cannot delay the line is gone, a low value is marked with `!` and not a colour inside a coloured row, the column drops by the room NOW has left, the sort and the Watch line are a second round, and `left_percent` is not in the JSON.
 
 ## Purpose
 

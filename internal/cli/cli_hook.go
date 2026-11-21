@@ -74,7 +74,11 @@ func cmdStatusline(e Env, args []string) error {
 	if e.Stdin == nil {
 		return nil
 	}
-	statusline.Line{Store: e.store(), Conf: e.conf(), Run: e.Runner, Env: os.Environ(), Version: version.Version}.Render(context.Background(), e.Stdin, e.Stdout)
+	l := statusline.Line{Store: e.store(), Conf: e.conf(), Run: e.Runner, Env: os.Environ(), Version: version.Version}
+	if e.Clock != nil {
+		l.Now = e.Clock.Now
+	}
+	l.Render(context.Background(), e.Stdin, e.Stdout)
 	return nil
 }
 

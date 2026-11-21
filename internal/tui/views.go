@@ -463,8 +463,18 @@ func topBody(s Snapshot, o viewOpts) []string {
 		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
 	iw := idWidth(s)
-	dw = min(dw, max((o.Width-16-iw)/3, 6)) // a narrow screen gets a narrow directory column
-	head = append(head, o.Theme.Label.Render(gutter("", o)+fmt.Sprintf("%s  %s  %s  %-5s  %s", idCell("ID", iw), padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW   sort: "+sortNames[o.Sort])))
+	full := min(dw, max((o.Width-16-iw)/3, 6)) // a narrow screen gets a narrow directory column
+	// the CTX column goes in when the text of NOW keeps at least minNow columns; it narrows the directory column a little for the room
+	dw = full
+	showCtx := false
+	if withCtx := min(dw, max((o.Width-22-iw)/3, 6)); o.Width-(ansi.StringWidth(gutter("", o))+iw+withCtx+sw+13+ctxWidth+2) >= minNow {
+		showCtx, dw = true, withCtx
+	}
+	ctxHead := ""
+	if showCtx {
+		ctxHead = padRight("CTX", ctxWidth) + "  "
+	}
+	head = append(head, o.Theme.Label.Render(gutter("", o)+fmt.Sprintf("%s  %s  %s  %-5s  %s%s", idCell("ID", iw), padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", ctxHead, "NOW   sort: "+sortNames[o.Sort])))
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
 		head = append(head, "no session matches the filter")
 	}
@@ -474,7 +484,11 @@ func topBody(s Snapshot, o viewOpts) []string {
 		if text == "" {
 			text = x.Objective
 		}
-		prefix := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %-5d  ", idCell(x.Label(), iw), padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count)
+		ctx := ""
+		if showCtx {
+			ctx = ctxCell(x, o) + "  "
+		}
+		prefix := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %-5d  %s", idCell(x.Label(), iw), padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count, ctx)
 		line := prefix + ansi.Truncate(text, max(o.Width-ansi.StringWidth(prefix), 1), "…")
 		blocks = append(blocks, selectBlock(mark([]string{line}, x, o), x, o))
 	}
@@ -560,7 +574,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"Tabs",
 		"",
 		"  Watch   every session as a block: Objective, Progress, Now and the queue",
-		"  Top     a summary line, then one line per session",
+		"  Top     a summary line, then one line per session (CTX: context left)",
 		"",
 		"Colours",
 		"",
@@ -636,3 +650,27 @@ func idWidth(s Snapshot) int {
 
 // idCell is a label cut to the column and padded to its width.
 func idCell(label string, w int) string { return padRight(ansi.Truncate(label, w, "…"), w) }
+
+const (
+	ctxWidth = 4  // the CTX column: 100%, !9%, or -
+	minNow   = 20 // the room the text of NOW keeps before CTX is dropped
+)
+
+// ctxCell is the share of the context window left, rounded down, in ctxWidth columns: "62%", "!9%" at 10% or less (so the plain text carries
+// the warning, as the ● does for a session that needs you), and "-" where nothing is known. At 20% or less it is bold, but not on a row
+// that is already coloured: a colour reset inside such a row would end its colour.
+func ctxCell(x Session, o viewOpts) string {
+	if x.Context == nil || !x.Running {
+		return padRight("-", ctxWidth)
+	}
+	left := min(max(x.Context.Left(), 0), 100)
+	text := fmt.Sprintf("%d%%", left)
+	if left <= 10 {
+		text = "!" + text
+	}
+	cell := padRight(text, ctxWidth)
+	if left <= 20 && !(x.Running && (x.NeedsInput || x.Highlight)) {
+		cell = o.Theme.Warn.Render(cell)
+	}
+	return cell
+}
