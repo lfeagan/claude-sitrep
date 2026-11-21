@@ -327,7 +327,7 @@ func TestQueueEditKeysAreRefusedWithAReason(t *testing.T) {
 		"the session is gone":        func(m *model) { m.snap.Sessions = m.snap.Sessions[1:] },
 	}
 	for want, set := range cases {
-		for _, k := range []string{"a", "x", "K", "J", "T", "P", "U"} {
+		for _, k := range []string{"a", "E", "x", "K", "J", "T", "P", "U"} {
 			m, f := queueModel(t, qSession)
 			m, _ = press(t, m, "down")
 			set(&m)
@@ -497,10 +497,74 @@ func TestQueueScreens(t *testing.T) {
 }
 
 func TestHelpHidesEditKeysWhenReadOnly(t *testing.T) {
-	if h := helpScreen(100, 40, false, plainTheme()); !strings.Contains(h, "add, remove") || !strings.Contains(h, "take an inbox item") {
+	if h := helpScreen(100, 40, false, plainTheme()); !strings.Contains(h, "add, edit, remove") || !strings.Contains(h, "take an inbox item") {
 		t.Error("the key list names the edit keys")
 	}
-	if h := helpScreen(100, 40, true, plainTheme()); strings.Contains(h, "add, remove") || strings.Contains(h, "take an inbox item") || !strings.Contains(h, "the inbox, or") {
+	if h := helpScreen(100, 40, true, plainTheme()); strings.Contains(h, "add, edit, remove") || strings.Contains(h, "take an inbox item") || !strings.Contains(h, "the inbox, or") {
 		t.Error("read-only hides the edit keys but keeps i and e")
+	}
+}
+
+func TestEKeyEditsTheSelectedItem(t *testing.T) {
+	m, f := queueModel(t, qSession)
+	id := m.qTo
+	m, _ = press(t, m, "down")
+	old := m.queueItems()[1]
+	m, _ = press(t, m, "E")
+	if m.prompt == nil || m.prompt.verb != "edit" || m.prompt.n != 2 || m.prompt.old != old || m.prompt.text != old {
+		t.Fatalf("E opens a line with the item's own text: %+v", m.prompt)
+	}
+	m, _ = press(t, m, "backspace")
+	m = typed(t, m, "!")
+	if out := m.View().Content; !strings.Contains(out, "edit: ") || !strings.Contains(out, "!▏") {
+		t.Errorf("the line is on the footer:\n%s", out)
+	}
+	m, cmd := press(t, m, "enter")
+	m = feed(t, m, cmd)
+	want := "/x/sitrep edit " + id + " 2 " + old[:len(old)-1] + "! --item " + old
+	if len(f.calls) != 1 || f.calls[0] != want {
+		t.Errorf("the one fixed command, guarded by the old text:\n got %v\nwant %s", f.calls, want)
+	}
+	if m.prompt != nil || m.queueIndex() != 1 {
+		t.Errorf("the selection stays on the item: prompt %v, index %d", m.prompt, m.queueIndex())
+	}
+}
+
+func TestEKeyRefusals(t *testing.T) {
+	m, f := queueModel(t, qSession)
+	old := m.queueItems()[0]
+	m, _ = press(t, m, "E")
+	m, cmd := press(t, m, "enter") // unchanged
+	if cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "unchanged") {
+		t.Errorf("unchanged text runs nothing: %v %q", f.calls, m.statusText())
+	}
+	m, _ = press(t, m, "E")
+	for range []rune(old) {
+		m, _ = press(t, m, "backspace")
+	}
+	m, cmd = press(t, m, "enter")
+	if cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "nothing to edit") {
+		t.Errorf("an empty line runs nothing: %v %q", f.calls, m.statusText())
+	}
+	m, _ = press(t, m, "E")
+	m = typed(t, m, "zzz")
+	m, cmd = press(t, m, "esc")
+	if m.prompt != nil || cmd != nil || len(f.calls) != 0 {
+		t.Errorf("esc cancels: %+v %v", m.prompt, f.calls)
+	}
+	// the inbox can be edited too, and an empty queue has nothing to edit
+	mi, fi := queueModel(t, qInbox)
+	mi, _ = press(t, mi, "E")
+	mi = typed(t, mi, "x")
+	mi, cmd = press(t, mi, "enter")
+	mi = feed(t, mi, cmd)
+	if len(fi.calls) != 1 || !strings.HasPrefix(fi.calls[0], "/x/sitrep edit inbox 1 ") || !strings.Contains(fi.calls[0], " --item ") {
+		t.Errorf("inbox: %v", fi.calls)
+	}
+	me, fe := queueModel(t, qSession)
+	me.snap.Sessions[0].Queue = Queue{}
+	me, cmd = press(t, me, "E")
+	if me.prompt != nil || cmd != nil || len(fe.calls) != 0 || !strings.Contains(me.statusText(), "empty") {
+		t.Errorf("an empty queue: %+v %q", me.prompt, me.statusText())
 	}
 }

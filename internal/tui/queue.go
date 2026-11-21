@@ -38,11 +38,14 @@ type askState struct {
 	target string // for take: the session that gets it
 }
 
-// promptState is a line being typed for `a` (add) or `P` (pin).
+// promptState is a line being typed for `a` (add), `P` (pin), `E` (edit) or `n` (name). An edit also holds the item it is for and the text
+// that item had, which the command checks, so that a queue that changed meanwhile is never edited at the wrong place.
 type promptState struct {
 	verb string
 	qid  string
 	text string
+	n    int    // the item, 1-based
+	old  string // its text when the edit began
 }
 
 // addText adds typed or pasted text to cur: line breaks and tabs become spaces, control and
@@ -221,6 +224,8 @@ func (m model) queueKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "a":
 		return m.promptOpen("add")
+	case "E":
+		return m.editOpen()
 	case "P":
 		if m.qKind == qSession {
 			return m.promptOpen("pin")
@@ -337,6 +342,21 @@ func (m model) promptOpen(verb string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// editOpen starts editing the text of the selected item, which the line starts with.
+func (m model) editOpen() (tea.Model, tea.Cmd) {
+	items, _, qid, _ := m.queueInfo()
+	if why := m.editCheck(qid, ""); why != "" {
+		return m.refuse("edit", why)
+	}
+	if len(items) == 0 {
+		return m.refuse("edit", "the queue is empty")
+	}
+	i := m.queueIndex()
+	m.msg = ""
+	m.prompt = &promptState{verb: "edit", qid: qid, n: i + 1, old: items[i], text: items[i]}
+	return m, nil
+}
+
 // aliasOpen starts typing a name for the selected session, with the name it has already. It works on an ended session too: the name is
 // a file, and nothing about the session needs to be alive.
 func (m model) aliasOpen() (tea.Model, tea.Cmd) {
@@ -427,9 +447,14 @@ func (m model) promptSubmit() (tea.Model, tea.Cmd) {
 	switch {
 	case text == "":
 		return m.refuse(p.verb, "nothing to "+p.verb)
+	case p.verb == "edit" && text == p.old:
+		return m.refuse("edit", "unchanged")
 	}
 	if why := m.editCheck(p.qid, ""); why != "" {
 		return m.refuse(p.verb, why)
+	}
+	if p.verb == "edit" {
+		return m.queueRun("edit", p.n-1, "edit", p.qid, fmt.Sprint(p.n), text, "--item", p.old)
 	}
 	return m.queueRun(p.verb, -1, p.verb, p.qid, text)
 }
@@ -554,7 +579,7 @@ func queueScreen(v queueView, width, height int, th Theme) string {
 	for height > 0 && len(view) < body {
 		view = append(view, "")
 	}
-	hint := " esc back  up/down  a add  x remove  K J T move  "
+	hint := " esc back  up/down  a add  E edit  x remove  K J T move  "
 	switch {
 	case v.ReadOnly:
 		hint = " esc back  up/down  (read-only) "

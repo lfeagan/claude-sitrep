@@ -528,7 +528,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  s                              cycle the Top sort: activity, state, dir, queue",
 		"  /                              filter the sessions; enter keeps it, esc clears it",
 		"  i, e                           the inbox, or the selected session's queue",
-		"  a x K J T                      add, remove (asks), up, down, top",
+		"  a E x K J T                    add, edit, remove (asks), up, down, top",
 		"  t, P, U                        take an inbox item; pin or unpin the Objective",
 		"  n                              name the selected session (an alias); empty clears it",
 		"  z                              snooze it until it changes; z again ends it",
@@ -553,7 +553,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 	if readOnly { // the keys that change state are off, so they are not listed
 		kept := lines[:0]
 		for _, l := range lines {
-			if !strings.HasPrefix(l, "  p ") && !strings.HasPrefix(l, "  z ") && !strings.HasPrefix(l, "  t, ") && !strings.HasPrefix(l, "  a x ") && !strings.HasPrefix(l, "  n ") {
+			if !strings.HasPrefix(l, "  p ") && !strings.HasPrefix(l, "  z ") && !strings.HasPrefix(l, "  t, ") && !strings.HasPrefix(l, "  a E x ") && !strings.HasPrefix(l, "  n ") {
 				kept = append(kept, l)
 			}
 		}
