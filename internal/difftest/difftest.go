@@ -72,8 +72,12 @@ func Oracle(t testing.TB) Runner {
 	script := filepath.Join(dir, "bin", "sitrep")
 	return func(t testing.TB, home string, args ...string) Result {
 		t.Helper()
-		env, rest := splitEnv(args)
-		return run(t, home, env, exec.Command("bash", append([]string{script}, rest...)...))
+		env, stdin, rest := split(args)
+		cmd := exec.Command("bash", append([]string{script}, rest...)...)
+		if len(rest) == 1 && rest[0] == "hook" { // the hook was its own script
+			cmd = exec.Command("bash", filepath.Join(dir, "hooks", "sitrep-hook.sh"))
+		}
+		return run(t, home, env, stdin, cmd)
 	}
 }
 
@@ -101,26 +105,38 @@ func BuildInto(dir string) (Runner, error) {
 	}
 	return func(t testing.TB, home string, args ...string) Result {
 		t.Helper()
-		env, rest := splitEnv(args)
-		return run(t, home, env, exec.Command(bin, rest...))
+		env, stdin, rest := split(args)
+		return run(t, home, env, stdin, exec.Command(bin, rest...))
 	}, nil
 }
 
-// splitEnv takes leading arguments of the form env:NAME=value off a command line; they become environment variables of the run.
-func splitEnv(args []string) (env, rest []string) {
-	for len(args) > 0 && strings.HasPrefix(args[0], "env:") {
-		env = append(env, strings.TrimPrefix(args[0], "env:"))
+// split takes the leading arguments that are not part of the command line off: env:NAME=value becomes an environment variable of the run, and
+// stdin:text becomes its standard input.
+func split(args []string) (env []string, stdin *string, rest []string) {
+	for len(args) > 0 {
+		switch {
+		case strings.HasPrefix(args[0], "env:"):
+			env = append(env, strings.TrimPrefix(args[0], "env:"))
+		case strings.HasPrefix(args[0], "stdin:"):
+			in := strings.TrimPrefix(args[0], "stdin:")
+			stdin = &in
+		default:
+			return env, stdin, args
+		}
 		args = args[1:]
 	}
-	return env, args
+	return env, stdin, args
 }
 
-func run(t testing.TB, home string, extra []string, cmd *exec.Cmd) Result {
+func run(t testing.TB, home string, extra []string, stdin *string, cmd *exec.Cmd) Result {
 	t.Helper()
 	cmd.Env = []string{"HOME=" + home, "PATH=" + os.Getenv("PATH"), "LANG=" + os.Getenv("LANG"), "LC_ALL=" + os.Getenv("LC_ALL"), "TZ=UTC", "NO_COLOR=1", "TMPDIR=" + os.TempDir()}
 	cmd.Env = append(cmd.Env, extra...)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
+	if stdin != nil {
+		cmd.Stdin = strings.NewReader(*stdin)
+	}
 	err := cmd.Run()
 	code := 0
 	var ee *exec.ExitError

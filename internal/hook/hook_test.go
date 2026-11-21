@@ -1,0 +1,471 @@
+package hook
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"syscall"
+	"testing"
+	"time"
+
+	"github.com/lfeagan/claude-sitrep/internal/clock"
+	"github.com/lfeagan/claude-sitrep/internal/runner"
+	"github.com/lfeagan/claude-sitrep/internal/state"
+)
+
+var t0 = time.Unix(1_800_000_000, 0)
+
+type rig struct {
+	t      *testing.T
+	home   string
+	cfg    string
+	h      Hook
+	out    *bytes.Buffer
+	spawns [][]string
+	env    map[string]string
+}
+
+func newRig(t *testing.T) *rig {
+	t.Helper()
+	home := t.TempDir()
+	r := &rig{t: t, home: home, cfg: filepath.Join(home, ".claude"), out: &bytes.Buffer{}, env: map[string]string{}}
+	r.h = Hook{
+		Store: state.Open(home), ConfigDir: r.cfg, Clock: clock.Fixed(t0), Out: r.out,
+		Getenv: func(k string) string { return r.env[k] },
+		Spawn:  func(args ...string) error { r.spawns = append(r.spawns, args); return nil },
+	}
+	return r
+}
+
+func (r *rig) fire(json string) { r.t.Helper(); r.h.Run(strings.NewReader(json)) }
+
+func (r *rig) file(name string) string {
+	b, _ := os.ReadFile(filepath.Join(r.h.Store.Dir, name))
+	return string(b)
+}
+
+func (r *rig) transcript(sid string, lines ...string) string {
+	dir := filepath.Join(r.cfg, "projects", "p")
+	os.MkdirAll(dir, 0o755)
+	p := filepath.Join(dir, sid+".jsonl")
+	os.WriteFile(p, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
+	return p
+}
+
+func TestRunNeverPanicsOrFails(t *testing.T) {
+	r := newRig(t)
+	for _, in := range []string{"", "{", "null", "[]", `{"session_id":7}`, `{"session_id":"../x"}`, `{"session_id":"inbox","hook_event_name":"UserPromptSubmit"}`,
+		`{"session_id":"abc","hook_event_name":"UserPromptSubmit","prompt":7}`} {
+		r.fire(in)
+	}
+	if r.out.Len() != 0 {
+		t.Errorf("output %q", r.out)
+	}
+	r.h.Spawn = func(...string) error { panic("boom") }
+	tp := r.transcript("abc", `{"type":"user","message":{"content":"x"}}`)
+	r.fire(`{"session_id":"abc","hook_event_name":"Stop","transcript_path":"` + tp + `"}`) // must not panic out
+}
+
+func TestRunWithAnUnwritableFolder(t *testing.T) {
+	r := newRig(t)
+	r.h.Store = state.Store{Dir: "/proc/nonexistent/sitrep"}
+	r.fire(`{"session_id":"abc","hook_event_name":"UserPromptSubmit","prompt":"x"}`)
+	if r.out.Len() != 0 {
+		t.Errorf("output %q", r.out)
+	}
+}
+
+func TestStopSchedulesOneDeferredRun(t *testing.T) {
+	r := newRig(t)
+	tp := r.transcript("sess1", `{"type":"user","message":{"content":"x"}}`)
+	stop := `{"session_id":"sess1","hook_event_name":"Stop","transcript_path":"` + tp + `"}`
+	r.fire(stop)
+	if len(r.spawns) != 1 || r.spawns[0][1] != "--since" {
+		t.Fatalf("first stop: %v", r.spawns)
+	}
+	// a stamp from 10 seconds ago: the next Stop is deferred to the end of the window
+	stamp := r.h.Store.Hidden("sess1", "stamp")
+	at := t0.Add(-10 * time.Second)
+	os.Chtimes(stamp, at, at)
+	r.fire(stop)
+	if len(r.spawns) != 2 || strings.Join(r.spawns[1][:3], " ") != "hook-summarize --wait 35" || r.spawns[1][3] != "--nonce" {
+		t.Fatalf("second stop: %v", r.spawns)
+	}
+	// while that is pending, a third schedules nothing
+	r.fire(stop)
+	if len(r.spawns) != 2 {
+		t.Errorf("third stop: %v", r.spawns)
+	}
+	// a pending file whose time passed long ago belongs to a child that died, and does not block the next Stop
+	pend := r.h.Store.Hidden("sess1", "pending")
+	os.WriteFile(pend, []byte(strconv.FormatInt(t0.Unix()-100, 10)+" deadbeef\n"), 0o600)
+	r.fire(stop)
+	if len(r.spawns) != 3 {
+		t.Errorf("a stale pending blocked: %v", r.spawns)
+	}
+	if _, nonce, ok := ReadPending(pend); !ok || nonce == "deadbeef" || !strings.Contains(strings.Join(r.spawns[2], " "), nonce) {
+		t.Errorf("the new pending file %q does not name the new child: %v", r.file(".sess1.pending"), r.spawns[2])
+	}
+	// an old version's file has no time in it: it counts as pending while it is young
+	os.WriteFile(pend, nil, 0o600)
+	os.Chtimes(pend, t0, t0)
+	r.fire(stop)
+	if len(r.spawns) != 3 {
+		t.Errorf("a young legacy pending file did not block: %v", r.spawns)
+	}
+}
+
+func TestStopWithoutAUsableTranscriptOnlySetsTheState(t *testing.T) {
+	r := newRig(t)
+	r.fire(`{"session_id":"sess2","hook_event_name":"Stop","transcript_path":"/etc/passwd"}`)
+	if len(r.spawns) != 0 || strings.TrimSpace(r.file(".sess2.state")) != "waiting" {
+		t.Errorf("spawns %v, state %q", r.spawns, r.file(".sess2.state"))
+	}
+}
+
+func TestDebounceSettingFromTheEnvironment(t *testing.T) {
+	r := newRig(t)
+	r.env["SITREP_DEBOUNCE"] = "100"
+	tp := r.transcript("sess3", `{"type":"user","message":{"content":"x"}}`)
+	stop := `{"session_id":"sess3","hook_event_name":"Stop","transcript_path":"` + tp + `"}`
+	r.fire(stop)
+	stamp := r.h.Store.Hidden("sess3", "stamp")
+	at := t0.Add(-60 * time.Second)
+	os.Chtimes(stamp, at, at)
+	r.fire(stop)
+	if len(r.spawns) != 2 || r.spawns[1][2] != "40" {
+		t.Errorf("%v", r.spawns)
+	}
+}
+
+func TestSessionStartSeedsAndSummarizes(t *testing.T) {
+	r := newRig(t)
+	tp := r.transcript("sess4", `{"type":"user","message":{"content":"<command-name>x</command-name>"}}`, `{"type":"user","message":{"content":"the real task"}}`)
+	r.fire(`{"session_id":"sess4","hook_event_name":"SessionStart","source":"resume","transcript_path":"` + tp + `"}`)
+	if got := r.file("sess4.txt"); got != "Objective: the real task\nProgress:  -\nNow:       (resumed -- summarizing)\n" {
+		t.Errorf("notes %q", got)
+	}
+	if len(r.spawns) != 1 {
+		t.Errorf("spawns %v", r.spawns)
+	}
+	if strings.TrimSpace(r.file(".sess4.state")) != "waiting" {
+		t.Error("a resumed session is waiting")
+	}
+}
+
+func TestSessionStartAfterACompactionLeavesTheState(t *testing.T) {
+	r := newRig(t)
+	os.MkdirAll(r.h.Store.Dir, 0o700)
+	os.WriteFile(filepath.Join(r.h.Store.Dir, ".sess5.state"), []byte("working\n"), 0o600)
+	r.fire(`{"session_id":"sess5","hook_event_name":"SessionStart","source":"compact"}`)
+	if strings.TrimSpace(r.file(".sess5.state")) != "working" {
+		t.Errorf("state %q", r.file(".sess5.state"))
+	}
+}
+
+func TestAPipeAsTheTranscriptIsNotRead(t *testing.T) {
+	r := newRig(t)
+	dir := filepath.Join(r.cfg, "projects", "p")
+	os.MkdirAll(dir, 0o755)
+	fifo := filepath.Join(dir, "sess6.jsonl")
+	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
+		t.Skip("no mkfifo")
+	}
+	done := make(chan struct{})
+	go func() {
+		r.fire(`{"session_id":"sess6","hook_event_name":"UserPromptSubmit","prompt":"hello","transcript_path":"` + fifo + `"}`)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the hook hung on a pipe")
+	}
+	if !strings.Contains(r.file("sess6.txt"), "Objective: hello") {
+		t.Errorf("notes %q", r.file("sess6.txt"))
+	}
+}
+
+func TestAHugePromptIsBoundedAndCut(t *testing.T) {
+	r := newRig(t)
+	r.fire(`{"session_id":"sess7","hook_event_name":"UserPromptSubmit","prompt":"` + strings.Repeat("x", 400<<10) + `"}`)
+	if got := r.file("sess7.txt"); !strings.HasPrefix(got, "Objective: ") && got != "" {
+		t.Errorf("notes %q", got[:40])
+	}
+}
+
+type summaryRig struct {
+	*rig
+	z    Summarizer
+	fake *runner.Fake
+	cmd  *runner.Cmd
+}
+
+type recordingRunner struct {
+	out []byte
+	err error
+	got []runner.Cmd
+	in  []string
+	run func()
+}
+
+func (r *recordingRunner) Run(_ context.Context, c runner.Cmd) ([]byte, error) {
+	r.got = append(r.got, c)
+	if c.Stdin != nil {
+		var b bytes.Buffer
+		b.ReadFrom(c.Stdin)
+		r.in = append(r.in, b.String())
+	}
+	if r.run != nil {
+		r.run()
+	}
+	return r.out, r.err
+}
+
+func newSummary(t *testing.T, out string) (*rig, Summarizer, *recordingRunner, string) {
+	r := newRig(t)
+	rr := &recordingRunner{out: []byte(out)}
+	z := Summarizer{Hook: r.h, Run: rr, Sleep: func(time.Duration) {}, Env: []string{"A=1"}}
+	tp := r.transcript("sess8", `{"type":"user","message":{"content":"build it"}}`)
+	os.MkdirAll(r.h.Store.Dir, 0o700)
+	os.WriteFile(filepath.Join(r.h.Store.Dir, "sess8.txt"), []byte("Objective: old goal\nProgress:  p\nNow:       n\n"), 0o600)
+	os.WriteFile(filepath.Join(r.h.Store.Dir, ".sess8.count"), []byte("3\n"), 0o600)
+	return r, z, rr, tp
+}
+
+func TestSummarizerWritesTheAnswer(t *testing.T) {
+	r, z, rr, tp := newSummary(t, "Objective: new goal\nProgress: did it\nNow: waiting\n")
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+	if got := r.file("sess8.txt"); got != "Objective: new goal\nProgress:  did it\nNow:       waiting\n" {
+		t.Errorf("notes %q", got)
+	}
+	c := rr.got[0]
+	if c.Name != "claude" || c.Dir == "" || c.Dir == r.home || !contains(c.Env, "SITREP_SUMMARIZING=1") || !contains(c.Env, "A=1") {
+		t.Errorf("command %+v", c)
+	}
+	if !strings.Contains(rr.in[0], "Objective so far: old goal") || !strings.Contains(rr.in[0], "user: build it") {
+		t.Errorf("prompt %q", rr.in[0])
+	}
+	if _, err := os.Stat(c.Dir); err == nil {
+		t.Error("the temporary folder was not removed")
+	}
+}
+
+func contains(l []string, s string) bool {
+	for _, x := range l {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+func TestSummarizerDropsAStaleSummary(t *testing.T) {
+	r, z, _, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "2"}) // the count is 3 now
+	if got := r.file("sess8.txt"); !strings.Contains(got, "old goal") || strings.Contains(got, "p2") {
+		t.Errorf("a stale summary was written: %q", got)
+	}
+}
+
+func TestSummarizerKeepsAPinnedObjectiveAndNeedsAllFields(t *testing.T) {
+	r, z, _, tp := newSummary(t, "Objective: ignored\nProgress: p2\nNow: n2\n")
+	os.WriteFile(r.h.Store.Hidden("sess8", "pinned"), nil, 0o600)
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+	if got := r.file("sess8.txt"); got != "Objective: old goal\nProgress:  p2\nNow:       n2\n" {
+		t.Errorf("notes %q", got)
+	}
+	for _, bad := range []string{"", "Objective: o\nProgress: only\n", "Objective: o\nNow: only\n", "garbage"} {
+		r, z, _, tp := newSummary(t, bad)
+		z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+		if !strings.Contains(r.file("sess8.txt"), "Progress:  p\n") {
+			t.Errorf("%q changed the notes: %q", bad, r.file("sess8.txt"))
+		}
+	}
+}
+
+func TestSummarizerWithAFailingClaude(t *testing.T) {
+	r, z, rr, tp := newSummary(t, "")
+	rr.err = errors.New("not logged in")
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+	if !strings.Contains(r.file("sess8.txt"), "old goal") {
+		t.Errorf("notes %q", r.file("sess8.txt"))
+	}
+	// a nonzero exit that still printed an answer is used, as the bash did
+	r, z, rr, tp = newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	rr.err = errors.New("exit status 1")
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+	if !strings.Contains(r.file("sess8.txt"), "p2") {
+		t.Errorf("notes %q", r.file("sess8.txt"))
+	}
+}
+
+func TestSummarizerCutsAndCleansWhatClaudeSays(t *testing.T) {
+	r, z, _, tp := newSummary(t, "Objective: "+strings.Repeat("o", 150)+"\nProgress: p\x1b[31m\u202e"+strings.Repeat("p", 200)+"\nNow: "+strings.Repeat("n", 200)+"\n")
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+	got := r.file("sess8.txt")
+	lines := strings.Split(strings.TrimSpace(got), "\n")
+	if len(lines[0]) != len("Objective: ")+100 || len(lines[1]) != len("Progress:  ")+140 || len(lines[2]) != len("Now:       ")+140 || strings.ContainsAny(got, "\x1b\u202e") {
+		t.Errorf("%q", got)
+	}
+}
+
+func TestDeferredRunSleepsThenClearsPendingAndStamps(t *testing.T) {
+	r, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	os.WriteFile(r.h.Store.Hidden("sess8", "pending"), []byte("1\n"), 0o600)
+	var slept time.Duration
+	z.Sleep = func(d time.Duration) {
+		slept = d
+		if _, err := os.Stat(r.h.Store.Hidden("sess8", "pending")); err != nil {
+			t.Error("pending went away before the sleep ended")
+		}
+	}
+	z.Do(context.Background(), "sess8", tp, Opts{Wait: 30})
+	if slept != 30*time.Second || len(rr.got) != 1 {
+		t.Errorf("slept %v, runs %d", slept, len(rr.got))
+	}
+	if _, err := os.Stat(r.h.Store.Hidden("sess8", "pending")); !os.IsNotExist(err) {
+		t.Error("pending is still there")
+	}
+	if _, err := os.Stat(r.h.Store.Hidden("sess8", "stamp")); err != nil {
+		t.Error("no stamp")
+	}
+	// the deferred run reads the count after the wait, so it is fresh whatever it was at the Stop
+	if !strings.Contains(r.file("sess8.txt"), "p2") {
+		t.Errorf("notes %q", r.file("sess8.txt"))
+	}
+}
+
+func TestSummarizerRefusesAnUnsafeTranscriptOrId(t *testing.T) {
+	_, z, rr, _ := newSummary(t, "Objective: o\nProgress: p\nNow: n\n")
+	z.Do(context.Background(), "sess8", "/etc/passwd", Opts{Since: "3"})
+	z.Do(context.Background(), "../x", filepath.Join(z.ConfigDir, "projects", "p", "x.jsonl"), Opts{})
+	if len(rr.got) != 0 {
+		t.Errorf("ran %d times", len(rr.got))
+	}
+}
+
+func TestDebounceSettingEdgeCases(t *testing.T) {
+	for setting, c := range map[string]struct {
+		age    int64 // seconds since the stamp; the stamp is in the past unless negative
+		defer_ bool
+	}{
+		"":      {10, true},  // unset: 45 seconds
+		"45":    {44, true},  // ts - last < window
+		"45 ":   {10, false}, // not a number: the debounce is off
+		"abc":   {10, false}, // likewise
+		"0":     {0, false},  // never defer
+		"-5":    {0, false},  //
+		"100":   {99, true},
+		"100 x": {99, false},
+	} {
+		r := newRig(t)
+		if setting != "" {
+			r.env["SITREP_DEBOUNCE"] = setting
+		}
+		tp := r.transcript("sess9", `{"type":"user","message":{"content":"x"}}`)
+		stop := `{"session_id":"sess9","hook_event_name":"Stop","transcript_path":"` + tp + `"}`
+		r.fire(stop)
+		at := t0.Add(-time.Duration(c.age) * time.Second)
+		os.Chtimes(r.h.Store.Hidden("sess9", "stamp"), at, at)
+		r.spawns = nil
+		r.fire(stop)
+		deferred := len(r.spawns) == 1 && r.spawns[0][1] == "--wait"
+		if deferred != c.defer_ {
+			t.Errorf("SITREP_DEBOUNCE=%q, stamp %ds old: deferred %v, want %v (%v)", setting, c.age, deferred, c.defer_, r.spawns)
+		}
+	}
+}
+
+func TestAStampFromTheFutureDoesNotDeferForever(t *testing.T) {
+	r := newRig(t)
+	tp := r.transcript("sess9", `{"type":"user","message":{"content":"x"}}`)
+	stop := `{"session_id":"sess9","hook_event_name":"Stop","transcript_path":"` + tp + `"}`
+	r.fire(stop)
+	future := t0.Add(48 * time.Hour)
+	os.Chtimes(r.h.Store.Hidden("sess9", "stamp"), future, future)
+	r.spawns = nil
+	r.fire(stop)
+	if len(r.spawns) != 1 || r.spawns[0][1] != "--since" {
+		t.Errorf("%v", r.spawns)
+	}
+}
+
+func TestTwoStopsThatFindAStalePendingFileCreateOneDeferredRun(t *testing.T) {
+	r := newRig(t)
+	tp := r.transcript("sess9", `{"type":"user","message":{"content":"x"}}`)
+	stop := `{"session_id":"sess9","hook_event_name":"Stop","transcript_path":"` + tp + `"}`
+	r.fire(stop)
+	os.Chtimes(r.h.Store.Hidden("sess9", "stamp"), t0.Add(-5*time.Second), t0.Add(-5*time.Second))
+	os.WriteFile(r.h.Store.Hidden("sess9", "pending"), []byte(strconv.FormatInt(t0.Unix()-500, 10)+" old\n"), 0o600)
+	r.spawns = nil
+	done := make(chan struct{})
+	var mu sync.Mutex
+	r.h.Spawn = func(args ...string) error { mu.Lock(); r.spawns = append(r.spawns, args); mu.Unlock(); return nil }
+	for i := 0; i < 8; i++ {
+		go func() { r.h.Run(strings.NewReader(stop)); done <- struct{}{} }()
+	}
+	for i := 0; i < 8; i++ {
+		<-done
+	}
+	if len(r.spawns) != 1 {
+		t.Errorf("%d deferred runs were started", len(r.spawns))
+	}
+}
+
+func TestAHugeEventAndTrailingGarbage(t *testing.T) {
+	r := newRig(t)
+	r.fire(`{"session_id":"sess10","hook_event_name":"UserPromptSubmit","prompt":"` + strings.Repeat("x", 2<<20) + `"}`)
+	if !strings.Contains(r.file("sess10.txt"), "Objective: ") || r.file(".sess10.count") != "1\n" {
+		t.Errorf("a 2 MB prompt was not handled: %q", r.file(".sess10.count"))
+	}
+	r.fire(`{"session_id":"sess11","hook_event_name":"UserPromptSubmit","prompt":"hi"} trailing garbage`)
+	if !strings.Contains(r.file("sess11.txt"), "Objective: hi") {
+		t.Errorf("trailing garbage after the event stopped it: %q", r.file("sess11.txt"))
+	}
+	r.fire("{\"session_id\":\"sess12\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"p\",\"transcript_path\":\"/x\\n\"}")
+	if r.file("sess12.txt") == "" {
+		t.Error("an unusable transcript path stopped the prompt")
+	}
+}
+
+func TestSummarizerStopsWhenAnotherRunOwnsThePendingFile(t *testing.T) {
+	r, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	os.WriteFile(r.h.Store.Hidden("sess8", "pending"), []byte(strconv.FormatInt(t0.Unix(), 10)+" theirs\n"), 0o600)
+	z.Do(context.Background(), "sess8", tp, Opts{Wait: 1, Nonce: "mine"})
+	if len(rr.got) != 0 {
+		t.Error("a run that lost the pending file still summarized")
+	}
+	if _, nonce, ok := ReadPending(r.h.Store.Hidden("sess8", "pending")); !ok || nonce != "theirs" {
+		t.Error("the other run's pending file was removed")
+	}
+	os.WriteFile(r.h.Store.Hidden("sess8", "pending"), []byte(strconv.FormatInt(t0.Unix(), 10)+" mine\n"), 0o600)
+	z.Do(context.Background(), "sess8", tp, Opts{Wait: 1, Nonce: "mine"})
+	if len(rr.got) != 1 {
+		t.Error("the owner did not summarize")
+	}
+}
+
+func TestSummarizerDropsAnAnswerThatArrivesAfterTheDeadline(t *testing.T) {
+	r, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	ctx, cancel := context.WithCancel(context.Background())
+	rr.run = cancel // the deadline passes while claude runs
+	z.Do(ctx, "sess8", tp, Opts{Since: "3"})
+	if strings.Contains(r.file("sess8.txt"), "p2") {
+		t.Error("an answer after the deadline was used")
+	}
+}
+
+func TestSummarizerSkipsATranscriptThatWentAway(t *testing.T) {
+	_, z, rr, tp := newSummary(t, "Objective: o\nProgress: p\nNow: n\n")
+	os.Remove(tp)
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+	if len(rr.got) != 0 {
+		t.Error("claude was asked to summarize nothing")
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -31,6 +32,8 @@ type Exec struct{}
 func (Exec) Run(ctx context.Context, c Cmd) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, c.Name, c.Args...)
 	cmd.Dir, cmd.Env, cmd.Stdin = c.Dir, c.Env, c.Stdin
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} // its own group, so the deadline can end the whole tree
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 	cmd.WaitDelay = 2 * time.Second // a grandchild holding the pipe must not outlive the deadline
 	return cmd.Output()
 }

@@ -121,7 +121,7 @@ func seedWorld(t testing.TB, home string, withRegistry bool) {
 	}
 	now := seedTime
 	ago := func(h float64) time.Duration { return time.Duration(h * float64(time.Hour)) }
-	hostile := "Objective: q\"uote back\\slash\ttab \x1b[31mred\x1b]0;x\x07 ‮bidi \xff\xfe bad\nProgress:  p\x01\x1fp\nNow:       " + strings.Repeat("n", 250) + "\n"
+	hostile := "Objective: q\"uote back\\slash\ttab \x1b[31mred\x1b]0;x\x07 \u202ebidi \xff\xfe bad\nProgress:  p\x01\x1fp\nNow:       " + strings.Repeat("n", 250) + "\n"
 	fx := []fixture{
 		{id: "run00001", word: "working", ago: ago(5.33), notes: "Objective: build it\nProgress:  half\nNow:       compiling\n", cwd: "/home/u/proj-one\n", queue: "first\nsecond item\n  third\n", live: "local", transAg: ago(2.2)},
 		{id: "wait0002", word: "waiting", ago: ago(7.4), notes: "Objective: wait\nProgress:  p\nNow:       n\n", cwd: "/work/two/\n", queue: "x\n", live: "local"},

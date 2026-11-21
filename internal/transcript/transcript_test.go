@@ -114,7 +114,7 @@ func TestRecent(t *testing.T) {
 		lines = append(lines, msg("user", "q"+strings.Repeat("a", i)))
 	}
 	lines = append(lines, msg("assistant", "line one\nline two "+strings.Repeat("z", 700)), `{"type":"system","message":{"content":"skip"}}`, "{bad", msg("user", []map[string]string{{"type": "text", "text": "tail"}}))
-	got := Recent(write(t, lines...))
+	got, _ := Recent(write(t, lines...))
 	if strings.Contains(got, "user: qaaaaaaaaaaaaaaaaaaaaaaaa\n") && strings.Contains(got, "user: q\n") {
 		t.Error("lines before the last 40 were included")
 	}
@@ -141,7 +141,7 @@ func TestRecentTailsAt6000BytesOnACharacterBoundary(t *testing.T) {
 	for i := 0; i < 30; i++ {
 		lines = append(lines, msg("user", strings.Repeat("\u4e16", 300)))
 	}
-	got := Recent(write(t, lines...))
+	got, _ := Recent(write(t, lines...))
 	if len(got) > 6000 || len(got) < 5990 {
 		t.Errorf("%d bytes", len(got))
 	}

@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	maxLine = 16 << 20 // the longest line read
-	maxScan = 64 << 20 // the most read looking for the first prompt
+	maxLine = 16 << 20 // the longest line read; a longer one is skipped
+	maxScan = 16 << 20 // the most read looking for the first prompt, so a prompt never waits on a huge transcript
 	tailMax = 8 << 20  // how far back from the end the recent lines are looked for
 )
 
@@ -80,41 +80,65 @@ func FirstPrompt(path string) string {
 		return ""
 	}
 	defer f.Close()
-	sc := bufio.NewScanner(io.LimitReader(f, maxScan))
-	sc.Buffer(make([]byte, 0, 64<<10), maxLine)
-	for sc.Scan() {
-		var l line
-		if json.Unmarshal(sc.Bytes(), &l) != nil || l.Type != "user" {
-			continue
-		}
-		t := l.text()
-		if head := strings.TrimLeftFunc(t, unicode.IsSpace); strings.HasPrefix(head, "<") || strings.HasPrefix(head, "&lt;") {
-			continue
-		}
-		for _, ln := range strings.Split(t, "\n") {
-			if ln = strings.TrimLeftFunc(ln, unicode.IsSpace); ln != "" {
-				return ln
+	r := bufio.NewReaderSize(io.LimitReader(f, maxScan), 256<<10)
+	for {
+		raw, tooLong, err := readLine(r)
+		if len(raw) > 0 && !tooLong {
+			var l line
+			if json.Unmarshal(raw, &l) == nil && l.Type == "user" {
+				t := l.text()
+				head := strings.TrimLeftFunc(t, unicode.IsSpace)
+				if !strings.HasPrefix(head, "<") && !strings.HasPrefix(head, "&lt;") {
+					for _, ln := range strings.Split(t, "\n") {
+						if ln = strings.TrimLeftFunc(ln, unicode.IsSpace); ln != "" {
+							return ln
+						}
+					}
+				}
 			}
 		}
+		if err != nil {
+			return ""
+		}
 	}
-	return ""
+}
+
+// readLine reads one line. A line longer than maxLine is skipped to its end and reported as too long, so one huge entry (an image, a tool
+// result) cannot end the scan.
+func readLine(r *bufio.Reader) (line []byte, tooLong bool, err error) {
+	for {
+		part, isPrefix, err := r.ReadLine()
+		if err != nil {
+			return line, tooLong, err
+		}
+		if !tooLong {
+			if len(line)+len(part) > maxLine {
+				tooLong, line = true, nil
+			} else {
+				line = append(line, part...)
+			}
+		}
+		if !isPrefix {
+			return line, tooLong, nil
+		}
+	}
 }
 
 // Recent is the end of the conversation for the summarizer: the user and assistant text of the last 40 lines, "type: text" each, every
 // physical line cut to 600 characters, and the last 6000 bytes of that, on a character boundary.
-func Recent(path string) string {
+func Recent(path string) (string, bool) {
 	f, err := open(path)
 	if err != nil {
-		return ""
+		return "", false
 	}
 	defer f.Close()
 	fi, err := f.Stat()
 	if err != nil {
-		return ""
+		return "", false
 	}
 	start := max(0, fi.Size()-tailMax)
 	if _, err := f.Seek(start, io.SeekStart); err != nil {
-		return ""
+		return "", false
 	}
 	b, _ := io.ReadAll(io.LimitReader(f, tailMax))
 	if start > 0 { // the first line is cut in two
@@ -143,7 +167,7 @@ func Recent(path string) string {
 			s = s[1:]
 		}
 	}
-	return strings.TrimRight(s, "\n")
+	return strings.TrimRight(s, "\n"), true
 }
 
 func cutRunes(s string, n int) string {

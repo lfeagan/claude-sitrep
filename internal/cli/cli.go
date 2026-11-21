@@ -30,6 +30,7 @@ type Env struct {
 	Clock    clock.Clock
 	Runner   runner.Runner
 	TTY      func() (io.ReadCloser, error)    // the controlling terminal, for questions; nil or an error means there is none
+	Spawn    func(args ...string) error       // starts this program again, detached; the hook uses it for the summarizer
 	Alive    func(pid int) bool               // whether a process exists; nil means ask the system
 	TermSize func() (rows, cols int, ok bool) // the size of the terminal on standard output; nil or !ok means there is none
 }
@@ -37,7 +38,7 @@ type Env struct {
 // OSEnv is the real process environment.
 func OSEnv() Env {
 	home, _ := os.UserHomeDir()
-	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}, TTY: openTTY, TermSize: termSize}
+	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}, TTY: openTTY, TermSize: termSize, Spawn: spawnSelf}
 }
 
 func termSize() (int, int, bool) {
@@ -66,7 +67,7 @@ var commands map[string]command
 func init() {
 	commands = map[string]command{
 		"add": cmdAdd, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
-		"help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
+		"hook": cmdHook, "hook-summarize": cmdHookSummarize, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
 	}
 }
 
