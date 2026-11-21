@@ -8,7 +8,7 @@ We should let the state folder live anywhere, and let several machines share one
 
 ## Today
 
-`state.Open` names the state folder, always `~/.claude/sitrep`. It is not configurable. The layout (0.5.0) is a folder per session under `sessions/`, the inbox and `sitrep.conf` in the root, and one `.queue.lock` for all queue changes. Locks are `flock`, and every file is written to a temporary name and published by rename.
+`state.Open` names the default state folder, `~/.claude/sitrep`, and since 0.9.0 `SITREP_STATE_DIR` can move it (Step 1). The layout (0.5.0) is a folder per session under `sessions/`, the inbox and `sitrep.conf` in the root, and one `.queue.lock` for all queue changes. Locks are `flock`, and every file is written to a temporary name and published by rename.
 
 ## Goal
 
@@ -24,9 +24,23 @@ What we decided:
 - **A bad value does nothing, and never falls back.** A value that is not an absolute path (a relative path, `~/x`), or that is the home folder, Claude's own folder or a folder above them, is refused: a hook exits 0 and does nothing, the status line says what is wrong, and every other command fails. Falling back to the default folder would write the state of a demo into the real one.
 - **`setup` and `migrate` refuse** while it is set, and change nothing. They work on `~/.claude/sitrep`.
 
+### What we measured
+
+On 2026-11-21 we ran the 0.9.0 program with `SITREP_STATE_DIR` on a Synology share mounted over SMB, from a Mac on Wi-Fi. The numbers are medians, in milliseconds. A wired run is still to do, and should be faster.
+
+| | SMB over Wi-Fi | local disk |
+|---|---|---|
+| hook (several writes) | 550 | 3 |
+| status line | 13 | 3 |
+| `ls` | 41 | 3 |
+
+What worked: `add`, `ls` and the hook; `flock` between processes on the one Mac (40 parallel `add` commands lost nothing, and a held lock gave the bounded wait and then `busy`); and the write-then-rename. The mount reports every folder as `0700` and every file as `0700`, so modes are emulated, and `Ensure` had nothing to tighten. What did not work is the hook budget (30 ms): every prompt would wait about half a second. Locking between two machines is untested.
+
+So a state folder on a network mount is usable to read, and wrong for a live session to write. The next two steps are designed so that no hook ever writes to a shared folder.
+
 ## Step 2 -- a folder per machine
 
-Put every machine under its own subtree of the shared root, for example `hosts/<host>/sessions/<id>/`. Each file then has exactly one writer: the machine that owns it. A machine never writes another machine's files.
+Each machine keeps its own state in a local folder, as it does now, so a hook never waits on a network. A detached `publish` child, started by a hook at most once in a while and kept to a deadline and its own process group like `update-check` (invariant 9), copies what other machines need into its own subtree of the shared root, for example `hosts/<host>/sessions/<id>/`. Each file then has exactly one writer: the machine that owns it. A machine never writes another machine's files.
 
 Reading is the easy half. `sitrep ls` and `sitrep watch` read every host's subtree and show a HOST column. The snapshot (`internal/snapshot`) is the seam, so the dashboard and `ls --json` get the new field together. `ls --json` is a public contract at version 1, so the host field has to be added without breaking it.
 
@@ -39,7 +53,7 @@ Open questions:
 
 A single queue file with a lock cannot work across machines. Sync clients do not share `flock`, and two machines editing one file produce a conflicted copy or a lost write. Invariant 8 only holds on one machine.
 
-We propose a drop box. A sender never edits a queue. It writes one new file, with a unique name, into the owner's `drop/` folder. The owner merges those files into the real queue the next time it runs a hook or a command, under its own local lock, then removes them. No file has two writers, so nothing can conflict.
+We propose a drop box. A sender never edits a queue. It writes one new file, with a unique name, into the owner's `drop/` folder. The owner merges those files into the real queue, under its own local lock, then removes them. The owner does that in the same detached step that publishes, and not in the hook itself, since reading the shared folder costs a round trip. No file has two writers, so nothing can conflict.
 
 This changes how the queue is written, so it needs its own design pass before any code.
 
@@ -48,14 +62,14 @@ This changes how the queue is written, so it needs its own design pass before an
 - **Locks.** `flock` is local only. Covered by one writer per file and the drop box.
 - **Conflicts.** Clients resolve concurrent edits with copies like `queue (conflicted copy)`, or by last writer wins. Covered the same way.
 - **Atomic rename.** To another machine a rename can look like a delete and a create, so a reader may see a file missing or half written for a moment. Readers must treat a missing or unreadable file as "not there yet" and never as an error.
-- **Latency.** An update can take seconds or minutes to arrive. That is fine for a dashboard. It is the reason a remote view must never sit in a hook, whose budget is 30 ms. Hooks write only to the local folder.
+- **Latency.** An update can take seconds or minutes to arrive. That is fine for a dashboard. It is the reason a remote view must never sit in a hook, whose budget is 30 ms. Hooks write only to the local folder. The measurement above shows why: a hook over SMB took 550 ms.
 - **Modes.** Many sync clients ignore file modes, so the owner-only invariant cannot be checked or kept on the shared drive. We say so in `sitrep setup`, and the user decides.
 - **Trust.** Anyone who can write the shared folder can put text in your queue and in what the dashboard prints. Invariant 1 already covers printing: strip control and format characters from everything read, including another host's files. The drop box needs the same limits on size and count that a local queue has.
 
 ## Order of work
 
-1. The state folder path.
-2. Per-host subtrees and a read-only view across hosts.
+1. The state folder path (done, 0.9.0).
+2. A local state folder published to per-host subtrees, and a read-only view across hosts.
 3. The drop box, after a design of its own.
 
 Each step stands alone. We can stop after step 1 or step 2 and still have something worth shipping.
