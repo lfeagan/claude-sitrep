@@ -216,3 +216,22 @@ func TestSnoozedIsDrawnHollowAndWithoutPink(t *testing.T) {
 		t.Errorf("read-only hides z from the key list")
 	}
 }
+
+func TestACommandGetsTheIdNeverTheAlias(t *testing.T) {
+	m := loaded(t, tabWatch)
+	snap := loadFixture(t)
+	for i := range snap.Sessions {
+		snap.Sessions[i].Alias = fmt.Sprintf("name-%d", i)
+	}
+	next, _ := m.Update(snapMsg{snap: snap})
+	m = next.(model)
+	m.bin = "/x/sitrep"
+	f := &fake{answer: map[string]string{"/x/sitrep snooze": "ok\n"}}
+	m.run = f.run
+	id := m.selID
+	m, cmd := press(t, m, "z")
+	m = feed(t, m, cmd)
+	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep snooze "+id || strings.Contains(f.calls[0], "name-") {
+		t.Errorf("calls %v, want the id %q", f.calls, id)
+	}
+}

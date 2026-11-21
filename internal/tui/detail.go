@@ -101,7 +101,7 @@ func detailScreen(x Session, width, height, scroll int, th Theme) string {
 	scroll = min(max(scroll, 0), max(len(lines)-body, 0))
 	end := min(scroll+body, len(lines))
 	view := append([]string{}, lines[scroll:end]...)
-	title := th.Label.Render(ansi.Truncate(fmt.Sprintf(" %s  %s", x.Short, x.Dir), max(width, 1), "…"))
+	title := th.Label.Render(ansi.Truncate(fmt.Sprintf(" %s  %s", x.Label(), x.Dir), max(width, 1), "…"))
 	hint := " esc back  up/down session  pgup/pgdn scroll "
 	if len(lines) > body {
 		hint = fmt.Sprintf(" lines %d-%d of %d  esc back  up/down  space/b scroll ", scroll+1, end, len(lines))

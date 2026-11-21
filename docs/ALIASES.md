@@ -1,6 +1,6 @@
 # Session aliases, version 0.6.0
 
-Status: design, reviewed once. Changes from the review: the name of an ended session is never taken over, an id wins over an alias in `Resolve`, a name read from disk is validated before use, the Label is used in every message a person reads, and the status line keeps the Short beside the alias.
+Status: built. Designed and reviewed once. Changes from the review: the name of an ended session is never taken over, an id wins over an alias in `Resolve`, a name read from disk is validated before use, the Label is used in every message a person reads, and the status line keeps the Short beside the alias.
 
 ## Purpose
 
@@ -44,7 +44,7 @@ An id always beats an alias, so what the output shows for a session (`cafe9d…`
 3. The dashboard's titles, its detail view, the jump message, the queue move target, `X has ended`, and its filter (which matches the alias as well as the id) use the Label.
 4. The status line reads `Queue [id c5d0 sitrep]: …`: the Short first, as it is today, and the alias after it when there is one. Claude reads its own session from this line and from the scratchpad path, and a name that later moves would mislead it.
 5. `ls --json` keeps `id` and `short`, and gains `alias`, a string that is empty without one. A new field needs no new version of the document.
-6. The messages of the queue commands (`queued on sitrep`) and their errors use the Label, so a user who types aliases reads them back.
+6. The messages of the queue commands (`queued on sitrep`) use the Label, so a user who types aliases reads them back. The typed errors of the `queue` package (`queue changed; run 'sitrep ls c5d0'`) keep the Short, as they hold no store: the Short always works as an id.
 7. Completion offers aliases beside the shortest unique id prefixes, in the places where it offers ids (`alias` itself takes an id in position 0, no inbox, and the flag `--off`). `shortestPrefixes` stays on ids only.
 8. The `sitrep-queue` skill says that a session can be named by its alias.
 

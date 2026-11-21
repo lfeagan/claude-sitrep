@@ -20,7 +20,7 @@ To see this session's queue, find the id as above and run `sitrep ls <id>`. It p
 
 ## Commands
 
-- `sitrep ls <id>` shows one queue.
+- `sitrep ls <id>` shows one queue. An id can be the first characters of the session id or its alias, if the user gave it one (`sitrep alias <id> <name>`; `sitrep alias` lists the names). Prefer the id you read from the scratchpad, which never changes.
 - `sitrep add <id> <text>` appends an item.
 - `sitrep pin <id> <text>` pins the Objective.
 - `sitrep unpin <id>` lets the summarizer rewrite the Objective again.

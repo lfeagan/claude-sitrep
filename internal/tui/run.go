@@ -52,7 +52,7 @@ func FromSnapshot(s snapshot.Snapshot) Snapshot {
 		Inbox:    queueFrom(s.Inbox), Hidden: Hidden{Ended: s.Hidden.Ended, StrandedItems: s.Hidden.StrandedItems}}
 	for _, x := range s.Sessions {
 		out.Sessions = append(out.Sessions, Session{
-			ID: string(x.ID), Short: x.Short, Dir: x.Dir.String(), Cwd: x.Cwd.String(), Running: x.Running, State: x.State, StateLabel: x.StateLabel,
+			ID: string(x.ID), Short: x.Short, Alias: x.Alias, Dir: x.Dir.String(), Cwd: x.Cwd.String(), Running: x.Running, State: x.State, StateLabel: x.StateLabel,
 			Age: x.Age, StateChanged: x.StateChanged, Idle: x.Idle, NeedsInput: x.NeedsInput, Snoozed: x.Snoozed, QuietSecs: x.QuietSecs, PID: pidFrom(x.PID),
 			Pinned: x.Pinned, Highlight: x.Highlight, Objective: x.Objective.String(), Progress: x.Progress.String(), Now: x.Now.String(), Queue: queueFrom(x.Queue)})
 	}

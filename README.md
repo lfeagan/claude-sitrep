@@ -76,7 +76,8 @@ To take sitrep out, run `/sitrep:setup remove` (it restores the saved upstream s
 4. `sitrep rm <id> [n]` removes item `n` (default 1) and prints it.
 5. `sitrep move <from> <to> [n]` hands an item to another queue. With `--item <text>` it refuses unless item `n` is exactly that text, so a program that showed a list cannot move a different item. `rm`, `top` and `reorder` take the same `--item <text>`, which is checked against the item at `n` (or at `from`).
 6. `sitrep edit <id> <n> <text>` replaces the text of item `n` (a spelling fix, say) and keeps its place; it takes the same `--item <old text>` guard.
-7. `sitrep top <id> <n>` moves item `n` to the front, and `sitrep reorder <id> <from> <to>` moves an item to any position. The status line and `sitrep ls` show the first item as the next one.
+7. `sitrep alias <id> <name>` gives a session a name, to use wherever an id goes (`sitrep ls sitrep`), and `sitrep alias <id> --off` takes it away; with no arguments it lists the names. A name is 1 to 32 lowercase letters, digits and hyphens, starts with a letter, and is neither `inbox` nor the start of a session id. A name that another session holds is refused, so free it first. An id always wins over a name, and a name must match whole (`sit` does not find `sitrep`). `sitrep ls` and the dashboard show the name in the first column in place of the four characters, and the status line shows `Queue [id c5d0 sitrep]`.
+8. `sitrep top <id> <n>` moves item `n` to the front, and `sitrep reorder <id> <from> <to>` moves an item to any position. The status line and `sitrep ls` show the first item as the next one.
 
 Changes to a queue take a lock, so an `add` that lands while a `move` or a `reorder` rewrites the file waits for it, and nothing is lost.
 
@@ -184,7 +185,7 @@ Each session has these fields:
 
 | Field | Meaning |
 |---|---|
-| `id`, `short` | The full session id, and its first four characters. |
+| `id`, `short`, `alias` | The full session id, its first four characters, and the name the user gave the session (empty without one). Pass `id` to a command, never `alias`. |
 | `running` | False for an ended session, which appears only with `-a`. |
 | `state` | `working`, `waiting`, `ended`, `running` (alive in the registry although the hooks say ended), or `-` (no state recorded). |
 | `state_label`, `age` | The text the listing shows, such as `working 1m` or `idle? 25m`, and the seconds since the state changed. |
@@ -199,7 +200,7 @@ Each session has these fields:
 
 ## How It Works
 
-State lives in `~/.claude/sitrep/`: a folder `sessions/<session_id>/` per session, holding `notes`, `queue`, `cwd`, `state`, `count`, `stamp`, `pending`, `pinned` and `snooze`, then `inbox.queue` for the inbox, `bin/` and `sitrep.conf`. Version 0.4 and before kept every file in the root; `/sitrep:setup` moves them, and `sitrep migrate [--dry-run]` does the same by hand (it never overwrites, merges queues, and is safe to run again). The program is `~/.claude/sitrep/bin/sitrep`. The status line only reads files, so it renders instantly. The hooks run `sitrep hook`, which answers within milliseconds; the Haiku call runs afterwards in a detached child of the same program, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window. A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
+State lives in `~/.claude/sitrep/`: a folder `sessions/<session_id>/` per session, holding `notes`, `queue`, `cwd`, `state`, `count`, `stamp`, `pending`, `pinned`, `snooze` and `alias`, then `inbox.queue` for the inbox, `bin/` and `sitrep.conf`. Version 0.4 and before kept every file in the root; `/sitrep:setup` moves them, and `sitrep migrate [--dry-run]` does the same by hand (it never overwrites, merges queues, and is safe to run again). The program is `~/.claude/sitrep/bin/sitrep`. The status line only reads files, so it renders instantly. The hooks run `sitrep hook`, which answers within milliseconds; the Haiku call runs afterwards in a detached child of the same program, is capped at $0.05 per call, and sets `SITREP_SUMMARIZING` so its own hooks do not recurse. At most one runs per 45 second window. A `Stop` inside the window schedules one deferred run for its end, and a result that arrives after a newer prompt is dropped.
 
 ## Privacy And Safety
 

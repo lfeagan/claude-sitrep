@@ -26,6 +26,7 @@ The state folder `~/.claude/sitrep` holds eight or more files per session in one
       lock               was .<id>.lock
       pinned             was .<id>.pinned
       snooze             was .<id>.snooze
+      alias              a name for the session, one line (0.6.0; see ALIASES.md)
 ```
 
 1. Modes are unchanged: folders `0700`, files `0600`. The `sessions` folder and each session folder are `0700`.

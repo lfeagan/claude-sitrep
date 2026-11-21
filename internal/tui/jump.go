@@ -220,7 +220,7 @@ func jump(ctx context.Context, s Session, env jumpEnv, run runner) (string, erro
 	if ok, err := try([][]int{ancestors(int(*s.PID), parents)}); err != nil {
 		return "", err
 	} else if ok {
-		return "jumped to " + s.Short, nil
+		return "jumped to " + s.Label(), nil
 	}
 	// a background session has no terminal above it; the client attached to it does. This comes
 	// second, so that a look-alike `claude attach` process cannot get in the way of a real match.
@@ -229,7 +229,7 @@ func jump(ctx context.Context, s Session, env jumpEnv, run runner) (string, erro
 		if ok, err := try([][]int{ancestors(clients[0], parents)}); err != nil {
 			return "", err
 		} else if ok {
-			return "jumped to " + s.Short, nil
+			return "jumped to " + s.Label(), nil
 		}
 	case len(clients) > 1:
 		return "", errors.New("several terminals are attached to this session")

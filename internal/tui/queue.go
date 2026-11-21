@@ -173,7 +173,7 @@ func (m model) editCheck(qid, target string) string {
 		case x == nil:
 			return "the session is gone"
 		case !x.Running:
-			return x.Short + " has ended"
+			return x.Label() + " has ended"
 		case !idRe.MatchString(x.ID):
 			return "this session's id looks unusual, so it is left alone"
 		}
@@ -435,10 +435,10 @@ func (m model) queueView() queueView {
 	case v.Inbox:
 		v.Name = "Inbox"
 		if t := m.session(m.qTo); t != nil {
-			v.Target = t.Short + " " + t.Dir
+			v.Target = t.Label() + " " + t.Dir
 		}
 	case x != nil:
-		v.Name = "Queue " + x.Short + " " + x.Dir
+		v.Name = "Queue " + x.Label() + " " + x.Dir
 	default:
 		v.Name = "Queue (the session is gone)"
 	}
@@ -447,7 +447,7 @@ func (m model) queueView() queueView {
 		if m.ask.verb == "take" {
 			to := m.ask.target
 			if t := m.session(to); t != nil {
-				to = t.Short + " " + t.Dir
+				to = t.Label() + " " + t.Dir
 			}
 			v.Ask = fmt.Sprintf("move item %d to %s?", m.ask.n, to)
 		}

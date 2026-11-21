@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/lfeagan/claude-sitrep/internal/state"
 )
 
 // supportedVersion is the highest `sitrep ls --json` version this build understands.
@@ -45,9 +47,18 @@ type Hidden struct {
 	StrandedItems int `json:"stranded_items"`
 }
 
+// Label is the name a person is shown for a session: its alias, or the Short. Whatever is passed to a command is the ID, never this.
+func (x Session) Label() string {
+	if x.Alias != "" {
+		return x.Alias
+	}
+	return x.Short
+}
+
 type Session struct {
 	ID           string `json:"id"`
 	Short        string `json:"short"`
+	Alias        string `json:"alias"`
 	Dir          string `json:"dir"`
 	Cwd          string `json:"cwd"`
 	Running      bool   `json:"running"`
@@ -95,6 +106,9 @@ func (s *Snapshot) sanitize() {
 	for i := range s.Sessions {
 		x := &s.Sessions[i]
 		x.ID, x.Short, x.Dir, x.Cwd = clean(x.ID), clean(x.Short), clean(x.Dir), clean(x.Cwd)
+		if !state.ValidAlias(x.Alias) { // the document is untrusted: only a name the grammar allows is drawn
+			x.Alias = ""
+		}
 		x.StateLabel = clean(x.StateLabel)
 		x.Objective, x.Progress, x.Now = clean(x.Objective), clean(x.Progress), clean(x.Now)
 		switch x.State {

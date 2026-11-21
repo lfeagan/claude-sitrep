@@ -60,7 +60,7 @@ func matches(x Session, text string) bool {
 	if text == "" {
 		return true
 	}
-	for _, f := range []string{x.ID, x.Dir, x.StateLabel, x.Objective, x.Progress, x.Now} {
+	for _, f := range []string{x.ID, x.Alias, x.Dir, x.StateLabel, x.Objective, x.Progress, x.Now} {
 		if strings.Contains(strings.ToLower(f), text) {
 			return true
 		}
@@ -300,7 +300,7 @@ func watchBody(s Snapshot, o viewOpts) []string {
 		head = append(head, "Inbox: "+queueWord(s.Inbox.Count))
 		head = append(head, queueLines("", s.Inbox, o.Width, 2, 4, s.Settings.QueueItems)...)
 	}
-	dw, sw := 9, 5
+	dw, sw, iw := 9, 5, idWidth(s)
 	for _, x := range list {
 		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
@@ -309,7 +309,7 @@ func watchBody(s Snapshot, o viewOpts) []string {
 	}
 	var blocks [][]string
 	for _, x := range list {
-		row := gutter(x.ID, o) + fmt.Sprintf("%-4s  %s  %s  %s", x.Short, padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
+		row := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %s", idCell(x.Label(), iw), padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
 		block := []string{ansi.Truncate(row, o.Width, "…")}
 		block = append(block, field("Objective:", x.Objective, o.Width, 3)...)
 		block = append(block, field("Progress:", x.Progress, o.Width, 3)...)
@@ -440,8 +440,9 @@ func topBody(s Snapshot, o viewOpts) []string {
 	for _, x := range list {
 		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
-	dw = min(dw, max((o.Width-20)/3, 6)) // a narrow screen gets a narrow directory column
-	head = append(head, o.Theme.Label.Render(gutter("", o)+fmt.Sprintf("%-4s  %s  %s  %-5s  %s", "ID", padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW   sort: "+sortNames[o.Sort])))
+	iw := idWidth(s)
+	dw = min(dw, max((o.Width-16-iw)/3, 6)) // a narrow screen gets a narrow directory column
+	head = append(head, o.Theme.Label.Render(gutter("", o)+fmt.Sprintf("%s  %s  %s  %-5s  %s", idCell("ID", iw), padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", "NOW   sort: "+sortNames[o.Sort])))
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
 		head = append(head, "no session matches the filter")
 	}
@@ -451,7 +452,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 		if text == "" {
 			text = x.Objective
 		}
-		prefix := gutter(x.ID, o) + fmt.Sprintf("%-4s  %s  %s  %-5d  ", x.Short, padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count)
+		prefix := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %-5d  ", idCell(x.Label(), iw), padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count)
 		line := prefix + ansi.Truncate(text, max(o.Width-ansi.StringWidth(prefix), 1), "…")
 		blocks = append(blocks, mark([]string{line}, x, o))
 	}
@@ -576,3 +577,19 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// maxLabelWidth is the widest the first column grows for an alias; a longer alias is cut with an ellipsis.
+const maxLabelWidth = 16
+
+// idWidth is the width of the first column: four, or the longest label of the whole snapshot (so that a filter does not move it) up to
+// maxLabelWidth.
+func idWidth(s Snapshot) int {
+	w := 4
+	for _, x := range s.Sessions {
+		w = max(w, min(ansi.StringWidth(x.Label()), maxLabelWidth))
+	}
+	return w
+}
+
+// idCell is a label cut to the column and padded to its width.
+func idCell(label string, w int) string { return padRight(ansi.Truncate(label, w, "…"), w) }

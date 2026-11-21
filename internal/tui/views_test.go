@@ -423,3 +423,63 @@ func TestScrollingKeepsTheSelectionOnScreen(t *testing.T) {
 	}
 	golden(t, "watch_80x15_scrolled", out)
 }
+
+func TestAliasInTheDashboard(t *testing.T) {
+	s := loadFixture(t)
+	if len(s.Sessions) < 2 {
+		t.Fatal("the fixture needs two sessions")
+	}
+	s.Sessions[0].Alias = "sitrep"
+	s.Sessions[1].Alias = "a-name-that-is-much-too-long"
+	for _, tab := range []int{tabWatch, tabTop} {
+		for _, w := range []int{20, 40, 80, 120} {
+			o := opts(w, 40)
+			o.ShowEnded = true
+			out := render(s, tab, "", o)
+			for _, l := range strings.Split(out, "\n") {
+				if ansi.StringWidth(l) > w {
+					t.Errorf("tab %d width %d: wide line %q", tab, w, l)
+				}
+			}
+			if w >= 80 && (!strings.Contains(out, "sitrep ") || !strings.Contains(out, "a-name-that-is-…")) {
+				t.Errorf("tab %d: the labels are not shown\n%s", tab, out)
+			}
+		}
+	}
+	// the column does not move while a filter is typed: it is as wide as the whole snapshot needs
+	if w := idWidth(s); w != maxLabelWidth {
+		t.Errorf("width %d", w)
+	}
+	only := render(s, tabTop, strings.ToLower(s.Sessions[0].ID[:4]), opts(80, 40))
+	if !strings.Contains(only, "ID                ") {
+		t.Errorf("the column narrowed with a filter:\n%s", only)
+	}
+	// the filter finds an alias
+	if !matches(s.Sessions[0], "sitrep") || matches(s.Sessions[1], "sitrep") {
+		t.Error("the filter does not search the alias")
+	}
+	s.Sessions[0].Alias = ""
+	if w := idWidth(s); w != maxLabelWidth {
+		t.Errorf("width %d", w)
+	}
+}
+
+func TestHostileAliasIsDroppedOnDecode(t *testing.T) {
+	doc := `{"version":1,"generated":1,"registry":"ok","settings":{},"hidden":{},"inbox":{"count":0,"items":[]},"sessions":[
+	 {"id":"a1","short":"a1","alias":"ok-name","queue":{"count":0,"items":[]}},
+	 {"id":"a2","short":"a2","alias":"bad\u001b[31m","queue":{"count":0,"items":[]}},
+	 {"id":"a3","short":"a3","alias":"Upper","queue":{"count":0,"items":[]}},
+	 {"id":"a4","short":"a4","alias":"x‮y","queue":{"count":0,"items":[]}},
+	 {"id":"a5","short":"a5","alias":"inbox","queue":{"count":0,"items":[]}}]}`
+	s, err := decode(strings.NewReader(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []string{}
+	for _, x := range s.Sessions {
+		got = append(got, x.Label())
+	}
+	if strings.Join(got, ",") != "ok-name,a2,a3,a4,a5" {
+		t.Errorf("labels %v", got)
+	}
+}
