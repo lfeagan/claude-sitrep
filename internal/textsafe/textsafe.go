@@ -5,6 +5,7 @@ package textsafe
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/mattn/go-runewidth"
 )
@@ -27,7 +28,23 @@ func lineBreak(r rune) bool {
 	return r == '\n' || r == '\t' || unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r)
 }
 
-func valid(s string) string { return strings.ToValidUTF8(s, "�") }
+// valid replaces each byte that is not UTF-8 with U+FFFD, one for one, as jq does.
+func valid(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		r, n := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && n == 1 {
+			b.WriteRune('\uFFFD')
+		} else {
+			b.WriteString(s[i : i+n])
+		}
+		i += n
+	}
+	return b.String()
+}
 
 // cut keeps at most max runes; a max below 1 means no limit.
 func cut(s string, max int) string {
@@ -90,3 +107,6 @@ func Fit(t Text, cols int) Text {
 	}
 	return Text{runewidth.Truncate(t.s, cols, "…")}
 }
+
+// MarshalText lets a Text be a JSON string, and nothing else is accepted there.
+func (t Text) MarshalText() ([]byte, error) { return []byte(t.s), nil }
