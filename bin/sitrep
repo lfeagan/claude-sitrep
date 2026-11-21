@@ -32,6 +32,7 @@ strip() { perl -CSD -pe 's/(?!\n|\t)[\p{Cc}\p{Cf}]//g' 2>/dev/null; }           
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 tmpfile() { mktemp "$dir/.sitrep.XXXXXX"; }
 itemno() { [[ $1 =~ ^[1-9][0-9]*$ ]] || die "item must be a number"; }
+same() { local a=${1%"${1##*[! ]}"} b=${2%"${2##*[! ]}"}; [ "$a" = "$b" ]; }   # equal but for trailing spaces, which the JSON drops
 guarded() { # args: split a trailing `--item <text>` off; sets guard (0 or 1), want and GA, the other arguments
   guard=0; want=; GA=("$@")
   local pen=$(( $# - 1 )) last=$#
@@ -80,7 +81,7 @@ reorder_q() { # id from to: move item `from` to position `to`
   f=$(qf "$sid"); n=$(count "$sid")
   [ "$from" -le "$n" ] && [ "$to" -le "$n" ] || die "$(label "$sid") has $n items"
   item=$(sed -n "${from}p" "$f")
-  [ "$guard" = 0 ] || [ "$item" = "$want" ] || die "queue changed; run 'sitrep ls $(label "$sid")'"
+  [ "$guard" = 0 ] || same "$item" "$want" || die "queue changed; run 'sitrep ls $(label "$sid")'"
   t=$(tmpfile) || exit 1
   if E=$item awk -v f="$from" -v t="$to" '{ a[NR] = $0 }
       END { if (a[f] != ENVIRON["E"]) exit 1
@@ -584,7 +585,7 @@ case "$cmd" in
         sid=$(resolve "$1") || exit 1; n=${2:-1}; itemno "$n"
         f=$(qf "$sid"); [ -s "$f" ] || die "queue empty"
         item=$(sed -n "${n}p" "$f"); [ -n "$item" ] || die "no item $n on $(label "$sid")"
-        [ "$guard" = 0 ] || [ "$item" = "$want" ] || die "queue changed; run 'sitrep ls $(label "$sid")'"
+        [ "$guard" = 0 ] || same "$item" "$want" || die "queue changed; run 'sitrep ls $(label "$sid")'"
         t=$(without "$f" "$n" "$item") || die "queue changed; run 'sitrep ls $(label "$sid")'"
         mv "$t" "$f" && printf '%s\n' "$item" | strip ;;
   top)  guarded "$@"; set -- "${GA[@]}"; [ $# -ge 2 ] || die "usage: sitrep top <id> <n> [--item <text>]"
@@ -594,8 +595,9 @@ case "$cmd" in
   pin) [ $# -ge 2 ] || die "usage: sitrep pin <id> <text>"
         sid=$(resolve "$1") || exit 1; shift; f="$dir/$sid.txt"
         [ "$sid" != inbox ] || die "inbox has no objective"
+        text=$(printf '%s' "$*" | clean); [ -n "${text//[[:space:]]/}" ] || die "nothing to pin"
         t=$(tmpfile) || exit 1
-        { printf 'Objective: %s\n' "$(printf '%s' "$*" | clean)"; grep -v '^Objective:' "$f" || true; } > "$t"
+        { printf 'Objective: %s\n' "$text"; grep -v '^Objective:' "$f" || true; } > "$t"
         mv "$t" "$f" || { rm -f "$t"; exit 1; }
         : > "$dir/.$sid.pinned"   # keeps the summarizer from rewriting it
         echo "objective set on ${sid:0:4}" ;;
@@ -611,7 +613,7 @@ case "$cmd" in
         itemno "$n"
         [ "$from" != "$to" ] || die "from and to are the same queue"
         f=$(qf "$from"); item=$(sed -n "${n}p" "$f" 2>/dev/null); [ -n "$item" ] || die "no item $n on $(label "$from")"
-        [ "$guard" = 0 ] || [ "$item" = "$want" ] || die "queue changed; run 'sitrep ls $(label "$from")'"
+        [ "$guard" = 0 ] || same "$item" "$want" || die "queue changed; run 'sitrep ls $(label "$from")'"
         t=$(without "$f" "$n" "$item") || die "queue changed; run 'sitrep ls $(label "$from")'"
         # append first, then swap the source in: a crash leaves a duplicate, never a lost item
         printf '%s\n' "$item" >> "$(qf "$to")" || { rm -f "$t"; die "could not queue on $(label "$to")"; }

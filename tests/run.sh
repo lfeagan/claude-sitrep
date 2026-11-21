@@ -831,6 +831,8 @@ eq "rm --item removes the item it names" "four" "$(sitrep rm rord 1 --item four)
 sitrep add rord -x >/dev/null
 eq "rm --item takes text that starts with a dash" "-x" "$(sitrep rm rord 4 --item -x)"
 eq "and the queue is what is left" "three one two" "$(tr '\n' ' ' < "$STATE/rord0001.queue" | sed 's/ $//')"
+printf 'padded \n' >> "$STATE/rord0001.queue"
+eq "--item ignores trailing spaces, which the JSON drops" "padded " "$(sitrep rm rord 4 --item padded)"
 sitrep add inbox alpha >/dev/null; sitrep add inbox beta >/dev/null; sitrep top inbox 2 >/dev/null
 eq "top works on the inbox" beta "$(head -1 "$STATE/inbox.queue")"
 rm -f "$STATE/inbox.queue" "$STATE"/rord000*
@@ -858,6 +860,7 @@ eq "move --item moves the item it names" "moved to inba: first thing" "$(sitrep 
 eq "move --item defaults to item 1" "moved to inba: second thing" "$(sitrep move inbox inba --item 'second thing')"
 eq "the moved items go back" "moved to inbox: first thing" "$(sitrep move inba inbox 2 --item 'second thing' >/dev/null; sitrep move inba inbox 1 --item 'first thing')"
 eq "pin on the inbox fails" 1 "$(rc sitrep pin inbox x)"
+eq "pin with nothing to pin fails" 1 "$(rc sitrep pin inba ' ')"
 eq "unpin on the inbox fails" 1 "$(rc sitrep unpin inbox)"
 check "no ghost session files for the inbox" test ! -e "$STATE/inbox.txt" -a ! -e "$STATE/inbox.cwd" -a ! -e "$STATE/.inbox.pinned"
 eq "a prefix of inbox is not the inbox" 1 "$(rc sitrep add inb x)"
