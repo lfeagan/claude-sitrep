@@ -65,23 +65,32 @@ func Oracle(t testing.TB) Runner {
 	}
 }
 
-// Binary builds the Go command once per test and returns a Runner for it.
+// Binary builds the Go command into the test's temporary folder and returns a Runner for it.
 func Binary(t testing.TB) Runner {
 	t.Helper()
-	root, err := repoRoot()
+	r, err := BuildInto(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	bin := filepath.Join(t.TempDir(), "sitrep")
+	return r
+}
+
+// BuildInto builds the Go command into dir, for a package that builds it once for all its tests (see TestMain).
+func BuildInto(dir string) (Runner, error) {
+	root, err := repoRoot()
+	if err != nil {
+		return nil, err
+	}
+	bin := filepath.Join(dir, "sitrep")
 	build := exec.Command("go", "build", "-o", bin, "./cmd/sitrep")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("go build: %v\n%s", err, out)
+		return nil, fmt.Errorf("go build: %v\n%s", err, out)
 	}
 	return func(t testing.TB, home string, args ...string) Result {
 		t.Helper()
 		return run(t, home, exec.Command(bin, args...))
-	}
+	}, nil
 }
 
 func run(t testing.TB, home string, cmd *exec.Cmd) Result {

@@ -2,17 +2,13 @@
 package main
 
 import (
-	"fmt"
 	"os"
+	"syscall"
+
+	"github.com/lfeagan/claude-sitrep/internal/cli"
 )
 
-const version = "0.3.0-port"
-
 func main() {
-	if len(os.Args) == 2 && os.Args[1] == "version" {
-		fmt.Println(version)
-		return
-	}
-	fmt.Fprintln(os.Stderr, "sitrep: the Go port is not ready; use bin/sitrep")
-	os.Exit(1)
+	syscall.Umask(0o077) // state holds prompt text: owner-only
+	os.Exit(cli.Run(os.Args[1:], cli.OSEnv()))
 }
