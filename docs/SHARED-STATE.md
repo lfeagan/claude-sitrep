@@ -1,6 +1,12 @@
 # Shared state -- a custom state folder and a view across machines
 
-Status: proposal, 2026-11-21. Step 1 is built (0.9.0); the rest is not. It replaces the idea in the inbox of a remote server (WebDAV or a proprietary one).
+Status: Step 1 is built (0.9.0). Steps 2 and 3 were dropped on 2026-11-21, for the reasons under Why we stopped. For remote machines, see `REMOTE.md`. The rest of this page is kept as the record.
+
+## Why we stopped
+
+We measured a state folder on an SMB share (see What we measured). A hook that writes there takes 90 ms over Ethernet and 550 ms on Wi-Fi, against a budget of 30 ms, so a hook can never write to a shared folder. The way round it, a local state folder with a detached publisher, a host layout and a drop box for queue items, is a lot of machinery for what ssh already gives: `sitrep ls --json` and `sitrep add` run on the remote machine, with its own locks, no sync conflicts and no new trust boundary. Failure was also quiet: a dead mount showed an empty queue.
+
+Step 1 stays, and is useful by itself for a demo, a test folder, or a store that is only read. Steps 2 and 3 below are the design we would have built, with their reasons.
 
 ## Claim
 
@@ -38,7 +44,7 @@ What worked: `add`, `ls` and the hook; `flock` between processes on the one Mac 
 
 So a state folder on a network mount is usable to read, and wrong for a live session to write, even on a good wired link. The next two steps are designed so that no hook ever writes to a shared folder.
 
-## Step 2 -- a folder per machine
+## Step 2 -- a folder per machine (dropped)
 
 Each machine keeps its own state in a local folder, as it does now, so a hook never waits on a network. A detached `publish` child, started by a hook at most once in a while and kept to a deadline and its own process group like `update-check` (invariant 9), copies what other machines need into its own subtree of the shared root, for example `hosts/<host>/sessions/<id>/`. Each file then has exactly one writer: the machine that owns it. A machine never writes another machine's files.
 
@@ -49,7 +55,7 @@ Open questions:
 - How the dashboard treats a host that has not updated for a long time (the drive may simply be behind).
 - Whether `jump` makes sense for a remote session. It does not, so the key should say so and not fail quietly.
 
-## Step 3 -- queueing on a remote machine
+## Step 3 -- queueing on a remote machine (dropped)
 
 A single queue file with a lock cannot work across machines. Sync clients do not share `flock`, and two machines editing one file produce a conflicted copy or a lost write. Invariant 8 only holds on one machine.
 
@@ -69,10 +75,10 @@ This changes how the queue is written, so it needs its own design pass before an
 ## Order of work
 
 1. The state folder path (done, 0.9.0).
-2. A local state folder published to per-host subtrees, and a read-only view across hosts.
-3. The drop box, after a design of its own.
+2. A local state folder published to per-host subtrees, and a read-only view across hosts (dropped).
+3. The drop box, after a design of its own (dropped).
 
-Each step stands alone. We can stop after step 1 or step 2 and still have something worth shipping.
+We stopped after step 1.
 
 ## Not proposed
 

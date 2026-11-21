@@ -24,7 +24,7 @@ Most tools show what your sessions are doing. sitrep also holds what you plan to
 1. A status block and a per-session queue under each prompt, plus an inbox for work you have not yet matched to a session. `+ <text>` queues an item without sending anything to Claude.
 2. Objective, Progress and Now come from a short Haiku call after each turn. See Privacy And Safety for the cost cap and what is sent.
 3. A full-screen dashboard (`sitrep watch`) and a stable JSON format (`sitrep ls --json`) for your own tools.
-4. Limits: Claude Code only, one machine, no cost tracking, and it cannot answer a session's approval prompts.
+4. Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts.
 
 `docs/COMPARISON.md` compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
