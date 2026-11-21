@@ -15,15 +15,15 @@ func TestGGAndGOnTheTabs(t *testing.T) {
 		t.Errorf("G selects the last: %q", m.selID)
 	}
 	m, _ = press(t, m, "g")
-	if !m.pendingG || m.selID != ids[len(ids)-1] || m.statusText() != "g-" {
-		t.Errorf("a lone g waits: pending %v, %q", m.pendingG, m.statusText())
+	if m.pending == "" || m.selID != ids[len(ids)-1] || m.statusText() != "g-" {
+		t.Errorf("a lone g waits: pending %v, %q", m.pending != "", m.statusText())
 	}
 	if v := m.View().Content; !strings.Contains(v, "g-") {
 		t.Errorf("the status bar shows the pending key:\n%s", v)
 	}
 	m, _ = press(t, m, "g")
-	if m.pendingG || m.selID != ids[0] {
-		t.Errorf("gg selects the first: pending %v, %q", m.pendingG, m.selID)
+	if m.pending != "" || m.selID != ids[0] {
+		t.Errorf("gg selects the first: pending %v, %q", m.pending != "", m.selID)
 	}
 }
 
@@ -34,8 +34,8 @@ func TestAnyOtherKeyAfterGIsSwallowed(t *testing.T) {
 		last := m.selID
 		m, _ = press(t, m, "g")
 		m, cmd := press(t, m, other)
-		if m.pendingG || cmd != nil || m.selID != last || m.detail || m.queue || m.help || m.prompt != nil || m.filtering {
-			t.Errorf("g then %q: pending %v cmd %v sel %q detail %v queue %v help %v", other, m.pendingG, cmd != nil, m.selID, m.detail, m.queue, m.help)
+		if m.pending != "" || cmd != nil || m.selID != last || m.detail || m.queue || m.help || m.prompt != nil || m.filtering {
+			t.Errorf("g then %q: pending %v cmd %v sel %q detail %v queue %v help %v", other, m.pending != "", cmd != nil, m.selID, m.detail, m.queue, m.help)
 		}
 	}
 	m := loaded(t, tabWatch)
@@ -49,14 +49,14 @@ func TestGIsTextWhereTextIsTyped(t *testing.T) {
 	m := loaded(t, tabWatch)
 	m, _ = press(t, m, "/")
 	m = typed(t, m, "gg")
-	if m.pendingG || m.filter != "gg" {
-		t.Errorf("in the filter g is text: pending %v filter %q", m.pendingG, m.filter)
+	if m.pending != "" || m.filter != "gg" {
+		t.Errorf("in the filter g is text: pending %v filter %q", m.pending != "", m.filter)
 	}
 	m, _ = press(t, m, "esc")
 	mq, _ := queueModel(t, qSession)
 	mq, _ = press(t, mq, "a")
 	mq = typed(t, mq, "gG")
-	if mq.pendingG || mq.prompt == nil || mq.prompt.text != "gG" {
+	if mq.pending != "" || mq.prompt == nil || mq.prompt.text != "gG" {
 		t.Errorf("in a prompt g is text: %+v", mq.prompt)
 	}
 	// during a question g does nothing
@@ -66,8 +66,8 @@ func TestGIsTextWhereTextIsTyped(t *testing.T) {
 		t.Fatal("x asks")
 	}
 	m3, _ = press(t, m3, "g")
-	if m3.pendingG || m3.ask == nil {
-		t.Errorf("g during a question: pending %v ask %v", m3.pendingG, m3.ask)
+	if m3.pending != "" || m3.ask == nil {
+		t.Errorf("g during a question: pending %v ask %v", m3.pending != "", m3.ask)
 	}
 }
 
@@ -83,12 +83,12 @@ func TestGGAndGInTheQueueAndTheDetailView(t *testing.T) {
 		t.Errorf("the queue footer shows the pending key:\n%s", v)
 	}
 	m, _ = press(t, m, "g")
-	if m.queueIndex() != 0 || m.pendingG {
+	if m.queueIndex() != 0 || m.pending != "" {
 		t.Errorf("gg in the queue: %d", m.queueIndex())
 	}
 	d := loaded(t, tabWatch)
 	d.height = 10
-	d, _ = press(t, d, "d")
+	d, _ = press(t, d, "v")
 	d, _ = press(t, d, "G")
 	if d.scroll == 0 {
 		t.Fatal("the detail view is not longer than the screen, so there is nothing to scroll")
@@ -177,7 +177,7 @@ func TestHelpOpensFromEveryScreenAndReturns(t *testing.T) {
 		"the tabs":  func(t *testing.T) model { return loaded(t, tabWatch) },
 		"the queue": func(t *testing.T) model { m, _ := queueModel(t, qSession); return m },
 		"the inbox": func(t *testing.T) model { m, _ := queueModel(t, qInbox); return m },
-		"detail":    func(t *testing.T) model { m, _ := press(t, loaded(t, tabWatch), "d"); return m },
+		"detail":    func(t *testing.T) model { m, _ := press(t, loaded(t, tabWatch), "v"); return m },
 	} {
 		m := open(t)
 		wasQueue, wasDetail := m.queue, m.detail
@@ -338,7 +338,7 @@ func TestNumbersAreTextOrNothingElsewhere(t *testing.T) {
 	if q.ask != nil || !q.queue {
 		t.Error("in the queue a number does nothing")
 	}
-	d, _ := press(t, loaded(t, tabWatch), "d")
+	d, _ := press(t, loaded(t, tabWatch), "v")
 	d, _ = press(t, d, "1")
 	if d.ask != nil || !d.detail {
 		t.Error("in the detail view a number does nothing")
@@ -547,6 +547,107 @@ func TestTheMoveListFitsTheScreen(t *testing.T) {
 					t.Errorf("%dx%d: a line is %d wide: %q", w, h, ansi.StringWidth(l), l)
 				}
 			}
+		}
+	}
+}
+
+func TestDDRemovesAnItemAndAsks(t *testing.T) {
+	m, f := queueModel(t, qSession)
+	id := m.qTo
+	m, _ = press(t, m, "down")
+	item := m.queueItems()[1]
+	m, _ = press(t, m, "d")
+	if m.pending != "d" || m.statusText() != "d-" || m.ask != nil {
+		t.Fatalf("a lone d waits: %q %v", m.pending, m.ask)
+	}
+	if v := m.View().Content; !strings.Contains(v, "d-") {
+		t.Errorf("the queue footer shows it:\n%s", v)
+	}
+	m, _ = press(t, m, "d")
+	if m.pending != "" || m.ask == nil || m.ask.verb != "remove" || m.ask.n != 2 || m.ask.item != item || len(f.calls) != 0 {
+		t.Fatalf("dd asks, and runs nothing yet: %+v %v", m.ask, f.calls)
+	}
+	m, cmd := press(t, m, "y")
+	m = feed(t, m, cmd)
+	if want := "/x/sitrep rm " + id + " 2 --item " + item; len(f.calls) != 1 || f.calls[0] != want {
+		t.Errorf("the one fixed command, guarded by the item's text:\n got %v\nwant %s", f.calls, want)
+	}
+}
+
+func TestDThenAnotherKeyIsSwallowed(t *testing.T) {
+	for _, other := range []string{"x", "y", "j", "esc", "o", "E", "m", "q", "enter", "g"} {
+		m, f := queueModel(t, qSession)
+		m, _ = press(t, m, "d")
+		m, cmd := press(t, m, other)
+		if m.pending != "" || cmd != nil || m.ask != nil || m.prompt != nil || m.mover != nil || !m.queue || len(f.calls) != 0 {
+			t.Errorf("d then %q: pending %q ask %v prompt %v mover %v queue %v calls %v", other, m.pending, m.ask, m.prompt, m.mover, m.queue, f.calls)
+		}
+	}
+	m, _ := queueModel(t, qSession)
+	m, _ = press(t, m, "d")
+	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
+		t.Error("ctrl+c still quits with a d waiting")
+	}
+}
+
+func TestDIsNotPendingWhereItDoesNothing(t *testing.T) {
+	// on the tabs and in the detail view d is nothing now, and the detail view is v
+	m := loaded(t, tabWatch)
+	m, cmd := press(t, m, "d")
+	if m.pending != "" || m.detail || cmd != nil {
+		t.Errorf("d on a tab: %q detail %v", m.pending, m.detail)
+	}
+	m, _ = press(t, m, "v")
+	if !m.detail {
+		t.Fatal("v opens the detail view")
+	}
+	m, _ = press(t, m, "d")
+	if !m.detail || m.pending != "" {
+		t.Errorf("d in the detail view does nothing: detail %v pending %q", m.detail, m.pending)
+	}
+	m, _ = press(t, m, "v")
+	if m.detail {
+		t.Error("v closes it again")
+	}
+	// the question and the list of places are modal
+	q, _ := queueModel(t, qSession)
+	q, _ = press(t, q, "x")
+	q, _ = press(t, q, "d")
+	if q.pending != "" || q.ask == nil {
+		t.Errorf("d during a question: %q %v", q.pending, q.ask)
+	}
+	mv, _ := moveModel(t, qSession)
+	mv, _ = press(t, mv, "m")
+	mv, _ = press(t, mv, "d")
+	if mv.pending != "" || mv.mover == nil {
+		t.Errorf("d in the list of places: %q", mv.pending)
+	}
+	// in a text line d is text
+	p, _ := queueModel(t, qSession)
+	p, _ = press(t, p, "a")
+	p = typed(t, p, "dd")
+	if p.pending != "" || p.prompt == nil || p.prompt.text != "dd" {
+		t.Errorf("in a prompt d is text: %+v", p.prompt)
+	}
+}
+
+func TestXAndDeleteStillRemove(t *testing.T) {
+	for _, k := range []string{"x", "delete"} {
+		m, f := queueModel(t, qSession)
+		m, _ = press(t, m, k)
+		if m.ask == nil || m.ask.verb != "remove" || len(f.calls) != 0 {
+			t.Errorf("%s asks to remove: %+v", k, m.ask)
+		}
+	}
+	// read-only refuses all of them
+	for _, keys := range [][]string{{"x"}, {"delete"}, {"d", "d"}} {
+		m, f := queueModel(t, qSession)
+		m.readOnly = true
+		for _, k := range keys {
+			m, _ = press(t, m, k)
+		}
+		if m.ask != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "read-only") {
+			t.Errorf("%v in read-only: %v %q", keys, m.ask, m.statusText())
 		}
 	}
 }

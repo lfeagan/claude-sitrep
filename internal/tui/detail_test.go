@@ -111,7 +111,7 @@ func TestStaleScrollIsClamped(t *testing.T) {
 	next, _ := m.Update(snapMsg{snap: snap})
 	next, _ = next.Update(tea.WindowSizeMsg{Width: 80, Height: 12})
 	m = next.(model)
-	m, _ = press(t, m, "d")
+	m, _ = press(t, m, "v")
 	m, _ = press(t, m, "end")
 	if m.scroll == 0 {
 		t.Fatalf("the long queue scrolls")

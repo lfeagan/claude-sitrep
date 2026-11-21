@@ -83,7 +83,7 @@ type model struct {
 	scroll    int          // the top line of the detail pane
 	sortBy    int
 	help      bool
-	pendingG  bool // a g was pressed and waits for its second key (gg goes to the first row)
+	pending   string // the first key of a two-key command that waits for its second: g (gg, the first row) or d (dd, remove an item)
 	isDark    bool
 	now       func() time.Time
 }
@@ -242,8 +242,8 @@ func (m *model) jumpCmd() tea.Cmd {
 // statusText is what the status bar says instead of the counts: a fresh message from an
 // action, else the last refresh error.
 func (m model) statusText() string {
-	if m.pendingG {
-		return "g-"
+	if m.pending != "" {
+		return m.pending + "-"
 	}
 	if m.msg != "" && m.now().Sub(m.msgAt) < messageTTL {
 		return m.msg
@@ -330,7 +330,7 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
-	case "q", "esc", "d", "backspace": // q goes back; only ctrl+c quits from here
+	case "q", "esc", "v", "backspace": // q goes back; only ctrl+c quits from here
 		m.detail = false
 	case "enter":
 		if cmd := m.jumpCmd(); cmd != nil {
@@ -519,20 +519,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.ask != nil && !m.queue { // the question a number on a tab asked
 			return m.askKey(msg.String())
 		}
-		// one place holds a g for its second key, on every screen with a list: gg goes to the first row, and any other key is swallowed
-		// (g then x does nothing), as in vim. esc clears it too, and so does anything else, as the next key always clears it.
-		if m.pendingG {
-			m.pendingG = false
-			switch msg.String() {
-			case "ctrl+c":
+		// one place holds the first key of a two-key command: gg goes to the first row, and dd (in a queue) removes the item. Any other key
+		// is swallowed (g then x does nothing), as in vim. esc clears it too, and so does anything else, as the next key always clears it.
+		if p := m.pending; p != "" {
+			m.pending = ""
+			switch key := msg.String(); {
+			case key == "ctrl+c":
 				return m, tea.Quit
-			case "g":
+			case key == "g" && p == "g":
 				m.goTop()
+			case key == "d" && p == "d":
+				return m.removeStart()
 			}
 			return m, nil
 		}
-		if msg.String() == "g" && m.ask == nil {
-			m.pendingG = true
+		switch key := msg.String(); {
+		case key == "g" && m.ask == nil:
+			m.pending = "g"
+			return m, nil
+		case key == "d" && m.queue && m.ask == nil && m.mover == nil:
+			m.pending = "d"
 			return m, nil
 		}
 		if m.queue {
@@ -587,7 +593,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "p":
 			return m.pruneStart()
-		case "d", "space", " ":
+		case "v", "space", " ":
 			if m.selected() != nil {
 				m.detail, m.scroll = true, 0
 			}
@@ -633,7 +639,7 @@ func (m model) View() tea.View {
 	case m.queue:
 		body = queueScreen(m.queueView(), m.width, m.height, theme)
 	case m.detail && m.selected() != nil:
-		body = detailScreenKeys(*m.selected(), m.width, m.height, m.scroll, m.pendingG, theme)
+		body = detailScreenKeys(*m.selected(), m.width, m.height, m.scroll, m.pending == "g", theme)
 	case m.haveSnap || m.err != nil:
 		status := m.statusText()
 		if m.prompt != nil && m.prompt.verb == "alias" {

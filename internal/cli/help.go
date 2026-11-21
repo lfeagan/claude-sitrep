@@ -111,13 +111,13 @@ terminal it prints one frame, as ` + "`sitrep status`" + ` does.
 
 Keys: up, down, j and k move the selection, gg and G go to the first and last session, and
 ctrl+d, ctrl+u, pgdn and pgup move by a page; enter jumps to the session's tmux pane or cmux
-surface; d or space opens the session in full; tab, shift-tab, h, l, left and right switch
+surface; v or space opens the session in full; tab, shift-tab, h, l, left and right switch
 tabs; a number from 1 to 9 asks whether to move that inbox item into the selected session
 (y or n); a shows or hides ended sessions; s sorts Top; n names the session (an alias); y or
 Y copies the session id or its resume command; z snoozes a session until it changes; / filters
 the sessions (enter keeps the filter, esc clears it); i opens the inbox and e the selected
 session's queue: there o (or a) adds an item (typed), enter (or E) edits the selected one, x
-removes one after a y or n, K and J move it up and down, T moves it to the front, m sends it to
+removes one after a y or n (dd; x and delete work too), K and J move it up and down, T moves it to the front, m sends it to
 another queue (a list of the inbox and the running sessions: j and k, then enter), P pins the
 Objective and U unpins it, and in the inbox t takes the selected item into the session that was
 selected, after a y or n, to the end of its queue; p prunes sessions that are gone, after a

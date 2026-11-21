@@ -36,7 +36,7 @@ func TestYCopiesTheIdAndShiftYTheResumeCommand(t *testing.T) {
 }
 
 func TestCopyWorksInTheDetailPane(t *testing.T) {
-	m, _ := press(t, loaded(t, tabWatch), "d")
+	m, _ := press(t, loaded(t, tabWatch), "v")
 	if _, cmd := press(t, m, "y"); cmd == nil {
 		t.Errorf("y copies from the detail pane too")
 	}

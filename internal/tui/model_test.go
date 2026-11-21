@@ -389,12 +389,12 @@ func TestSelectionKeysIgnoredInTheKeyList(t *testing.T) {
 }
 
 func TestDetailOpensAndCloses(t *testing.T) {
-	for _, k := range []string{"d", "space"} {
+	for _, k := range []string{"v", "space"} {
 		m, _ := press(t, loaded(t, tabWatch), k)
 		if !m.detail {
 			t.Errorf("%s opens the detail pane", k)
 		}
-		for _, c := range []string{"esc", "d", "backspace"} {
+		for _, c := range []string{"esc", "v", "backspace"} {
 			closed, _ := press(t, m, c)
 			if closed.detail {
 				t.Errorf("%s closes the detail pane", c)
@@ -406,7 +406,7 @@ func TestDetailOpensAndCloses(t *testing.T) {
 		t.Errorf("enter is for the jump, not the detail pane")
 	}
 	if empty := newModel("x", time.Second, tabWatch); true {
-		e, _ := press(t, empty, "d")
+		e, _ := press(t, empty, "v")
 		if e.detail {
 			t.Errorf("with nothing selected there is nothing to open")
 		}
@@ -414,7 +414,7 @@ func TestDetailOpensAndCloses(t *testing.T) {
 }
 
 func TestDetailUpDownSwitchSessions(t *testing.T) {
-	m, _ := press(t, loaded(t, tabWatch), "d")
+	m, _ := press(t, loaded(t, tabWatch), "v")
 	first := m.selID
 	m.scroll = 5
 	m, _ = press(t, m, "down")
@@ -437,7 +437,7 @@ func TestDetailScrolls(t *testing.T) {
 	next, _ := m.Update(snapMsg{snap: snap})
 	next, _ = next.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
 	m = next.(model)
-	m, _ = press(t, m, "d")
+	m, _ = press(t, m, "v")
 	maxScroll := detailMax(*m.selected(), 80, 20)
 	if maxScroll < 20 {
 		t.Fatalf("the long queue should need scrolling: %d", maxScroll)
@@ -470,7 +470,7 @@ func TestDetailScrolls(t *testing.T) {
 }
 
 func TestDetailQuitAndRefresh(t *testing.T) {
-	m, _ := press(t, loaded(t, tabWatch), "d")
+	m, _ := press(t, loaded(t, tabWatch), "v")
 	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
 		t.Errorf("ctrl+c quits from the detail pane")
 	}
@@ -490,7 +490,7 @@ func TestDetailQuitAndRefresh(t *testing.T) {
 }
 
 func TestDetailView(t *testing.T) {
-	m, _ := press(t, loaded(t, tabWatch), "d")
+	m, _ := press(t, loaded(t, tabWatch), "v")
 	v := m.View()
 	if !v.AltScreen {
 		t.Errorf("alternate screen")
@@ -641,7 +641,7 @@ func TestFilterPasteIsCleanedAndCapped(t *testing.T) {
 
 func TestFilterSlashIsIgnoredInDetailAndHelp(t *testing.T) {
 	m := loaded(t, tabWatch)
-	m, _ = press(t, m, "d")
+	m, _ = press(t, m, "v")
 	m, _ = press(t, m, "/")
 	if m.filtering {
 		t.Error("/ does nothing in the detail pane")

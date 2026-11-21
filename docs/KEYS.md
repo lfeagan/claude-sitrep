@@ -47,7 +47,7 @@ The review cut the first round to what can be built without a new help state or 
 ## Later
 
 1. A help with a section for each screen, which wants a scrolling help (it is cut at the screen's height today) and a table of keys that the dispatch and the help both read.
-2. `d` `d` and `y` `y`. `x` already removes and asks, and `dd` is neither safer nor shorter. `yy` clashes with `y` answering yes to a question, for a user who types `dd` and then `yy` out of habit.
+2. `y` `y`. It clashes with `y` answering yes to a question, for a user who types `dd` and then `yy` out of habit. (`dd` is built: after `d` became free, it removes an item in the queue and asks as `x` does, and `x` and the delete key still work.)
 3. `O`, as above. A `:` line, `u` undo, `<` `>` `R` for the Top sort and `ctrl+l` (it repeats `r`) are possible, and none is needed yet.
 
 ## Not Planned
@@ -57,7 +57,7 @@ The review cut the first round to what can be built without a new help state or 
 ## Exceptions To The Conventions
 
 1. In the detail view `j` `k` and the arrows change the session, and the page keys scroll. `g` `g` and `G` scroll, as `home` and `end` do.
-2. `space` and `d` open the detail view on the tabs and page or close it in the detail view, as vi and less use `space` for forward.
+2. `space` and `v` open the detail view on the tabs, and `space` pages in it, as vi and less use `space` for forward. (`d` was the detail key before 0.7.0; it is free, as vi uses it to delete.)
 3. `enter` jumps on the tabs and edits in the queue screen, and `y` copies on the tabs and answers a question in the queue screen. A screen's footer shows what its keys do.
 
 ## Tests

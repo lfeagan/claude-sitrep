@@ -450,7 +450,7 @@ func TestQueueKeyInOtherModes(t *testing.T) {
 	if m.queue || m.help {
 		t.Error("i in the key list only closes it")
 	}
-	m, _ = press(t, m, "d")
+	m, _ = press(t, m, "v")
 	if m, _ = press(t, m, "e"); m.queue || !m.detail {
 		t.Error("e does nothing in the detail pane")
 	}

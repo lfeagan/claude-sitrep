@@ -260,7 +260,7 @@ func (m model) queueKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.qKind == qSession {
 			return m.unpinRun()
 		}
-	case "x":
+	case "x", "delete": // dd is the way to remove an item; x and the delete key still work
 		return m.removeStart()
 	case "K", "J", "T":
 		return m.moveStart(key)
@@ -722,11 +722,11 @@ func queueScreen(v queueView, width, height int, th Theme) string {
 	case v.ReadOnly:
 		hints = []string{"q back", "j/k move", "(read-only)", "? help"}
 	case v.Inbox && v.Target != "":
-		hints = []string{"q back", "t take into " + v.Target, "o add", "enter edit", "x remove", "m send", "K J T move", "? help"}
+		hints = []string{"q back", "t take into " + v.Target, "o add", "enter edit", "dd remove", "m send", "K J T move", "? help"}
 	case v.Inbox:
-		hints = []string{"q back", "o add", "enter edit", "x remove", "m send", "K J T move", "(no session to take into)", "? help"}
+		hints = []string{"q back", "o add", "enter edit", "dd remove", "m send", "K J T move", "(no session to take into)", "? help"}
 	default:
-		hints = []string{"q back", "o add", "enter edit", "x remove", "m send", "K J T move", "P pin", "U unpin", "? help"}
+		hints = []string{"q back", "o add", "enter edit", "dd remove", "m send", "K J T move", "P pin", "U unpin", "? help"}
 	}
 	hint := fitHints(hints, width)
 	switch {
