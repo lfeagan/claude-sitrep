@@ -16,15 +16,15 @@ import (
 const MaxItem = 200
 
 // Label is the short name of a queue: "inbox", or the first four characters of a session id.
-func Label(id string) string {
+func Label(id state.ID) string {
 	if id == state.Inbox || len(id) <= 4 {
-		return id
+		return string(id)
 	}
-	return id[:4]
+	return string(id[:4])
 }
 
 // ChangedError says the queue is no longer what the caller saw.
-type ChangedError struct{ ID string }
+type ChangedError struct{ ID state.ID }
 
 func (e *ChangedError) Error() string {
 	return fmt.Sprintf("queue changed; run 'sitrep ls %s'", Label(e.ID))
@@ -32,7 +32,7 @@ func (e *ChangedError) Error() string {
 
 // NoItemError says there is no item at that position.
 type NoItemError struct {
-	ID string
+	ID state.ID
 	N  int
 }
 
@@ -40,7 +40,7 @@ func (e *NoItemError) Error() string { return fmt.Sprintf("no item %d on %s", e.
 
 // RangeError says a position is past the end of the queue.
 type RangeError struct {
-	ID    string
+	ID    state.ID
 	Count int
 }
 
@@ -55,10 +55,10 @@ var ErrBlank = errors.New("nothing to queue")
 // Queue is the set of queues in a state folder.
 type Queue struct{ Store state.Store }
 
-func (q Queue) file(id string) string { return q.Store.Path(id, "queue") }
+func (q Queue) file(id state.ID) string { return q.Store.Path(id, "queue") }
 
 // lines reads the raw lines of a queue; a missing file is an empty queue.
-func (q Queue) lines(id string) ([]string, error) {
+func (q Queue) lines(id state.ID) ([]string, error) {
 	b, err := os.ReadFile(q.file(id))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -73,7 +73,7 @@ func (q Queue) lines(id string) ([]string, error) {
 	return strings.Split(s, "\n"), nil
 }
 
-func (q Queue) write(id string, lines []string) error {
+func (q Queue) write(id state.ID, lines []string) error {
 	var b strings.Builder
 	for _, l := range lines {
 		b.WriteString(l)
@@ -83,7 +83,7 @@ func (q Queue) write(id string, lines []string) error {
 }
 
 // Count is the number of non-empty lines.
-func (q Queue) Count(id string) int {
+func (q Queue) Count(id state.ID) int {
 	lines, _ := q.lines(id)
 	n := 0
 	for _, l := range lines {
@@ -98,7 +98,7 @@ func (q Queue) Count(id string) int {
 func same(a, b string) bool { return strings.TrimRight(a, " ") == strings.TrimRight(b, " ") }
 
 // item is line n (1-based), which must hold text. When guard is set it must also be the text the caller saw.
-func (q Queue) item(id string, lines []string, n int, guard *string) (string, error) {
+func (q Queue) item(id state.ID, lines []string, n int, guard *string) (string, error) {
 	if n < 1 || n > len(lines) || lines[n-1] == "" {
 		return "", &NoItemError{ID: id, N: n}
 	}
@@ -109,20 +109,20 @@ func (q Queue) item(id string, lines []string, n int, guard *string) (string, er
 }
 
 // Add appends an item and returns how many items the queue now holds.
-func (q Queue) Add(id string, text textsafe.Text) (int, error) {
-	if strings.TrimSpace(string(text)) == "" {
+func (q Queue) Add(id state.ID, text textsafe.Text) (int, error) {
+	if strings.TrimSpace(text.String()) == "" {
 		return 0, ErrBlank
 	}
 	if err := q.Store.Ensure(); err != nil {
 		return 0, err
 	}
-	if err := q.append(id, string(text)); err != nil {
+	if err := q.append(id, text.String()); err != nil {
 		return 0, err
 	}
 	return q.Count(id), nil
 }
 
-func (q Queue) append(id, item string) error {
+func (q Queue) append(id state.ID, item string) error {
 	f, err := os.OpenFile(q.file(id), os.O_WRONLY|os.O_APPEND|os.O_CREATE, state.FileMode)
 	if err != nil {
 		return err
@@ -135,65 +135,65 @@ func (q Queue) append(id, item string) error {
 }
 
 // Remove takes item n out and returns it.
-func (q Queue) Remove(id string, n int, guard *string) (textsafe.Text, error) {
+func (q Queue) Remove(id state.ID, n int, guard *string) (textsafe.Text, error) {
 	lines, err := q.lines(id)
 	if err != nil {
-		return "", err
+		return textsafe.Text{}, err
 	}
 	if len(lines) == 0 {
-		return "", ErrEmpty
+		return textsafe.Text{}, ErrEmpty
 	}
 	it, err := q.item(id, lines, n, guard)
 	if err != nil {
-		return "", err
+		return textsafe.Text{}, err
 	}
 	if err := q.write(id, append(lines[:n-1:n-1], lines[n:]...)); err != nil {
-		return "", err
+		return textsafe.Text{}, err
 	}
 	return textsafe.Strip(it), nil
 }
 
 // Reorder moves item from to position to, and returns the item.
-func (q Queue) Reorder(id string, from, to int, guard *string) (textsafe.Text, error) {
+func (q Queue) Reorder(id state.ID, from, to int, guard *string) (textsafe.Text, error) {
 	lines, err := q.lines(id)
 	if err != nil {
-		return "", err
+		return textsafe.Text{}, err
 	}
 	count := q.Count(id)
 	if from < 1 || to < 1 || from > count || to > count {
-		return "", &RangeError{ID: id, Count: count}
+		return textsafe.Text{}, &RangeError{ID: id, Count: count}
 	}
 	it, err := q.item(id, lines, from, guard)
 	if err != nil {
-		return "", err
+		return textsafe.Text{}, err
 	}
 	rest := append(lines[:from-1:from-1], lines[from:]...)
 	out := append(rest[:to-1:to-1], append([]string{it}, rest[to-1:]...)...)
 	if err := q.write(id, out); err != nil {
-		return "", err
+		return textsafe.Text{}, err
 	}
 	return textsafe.Strip(it), nil
 }
 
 // Move hands item n from one queue to the end of another and returns it. The item reaches the destination before it leaves the source, so
 // a failure can leave a duplicate but never lose it.
-func (q Queue) Move(from, to string, n int, guard *string) (textsafe.Text, error) {
+func (q Queue) Move(from, to state.ID, n int, guard *string) (textsafe.Text, error) {
 	lines, err := q.lines(from)
 	if err != nil {
-		return "", err
+		return textsafe.Text{}, err
 	}
 	it, err := q.item(from, lines, n, guard)
 	if err != nil {
-		return "", err
+		return textsafe.Text{}, err
 	}
 	if err := q.Store.Ensure(); err != nil {
-		return "", err
+		return textsafe.Text{}, err
 	}
 	if err := q.append(to, it); err != nil {
-		return "", fmt.Errorf("could not queue on %s", Label(to))
+		return textsafe.Text{}, fmt.Errorf("could not queue on %s", Label(to))
 	}
 	if err := q.write(from, append(lines[:n-1:n-1], lines[n:]...)); err != nil {
-		return "", fmt.Errorf("could not update %s", Label(from))
+		return textsafe.Text{}, fmt.Errorf("could not update %s", Label(from))
 	}
 	return textsafe.Strip(it), nil
 }

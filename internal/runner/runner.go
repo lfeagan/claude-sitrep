@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"time"
 )
 
 // Runner runs a program and returns its standard output.
@@ -16,7 +17,9 @@ type Runner interface {
 type Exec struct{}
 
 func (Exec) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, name, args...).Output()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = 2 * time.Second // a grandchild holding the pipe must not outlive the deadline
+	return cmd.Output()
 }
 
 // Fake answers from a table keyed by the command line, for tests.

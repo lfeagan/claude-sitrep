@@ -9,10 +9,15 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-// Text has had its control (Cc, including C1) and format (Cf, including bidi) characters removed.
-type Text string
+// Text has had its control (Cc, including C1) and format (Cf, including bidi) characters removed. The field is private, so no other package
+// can make one from raw text; it gets one from Clean, Sane or Strip.
+type Text struct{ s string }
 
-func (t Text) String() string { return string(t) }
+func (t Text) String() string { return t.s }
+
+func init() {
+	runewidth.DefaultCondition.EastAsianWidth = false // the locale must not change what a frame looks like
+}
 
 // unsafe reports whether r is a control or format character.
 func unsafe(r rune) bool { return unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) }
@@ -39,8 +44,8 @@ func cut(s string, max int) string {
 	return s
 }
 
-// Clean makes text for storing: one flat line, no control or format characters, no trailing spaces, at most max characters.
-func Clean(s string, max int) Text {
+// flat makes one line without control or format characters.
+func flat(s string) string {
 	var b strings.Builder
 	for _, r := range valid(s) {
 		switch {
@@ -51,23 +56,17 @@ func Clean(s string, max int) Text {
 			b.WriteRune(r)
 		}
 	}
-	return Text(cut(strings.TrimRight(b.String(), " "), max))
+	return b.String()
+}
+
+// Clean makes text for storing: one flat line, no control or format characters, no trailing spaces, at most max characters (a max below 1
+// means no limit). Invalid UTF-8 becomes U+FFFD, where perl kept the bad bytes, so state written by the Go version is always valid UTF-8.
+func Clean(s string, max int) Text {
+	return Text{cut(strings.TrimRight(flat(s), " "), max)}
 }
 
 // Sane is Clean without the trailing-space trim, for the hook's own fields.
-func Sane(s string, max int) Text {
-	var b strings.Builder
-	for _, r := range valid(s) {
-		switch {
-		case lineBreak(r):
-			b.WriteByte(' ')
-		case unsafe(r):
-		default:
-			b.WriteRune(r)
-		}
-	}
-	return Text(cut(b.String(), max))
-}
+func Sane(s string, max int) Text { return Text{cut(flat(s), max)} }
 
 // Strip makes text for showing: it removes the same characters but keeps line breaks and tabs.
 func Strip(s string) Text {
@@ -78,13 +77,16 @@ func Strip(s string) Text {
 		}
 		b.WriteRune(r)
 	}
-	return Text(b.String())
+	return Text{b.String()}
 }
 
 // Width is how many terminal columns t takes.
-func Width(t Text) int { return runewidth.StringWidth(string(t)) }
+func Width(t Text) int { return runewidth.StringWidth(t.s) }
 
 // Fit cuts t to at most cols columns, ending in an ellipsis when it cut anything.
 func Fit(t Text, cols int) Text {
-	return Text(runewidth.Truncate(string(t), cols, "…"))
+	if cols < 1 {
+		return Text{}
+	}
+	return Text{runewidth.Truncate(t.s, cols, "…")}
 }

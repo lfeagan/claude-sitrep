@@ -5,15 +5,16 @@ import (
 	"testing"
 
 	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/textsafe"
 )
 
 func TestPinAndUnpin(t *testing.T) {
 	s := state.Open(t.TempDir())
 	n := Notes{Store: s}
-	if err := n.Pin("s1", "   "); err != ErrBlank {
+	if err := n.Pin("s1", textsafe.Clean("   ", 0)); err != ErrBlank {
 		t.Errorf("blank pin: %v", err)
 	}
-	if err := n.Pin("s1", "ship it"); err != nil {
+	if err := n.Pin("s1", textsafe.Clean("ship it", 0)); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(s.Path("s1", "txt")); string(b) != "Objective: ship it\n" {
@@ -22,7 +23,7 @@ func TestPinAndUnpin(t *testing.T) {
 	if err := os.WriteFile(s.Path("s1", "txt"), []byte("Objective: old\nProgress:  p\nNow:       n\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := n.Pin("s1", "new goal"); err != nil {
+	if err := n.Pin("s1", textsafe.Clean("new goal", 0)); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(s.Path("s1", "txt")); string(b) != "Objective: new goal\nProgress:  p\nNow:       n\n" {

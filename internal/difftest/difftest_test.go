@@ -26,7 +26,7 @@ func TestOracleRuns(t *testing.T) {
 	if got[4].Stdout != want {
 		t.Fatalf("ls after rm = %q, want %q", got[4].Stdout, want)
 	}
-	if s := State(t, home); s["inbox.queue"] != "second item\n" {
+	if s := State(t, home); s["inbox.queue"] != (File{Mode: 0o600, Content: "second item\n"}) {
 		t.Fatalf("state = %v", s)
 	}
 }

@@ -3,6 +3,7 @@ package conf
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -12,7 +13,6 @@ func TestUnquote(t *testing.T) {
 		`'single quoted'`:         "single quoted",
 		`"double \"quoted\" \$x"`: `double "quoted" $x`,
 		`a\ b`:                    "a b",
-		`$'tab\there'`:            "tab\there",
 		`'it'\''s'`:               "it's",
 		`'a'"b"c`:                 "abc",
 		`'open`:                   "open",
@@ -95,5 +95,19 @@ func TestHighlightSGR(t *testing.T) {
 func TestOpen(t *testing.T) {
 	if got := Open("/s").File; got != "/s/sitrep.conf" {
 		t.Errorf("File = %q", got)
+	}
+}
+
+func TestFileThatIsNotSmallAndRegularReadsAsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	big := filepath.Join(dir, "big.conf")
+	if err := os.WriteFile(big, []byte("X=1\n"+strings.Repeat("#", 70<<10)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := (Conf{File: big, Getenv: func(string) string { return "" }}).Get("X"); got != "" {
+		t.Errorf("a huge file was read: %q", got)
+	}
+	if got := (Conf{File: dir, Getenv: func(string) string { return "" }}).Get("X"); got != "" {
+		t.Errorf("a directory was read: %q", got)
 	}
 }

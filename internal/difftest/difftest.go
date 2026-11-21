@@ -26,20 +26,31 @@ type Result struct {
 // Runner runs `sitrep args...` in a given HOME.
 type Runner func(t testing.TB, home string, args ...string) Result
 
-// Oracle materializes the bash scripts from the tag and returns a Runner for bin/sitrep. It skips the test when git, the tag, jq or perl is missing.
+// unavailable skips the test on a developer machine, and fails it in CI (or with SITREP_REQUIRE_ORACLE=1), where a skipped oracle would
+// let a green run prove nothing.
+func unavailable(t testing.TB, format string, args ...any) {
+	t.Helper()
+	if os.Getenv("CI") != "" || os.Getenv("SITREP_REQUIRE_ORACLE") != "" {
+		t.Fatalf("difftest: "+format, args...)
+	}
+	t.Skipf("difftest: "+format, args...)
+}
+
+// Oracle materializes the bash scripts from the tag and returns a Runner for bin/sitrep. Without git, the tag, jq or perl the test is
+// skipped, or failed in CI.
 func Oracle(t testing.TB) Runner {
 	t.Helper()
 	for _, tool := range []string{"git", "bash", "jq", "perl", "tar"} {
 		if _, err := exec.LookPath(tool); err != nil {
-			t.Skipf("difftest: %s is not installed", tool)
+			unavailable(t, "%s is not installed", tool)
 		}
 	}
 	root, err := repoRoot()
 	if err != nil {
-		t.Skipf("difftest: %v", err)
+		unavailable(t, "%v", err)
 	}
 	if err := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", "refs/tags/"+Tag).Run(); err != nil {
-		t.Skipf("difftest: no tag %s", Tag)
+		unavailable(t, "no tag %s", Tag)
 	}
 	dir := t.TempDir()
 	archive := exec.Command("git", "-C", root, "archive", Tag)
@@ -95,7 +106,7 @@ func BuildInto(dir string) (Runner, error) {
 
 func run(t testing.TB, home string, cmd *exec.Cmd) Result {
 	t.Helper()
-	cmd.Env = append(os.Environ(), "HOME="+home, "CLAUDE_CONFIG_DIR=", "SITREP_QUEUE_ITEMS=", "NO_COLOR=1")
+	cmd.Env = []string{"HOME=" + home, "PATH=" + os.Getenv("PATH"), "LANG=" + os.Getenv("LANG"), "LC_ALL=" + os.Getenv("LC_ALL"), "TZ=UTC", "NO_COLOR=1", "TMPDIR=" + os.TempDir()}
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err := cmd.Run()
@@ -120,24 +131,39 @@ func Home(t testing.TB) string {
 	return home
 }
 
-// State reads every regular file in the state folder, by name.
-func State(t testing.TB, home string) map[string]string {
+// File is one state file as the comparison sees it.
+type File struct {
+	Mode    os.FileMode
+	Content string
+}
+
+// State reads every regular file in the state folder, by name, with its mode and its content, in which the HOME is written as $HOME. A
+// leftover temporary file (.sitrep.*) is kept under its own name, so a run that leaks one is a difference; the random part is dropped.
+func State(t testing.TB, home string) map[string]File {
 	t.Helper()
 	dir := filepath.Join(home, ".claude", "sitrep")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := map[string]string{}
+	m := map[string]File{}
 	for _, e := range entries {
-		if !e.Type().IsRegular() || strings.HasPrefix(e.Name(), ".sitrep.") {
-			continue // temporaries have random names
+		if !e.Type().IsRegular() {
+			continue
 		}
 		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
 		if err != nil {
 			t.Fatal(err)
 		}
-		m[e.Name()] = string(b)
+		fi, err := e.Info()
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := e.Name()
+		if strings.HasPrefix(name, ".sitrep.") {
+			name = ".sitrep.<temporary>"
+		}
+		m[name] = File{Mode: fi.Mode().Perm(), Content: strings.ReplaceAll(string(b), home, "$HOME")}
 	}
 	return m
 }
@@ -179,13 +205,13 @@ func Diff(t testing.TB, scenario Scenario, a, b Runner) []string {
 	}
 	for name, want := range sa {
 		if got, ok := sb[name]; !ok || got != want {
-			diffs = append(diffs, fmt.Sprintf("state file %s differs\n  first:  %q\n  second: %q", name, want, got))
+			diffs = append(diffs, fmt.Sprintf("state file %s differs\n  first:  %+v\n  second: %+v", name, want, got))
 		}
 	}
 	return diffs
 }
 
-func keys(m map[string]string) []string {
+func keys(m map[string]File) []string {
 	var k []string
 	for name := range m {
 		k = append(k, name)

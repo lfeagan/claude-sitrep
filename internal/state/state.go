@@ -18,7 +18,7 @@ const (
 )
 
 // Inbox is the queue of no session. It is reserved: no session id may be this.
-const Inbox = "inbox"
+const Inbox ID = "inbox"
 
 // ValidID reports whether s can be part of a file name: letters, digits, underscore and hyphen, and nothing else (invariant 3).
 func ValidID(s string) bool {
@@ -34,7 +34,19 @@ func ValidID(s string) bool {
 }
 
 // SessionID is ValidID for a real session: the inbox is not one.
-func SessionID(s string) bool { return ValidID(s) && s != Inbox }
+func SessionID(s string) bool { return ValidID(s) && s != string(Inbox) }
+
+// ID names a queue: a session id, or the inbox. It can only be made by ParseID or Resolve, so a path built from an ID cannot leave the
+// state folder (invariant 3).
+type ID string
+
+// ParseID checks that s is a valid id (the inbox included).
+func ParseID(s string) (ID, error) {
+	if !ValidID(s) {
+		return "", fmt.Errorf("bad id '%s'", textsafe.Clean(s, 200))
+	}
+	return ID(s), nil
+}
 
 // ConfigDir is Claude Code's own folder. Only the transcripts and the live-session registry honor CLAUDE_CONFIG_DIR; sitrep's own state
 // never moves (see Open), and unifying the two would orphan existing state.
@@ -56,18 +68,24 @@ func (s Store) Ensure() error {
 	if err := os.MkdirAll(s.Dir, DirMode); err != nil {
 		return err
 	}
+	if fi, err := os.Lstat(s.Dir); err != nil || fi.Mode()&os.ModeSymlink != 0 {
+		return err // a link is the user's: never chmod through it
+	}
 	return os.Chmod(s.Dir, DirMode)
 }
 
 // Path is the file for a session id and an extension without the dot: <id>.txt, <id>.queue, <id>.cwd.
-func (s Store) Path(id, ext string) string { return filepath.Join(s.Dir, id+"."+ext) }
+func (s Store) Path(id ID, ext string) string { return filepath.Join(s.Dir, string(id)+"."+ext) }
 
 // Hidden is the dot file kept beside them: .<id>.state, .<id>.count, and so on.
-func (s Store) Hidden(id, ext string) string { return filepath.Join(s.Dir, "."+id+"."+ext) }
+func (s Store) Hidden(id ID, ext string) string { return filepath.Join(s.Dir, "."+string(id)+"."+ext) }
 
 // WriteFile replaces path with data in one step: a reader sees the old file or the new one, never a half. The temporary file has a
 // unique name in the same folder and is removed if anything fails.
 func (s Store) WriteFile(path string, data []byte) error {
+	if filepath.Dir(path) != s.Dir {
+		return fmt.Errorf("%s is not in the state folder", path)
+	}
 	f, err := os.CreateTemp(s.Dir, ".sitrep.*")
 	if err != nil {
 		return err
@@ -96,18 +114,21 @@ func (s Store) WriteFile(path string, data []byte) error {
 }
 
 // Resolve turns a unique prefix of a session id into the full id. "inbox" matches exactly. The error text is safe to print.
-func (s Store) Resolve(prefix string) (string, error) {
-	if !ValidID(prefix) {
-		return "", fmt.Errorf("bad id '%s'", textsafe.Clean(prefix, 200))
+//
+// It is stricter than the bash it replaces: only files named <valid id>.txt count, so inbox.txt and a.b.txt never match by prefix.
+func (s Store) Resolve(prefix string) (ID, error) {
+	id, err := ParseID(prefix)
+	if err != nil {
+		return "", err
 	}
-	if prefix == Inbox {
+	if id == Inbox {
 		return Inbox, nil
 	}
 	entries, err := os.ReadDir(s.Dir)
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
 	}
-	var m []string
+	var m []ID
 	for _, e := range entries {
 		id, ok := strings.CutSuffix(e.Name(), ".txt")
 		if !ok || !SessionID(id) || !strings.HasPrefix(id, prefix) {
@@ -116,7 +137,7 @@ func (s Store) Resolve(prefix string) (string, error) {
 		if fi, err := os.Stat(filepath.Join(s.Dir, e.Name())); err != nil || !fi.Mode().IsRegular() {
 			continue
 		}
-		m = append(m, id)
+		m = append(m, ID(id))
 	}
 	if len(m) != 1 {
 		return "", fmt.Errorf("id '%s' matches %d; run 'sitrep ls'", prefix, len(m))

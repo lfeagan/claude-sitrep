@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -57,6 +58,9 @@ func init() {
 
 // Run runs one command line (without the program name) and returns the exit status.
 func Run(args []string, e Env) int {
+	if !filepath.IsAbs(e.Home) {
+		return e.die(errors.New("cannot find your home folder"))
+	}
 	cmd := "ls"
 	if len(args) > 0 {
 		cmd, args = args[0], args[1:]
@@ -117,7 +121,7 @@ func guarded(args []string) (rest []string, guard *string, err error) {
 	return rest, guard, nil
 }
 
-func (e Env) resolve(prefix string) (string, error) { return e.store().Resolve(prefix) }
+func (e Env) resolve(prefix string) (state.ID, error) { return e.store().Resolve(prefix) }
 
 func cmdAdd(e Env, args []string) error {
 	if len(args) < 2 {

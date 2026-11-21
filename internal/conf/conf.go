@@ -1,7 +1,10 @@
-// Package conf reads sitrep's settings: the environment first, then sitrep.conf in the state folder. The file is read, never run.
+// Package conf reads sitrep's settings: the environment first, then sitrep.conf in the state folder. The file is read, never run, so it
+// holds NAME=value lines only (single quotes, double quotes and backslashes are understood; comments, export, variables and commands
+// are not). The bash status line used to source the file, which let it override the environment and run code; that is gone.
 package conf
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -36,10 +39,7 @@ func (c Conf) Get(name string) string {
 	if v := c.env(name); v != "" {
 		return v
 	}
-	b, err := os.ReadFile(c.File)
-	if err != nil {
-		return ""
-	}
+	b := readSmall(c.File)
 	prefix := name + "="
 	for _, line := range strings.Split(string(b), "\n") {
 		if rest, ok := strings.CutPrefix(line, prefix); ok {
@@ -85,8 +85,8 @@ func (c Conf) number(name string, def int) int {
 	return n
 }
 
-// Unquote reads one shell word the way sitrep.conf holds it, without running anything: single quotes, double quotes, backslash escapes
-// and $'...' are understood, and variables and commands are left as they are.
+// Unquote reads one shell word the way sitrep.conf holds it, without running anything: single quotes, double quotes and backslash escapes
+// are understood, and variables and commands are left as they are.
 func Unquote(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
@@ -99,23 +99,6 @@ func Unquote(s string) string {
 			}
 			b.WriteString(s[i+1 : i+1+j])
 			i += j + 1
-		case c == '$' && i+1 < len(s) && s[i+1] == '\'':
-			i += 2
-			for ; i < len(s) && s[i] != '\''; i++ {
-				if s[i] == '\\' && i+1 < len(s) {
-					i++
-					switch s[i] {
-					case 'n':
-						b.WriteByte('\n')
-					case 't':
-						b.WriteByte('\t')
-					default:
-						b.WriteByte(s[i])
-					}
-					continue
-				}
-				b.WriteByte(s[i])
-			}
 		case c == '"':
 			for i++; i < len(s) && s[i] != '"'; i++ {
 				if s[i] == '\\' && i+1 < len(s) && strings.IndexByte("\"\\$`", s[i+1]) >= 0 {
@@ -131,4 +114,18 @@ func Unquote(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// readSmall reads a regular file of at most 64 KB. Anything else (a pipe, a huge file, a missing one) reads as empty, so a hook never hangs.
+func readSmall(path string) []byte {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() || fi.Size() > 64<<10 {
+		return nil
+	}
+	b, _ := io.ReadAll(io.LimitReader(f, 64<<10))
+	return b
 }

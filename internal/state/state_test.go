@@ -112,7 +112,7 @@ func TestResolve(t *testing.T) {
 		t.Fatal(err)
 	}
 	for in, want := range map[string]string{"9z": "9zzz0000", "15f1": "15f1aaaa", "inbox": "inbox", "9zzz0000": "9zzz0000"} {
-		if got, err := s.Resolve(in); err != nil || got != want {
+		if got, err := s.Resolve(in); err != nil || string(got) != want {
 			t.Errorf("Resolve(%q) = %q, %v; want %q", in, got, err, want)
 		}
 	}
@@ -137,5 +137,48 @@ func TestResolve(t *testing.T) {
 func TestResolveWithoutFolder(t *testing.T) {
 	if _, err := Open(t.TempDir()).Resolve("abc"); err == nil || !strings.Contains(err.Error(), "matches 0") {
 		t.Errorf("error %v", err)
+	}
+}
+
+func TestEnsureDoesNotChmodThroughALink(t *testing.T) {
+	base := t.TempDir()
+	target := filepath.Join(base, "real")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	s := Open(filepath.Join(base, "home"))
+	if err := os.MkdirAll(filepath.Dir(s.Dir), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, s.Dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(target); fi.Mode().Perm() != 0o755 {
+		t.Errorf("the target of the link was changed to %v", fi.Mode().Perm())
+	}
+}
+
+func TestWriteFileStaysInTheFolder(t *testing.T) {
+	s := newStore(t)
+	if err := s.WriteFile(filepath.Join(s.Dir, "..", "escape"), []byte("x")); err == nil {
+		t.Error("a file outside the folder was written")
+	}
+	if err := s.WriteFile(filepath.Join(s.Dir, "sub", "x"), []byte("x")); err == nil {
+		t.Error("a file in a subfolder was written")
+	}
+}
+
+func TestParseID(t *testing.T) {
+	if id, err := ParseID("abc-1"); err != nil || id != "abc-1" {
+		t.Errorf("%q, %v", id, err)
+	}
+	if id, err := ParseID("inbox"); err != nil || id != Inbox {
+		t.Errorf("%q, %v", id, err)
+	}
+	if _, err := ParseID("../x"); err == nil || err.Error() != "bad id '../x'" {
+		t.Errorf("%v", err)
 	}
 }

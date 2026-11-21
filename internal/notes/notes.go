@@ -17,8 +17,8 @@ var ErrBlank = errors.New("nothing to pin")
 type Notes struct{ Store state.Store }
 
 // Pin sets the Objective and stops the summarizer from changing it. The other lines of the file stay as they are.
-func (n Notes) Pin(id string, text textsafe.Text) error {
-	if strings.TrimSpace(string(text)) == "" {
+func (n Notes) Pin(id state.ID, text textsafe.Text) error {
+	if strings.TrimSpace(text.String()) == "" {
 		return ErrBlank
 	}
 	if err := n.Store.Ensure(); err != nil {
@@ -32,7 +32,7 @@ func (n Notes) Pin(id string, text textsafe.Text) error {
 			}
 		}
 	}
-	body := "Objective: " + string(text) + "\n" + strings.Join(keep, "")
+	body := "Objective: " + text.String() + "\n" + strings.Join(keep, "")
 	if err := n.Store.WriteFile(n.Store.Path(id, "txt"), []byte(body)); err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (n Notes) Pin(id string, text textsafe.Text) error {
 }
 
 // Unpin lets the summarizer rewrite the Objective again.
-func (n Notes) Unpin(id string) error {
+func (n Notes) Unpin(id state.ID) error {
 	err := os.Remove(n.Store.Hidden(id, "pinned"))
 	if err != nil && !os.IsNotExist(err) {
 		return err

@@ -7,9 +7,10 @@ import (
 	"testing"
 
 	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/textsafe"
 )
 
-func newQueue(t *testing.T, id, body string) Queue {
+func newQueue(t *testing.T, id state.ID, body string) Queue {
 	t.Helper()
 	s := state.Open(t.TempDir())
 	if err := s.Ensure(); err != nil {
@@ -24,7 +25,7 @@ func newQueue(t *testing.T, id, body string) Queue {
 	return q
 }
 
-func read(t *testing.T, q Queue, id string) string {
+func read(t *testing.T, q Queue, id state.ID) string {
 	t.Helper()
 	b, err := os.ReadFile(q.file(id))
 	if err != nil {
@@ -34,7 +35,7 @@ func read(t *testing.T, q Queue, id string) string {
 }
 
 func TestLabel(t *testing.T) {
-	for id, want := range map[string]string{"inbox": "inbox", "15f1aaaa-bbbb": "15f1", "ab": "ab", "abcd": "abcd"} {
+	for id, want := range map[state.ID]string{"inbox": "inbox", "15f1aaaa-bbbb": "15f1", "ab": "ab", "abcd": "abcd"} {
 		if got := Label(id); got != want {
 			t.Errorf("Label(%q) = %q, want %q", id, got, want)
 		}
@@ -44,12 +45,12 @@ func TestLabel(t *testing.T) {
 func TestAddAndCount(t *testing.T) {
 	q := newQueue(t, "s1", "")
 	for i, want := range []int{1, 2} {
-		n, err := q.Add("s1", "item")
+		n, err := q.Add("s1", textsafe.Clean("item", 0))
 		if err != nil || n != want {
 			t.Fatalf("add %d: %d, %v", i, n, err)
 		}
 	}
-	if _, err := q.Add("s1", "  \t "); !errors.Is(err, ErrBlank) {
+	if _, err := q.Add("s1", textsafe.Clean("  \t ", 0)); !errors.Is(err, ErrBlank) {
 		t.Errorf("blank add: %v", err)
 	}
 	if fi, _ := os.Stat(q.file("s1")); fi.Mode().Perm() != state.FileMode {
@@ -62,7 +63,7 @@ func TestAddAndCount(t *testing.T) {
 
 func TestAddCreatesTheFolder(t *testing.T) {
 	q := Queue{Store: state.Open(t.TempDir())}
-	if _, err := q.Add("inbox", "x"); err != nil {
+	if _, err := q.Add("inbox", textsafe.Clean("x", 0)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -70,7 +71,7 @@ func TestAddCreatesTheFolder(t *testing.T) {
 func TestRemove(t *testing.T) {
 	q := newQueue(t, "s1", "a\nb\nc\n")
 	got, err := q.Remove("s1", 2, nil)
-	if err != nil || got != "b" || read(t, q, "s1") != "a\nc\n" {
+	if err != nil || got.String() != "b" || read(t, q, "s1") != "a\nc\n" {
 		t.Fatalf("got %q, %v, file %q", got, err, read(t, q, "s1"))
 	}
 	var no *NoItemError
@@ -134,7 +135,7 @@ func TestMove(t *testing.T) {
 	if err := os.WriteFile(q.file("inbox"), []byte("x\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := q.Move("s1", "inbox", 2, nil); err != nil || got != "b" {
+	if got, err := q.Move("s1", "inbox", 2, nil); err != nil || got.String() != "b" {
 		t.Fatalf("%q, %v", got, err)
 	}
 	if read(t, q, "s1") != "a\n" || read(t, q, "inbox") != "x\nb\n" {
@@ -154,7 +155,7 @@ func TestMove(t *testing.T) {
 func TestDisplayIsSafe(t *testing.T) {
 	q := newQueue(t, "s1", "ok\x1b]0;t\x07 ‮x\n")
 	got, err := q.Remove("s1", 1, nil)
-	if err != nil || got != "ok]0;t x" {
+	if err != nil || got.String() != "ok]0;t x" {
 		t.Errorf("%q, %v", got, err)
 	}
 }

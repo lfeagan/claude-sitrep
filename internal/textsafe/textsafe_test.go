@@ -35,25 +35,25 @@ func TestCleanBasics(t *testing.T) {
 		"keep   ":                            "keep",
 		"\u202eX\u009b":                      "X",
 	} {
-		if got := Clean(in, 200); string(got) != want {
+		if got := Clean(in, 200); got.String() != want {
 			t.Errorf("Clean(%q) = %q, want %q", in, got, want)
 		}
 	}
-	if got := Clean(strings.Repeat("x", 250), 200); len(got) != 200 {
-		t.Errorf("Clean cut to %d, want 200", len(got))
+	if got := Clean(strings.Repeat("x", 250), 200); len(got.String()) != 200 {
+		t.Errorf("Clean cut to %d, want 200", len(got.String()))
 	}
-	if got := Clean(strings.Repeat("世", 250), 200); utf8.RuneCountInString(string(got)) != 200 {
-		t.Errorf("Clean cut to %d runes, want 200", utf8.RuneCountInString(string(got)))
+	if got := Clean(strings.Repeat("世", 250), 200); utf8.RuneCountInString(got.String()) != 200 {
+		t.Errorf("Clean cut to %d runes, want 200", utf8.RuneCountInString(got.String()))
 	}
 }
 
 func TestOutputIsValidAndClean(t *testing.T) {
 	for _, in := range hostile {
 		for _, got := range []Text{Clean(in, 200), Sane(in, 140), Strip(in)} {
-			if !utf8.ValidString(string(got)) {
+			if !utf8.ValidString(got.String()) {
 				t.Errorf("%q gives invalid UTF-8 %q", in, got)
 			}
-			for _, r := range string(got) {
+			for _, r := range got.String() {
 				if r != '\n' && r != '\t' && unsafe(r) {
 					t.Errorf("%q leaves %U in %q", in, r, got)
 				}
@@ -63,7 +63,7 @@ func TestOutputIsValidAndClean(t *testing.T) {
 }
 
 func TestStripKeepsBreaks(t *testing.T) {
-	if got := Strip("a\n\tb\033[0m\u202e"); got != "a\n\tb[0m" {
+	if got := Strip("a\n\tb\033[0m\u202e"); got.String() != "a\n\tb[0m" {
 		t.Errorf("Strip = %q", got)
 	}
 }
@@ -79,8 +79,8 @@ func TestFit(t *testing.T) {
 		{"a bit too long", 10, "a bit too…"},
 		{"世界世界世界", 7, "世界世…"},
 	} {
-		got := Fit(Text(c.in), c.cols)
-		if string(got) != c.want || Width(got) > c.cols {
+		got := Fit(Clean(c.in, 0), c.cols)
+		if got.String() != c.want || Width(got) > c.cols {
 			t.Errorf("Fit(%q, %d) = %q (width %d), want %q", c.in, c.cols, got, Width(got), c.want)
 		}
 	}
@@ -128,14 +128,53 @@ func TestMatchesPerl(t *testing.T) {
 		if !utf8.ValidString(in) {
 			continue
 		}
-		if got, want := string(Clean(in, 200)), perl(t, perlClean, in); got != want {
+		if got, want := Clean(in, 200).String(), perl(t, perlClean, in); got != want {
 			t.Errorf("Clean(%q)\n  go:   %q\n  perl: %q", in, got, want)
 		}
-		if got, want := string(Sane(in, 140)), perl(t, perlSane, in); got != want {
+		if got, want := Sane(in, 140).String(), perl(t, perlSane, in); got != want {
 			t.Errorf("Sane(%q)\n  go:   %q\n  perl: %q", in, got, want)
 		}
-		if got, want := string(Strip(in)), perl(t, perlStrip, in); got != want {
+		if got, want := Strip(in).String(), perl(t, perlStrip, in); got != want {
 			t.Errorf("Strip(%q)\n  go:   %q\n  perl: %q", in, got, want)
+		}
+	}
+}
+
+func TestFitSmallWidths(t *testing.T) {
+	for _, cols := range []int{-1, 0} {
+		if got := Fit(Clean("abc", 0), cols); got.String() != "" {
+			t.Errorf("Fit(abc, %d) = %q", cols, got)
+		}
+	}
+	if got := Fit(Clean("abc", 0), 1); got.String() != "\u2026" || Width(got) != 1 {
+		t.Errorf("Fit(abc, 1) = %q", got)
+	}
+}
+
+// Every code point, against perl in one run. Perl's Unicode tables can be older than Go's, so Go may be stricter, never looser.
+func TestAllCodePointsAgainstPerl(t *testing.T) {
+	if _, err := exec.LookPath("perl"); err != nil {
+		t.Skip("perl is not installed")
+	}
+	cmd := exec.Command("perl", "-CSD", "-e", `for my $c (0..0x10FFFF) { next if $c >= 0xD800 && $c <= 0xDFFF; my $s = chr($c); print $c, "\n" if $s =~ /[\p{Cc}\p{Cf}]/ }`)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	perlUnsafe := map[rune]bool{}
+	for _, f := range strings.Fields(string(out)) {
+		var c int
+		for _, d := range f {
+			c = c*10 + int(d-'0')
+		}
+		perlUnsafe[rune(c)] = true
+	}
+	for c := rune(0); c <= 0x10FFFF; c++ {
+		if c >= 0xD800 && c <= 0xDFFF {
+			continue
+		}
+		if perlUnsafe[c] && !unsafe(c) {
+			t.Errorf("U+%04X is unsafe to perl and safe to Go", c)
 		}
 	}
 }
