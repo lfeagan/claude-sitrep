@@ -176,3 +176,11 @@ func TestPruneAnswerWithoutNewlineIsNo(t *testing.T) {
 		t.Error("items moved")
 	}
 }
+
+func TestSetupUsage(t *testing.T) {
+	for _, args := range [][]string{{"setup", "--bogus"}, {"setup", "--remove", "x"}, {"setup", "-y"}} {
+		if code, _, errs := run(t, t.TempDir(), args...); code != 1 || errs != "sitrep: usage: sitrep setup [--remove]\n" {
+			t.Errorf("%v: %d %q", args, code, errs)
+		}
+	}
+}

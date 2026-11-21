@@ -2,6 +2,7 @@ package conf
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -128,5 +129,134 @@ func TestAPipeAsTheConfFileDoesNotHang(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("reading the conf hung on a pipe")
+	}
+}
+
+func writeConf(t *testing.T, body string) Conf {
+	t.Helper()
+	f := filepath.Join(t.TempDir(), "sitrep.conf")
+	if body != "\x00" {
+		os.WriteFile(f, []byte(body), 0o600)
+	}
+	return Conf{File: f, Getenv: func(string) string { return "" }}
+}
+
+func TestQuoteRoundTrips(t *testing.T) {
+	for _, s := range []string{"plain", "with space", `bash "$HOME/x" # tag`, "it's", "a'b'c", `back\slash`, "$(rm -rf /)", "`x`", "", "ünï 世界"} {
+		if got := Unquote(Quote(s)); got != s {
+			t.Errorf("Unquote(Quote(%q)) = %q", s, got)
+		}
+	}
+}
+
+func TestPutAndDropHUDKeepTheUsersLines(t *testing.T) {
+	c := writeConf(t, "SITREP_QUEUE_ITEMS=7\nSITREP_HUD_CMD=old\n# a comment\n")
+	if err := c.PutHUD("my 'hud' $cmd"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(c.File)
+	if string(b) != "SITREP_QUEUE_ITEMS=7\n# a comment\nSITREP_HUD_CMD='my '\\''hud'\\'' $cmd'\n" {
+		t.Errorf("file %q", b)
+	}
+	if got := c.Get("SITREP_HUD_CMD"); got != "my 'hud' $cmd" {
+		t.Errorf("read back %q", got)
+	}
+	if fi, _ := os.Stat(c.File); fi.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v", fi.Mode().Perm())
+	}
+	if err := c.DropHUD(); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = os.ReadFile(c.File)
+	if string(b) != "SITREP_QUEUE_ITEMS=7\n# a comment\n" {
+		t.Errorf("after drop %q", b)
+	}
+}
+
+func TestDropHUDRemovesAFileThatHoldsNothingElse(t *testing.T) {
+	for _, body := range []string{"SITREP_HUD_CMD=x\n", "SITREP_HUD_CMD=x", "\nSITREP_HUD_CMD=x\n\n"} {
+		c := writeConf(t, body)
+		if err := c.DropHUD(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(c.File); !os.IsNotExist(err) {
+			t.Errorf("%q left a file", body)
+		}
+	}
+	if err := writeConf(t, "\x00").DropHUD(); err != nil {
+		t.Errorf("no file: %v", err)
+	}
+}
+
+func TestPutHUDCreatesTheFileAndRefusesMoreThanOneLine(t *testing.T) {
+	c := writeConf(t, "\x00")
+	if err := c.PutHUD("echo hi"); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(c.File); string(b) != "SITREP_HUD_CMD='echo hi'\n" {
+		t.Errorf("%q", b)
+	}
+	if err := c.PutHUD("a\nb"); err != ErrMultiline {
+		t.Errorf("%v", err)
+	}
+	if got := c.Get("SITREP_HUD_CMD"); got != "echo hi" {
+		t.Errorf("a refused command changed the file: %q", got)
+	}
+	// a file with no final newline still gets our line on its own line
+	c = writeConf(t, "SITREP_QUEUE_ITEMS=3")
+	c.PutHUD("x")
+	if b, _ := os.ReadFile(c.File); string(b) != "SITREP_QUEUE_ITEMS=3\nSITREP_HUD_CMD='x'\n" {
+		t.Errorf("%q", b)
+	}
+}
+
+// What bash's printf %q writes must read back, and what the Go writer writes must be what bash reads back (the file was sourced by bash).
+func TestBashQuotingRoundTrips(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("no bash")
+	}
+	values := []string{"plain", "with space", `a"b`, "it's", "a'b'c", `back\slash`, "$HOME and $(cmd)", "`tick`", "a && b || c # not a comment", "-leading-dash", "  padded  ",
+		"tab\there", "new\nline", "esc\x1b[31m", "bell\a", "é世界 \U0001F600", "semi;colon", "glob*?[x]", "~/tilde", "!bang", "{brace,expansion}", strings.Repeat("x y ", 25000), ""}
+	for _, loc := range []string{"C", "en_US.UTF-8", "C.UTF-8"} {
+		for _, v := range values {
+			cmd := exec.Command("bash", "-c", `printf '%q' "$1"`, "bash", v)
+			cmd.Env = []string{"LC_ALL=" + loc, "PATH=" + os.Getenv("PATH")}
+			out, err := cmd.Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := Unquote(string(out)); got != v {
+				t.Errorf("locale %s: bash wrote %q, Unquote gave %q, want %q", loc, out, got, v)
+			}
+		}
+	}
+	for _, v := range values {
+		if v == "" || strings.ContainsAny(v, "\n") {
+			continue
+		}
+		cmd := exec.Command("bash", "-c", `printf '%s' `+Quote(v))
+		out, err := cmd.Output()
+		if err != nil || string(out) != v {
+			t.Errorf("bash read Quote(%q) as %q (%v)", v, out, err)
+		}
+	}
+}
+
+func TestFromFileIgnoresTheEnvironment(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "sitrep.conf")
+	os.WriteFile(f, []byte("SITREP_HUD_CMD='from the file'\n"), 0o600)
+	c := Conf{File: f, Getenv: func(string) string { return "from the environment" }}
+	if c.Get("SITREP_HUD_CMD") != "from the environment" || c.FromFile("SITREP_HUD_CMD") != "from the file" {
+		t.Error("FromFile must read the file only")
+	}
+}
+
+func TestAnsiCEscapes(t *testing.T) {
+	for in, want := range map[string]string{
+		`$'\n\t\r'`: "\n\t\r", `$'\e[0m'`: "\x1b[0m", `$'\x41\x42'`: "AB", `$'\101'`: "A", `$'é'`: "é", `$'\''`: "'", `$'a\\b'`: `a\b`, `$'\x'`: "x", `$'\q'`: "q", `$'open`: "open",
+	} {
+		if got := Unquote(in); got != want {
+			t.Errorf("Unquote(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

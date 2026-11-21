@@ -22,23 +22,24 @@ import (
 
 // Env is everything a command touches outside its arguments, so tests can replace it.
 type Env struct {
-	Home     string
-	Getenv   func(string) string
-	Stdin    io.Reader
-	Stdout   io.Writer
-	Stderr   io.Writer
-	Clock    clock.Clock
-	Runner   runner.Runner
-	TTY      func() (io.ReadCloser, error)    // the controlling terminal, for questions; nil or an error means there is none
-	Spawn    func(args ...string) error       // starts this program again, detached; the hook uses it for the summarizer
-	Alive    func(pid int) bool               // whether a process exists; nil means ask the system
-	TermSize func() (rows, cols int, ok bool) // the size of the terminal on standard output; nil or !ok means there is none
+	Home       string
+	Getenv     func(string) string
+	Stdin      io.Reader
+	Stdout     io.Writer
+	Stderr     io.Writer
+	Clock      clock.Clock
+	Runner     runner.Runner
+	TTY        func() (io.ReadCloser, error)    // the controlling terminal, for questions; nil or an error means there is none
+	Executable func() (string, error)           // the path of this program
+	Spawn      func(args ...string) error       // starts this program again, detached; the hook uses it for the summarizer
+	Alive      func(pid int) bool               // whether a process exists; nil means ask the system
+	TermSize   func() (rows, cols int, ok bool) // the size of the terminal on standard output; nil or !ok means there is none
 }
 
 // OSEnv is the real process environment.
 func OSEnv() Env {
 	home, _ := os.UserHomeDir()
-	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}, TTY: openTTY, TermSize: termSize, Spawn: spawnSelf}
+	return Env{Home: home, Getenv: os.Getenv, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Clock: clock.Real{}, Runner: runner.Exec{}, TTY: openTTY, TermSize: termSize, Spawn: spawnSelf, Executable: os.Executable}
 }
 
 func termSize() (int, int, bool) {
@@ -59,6 +60,11 @@ type usageError string
 
 func (u usageError) Error() string { return string(u) }
 
+// exitError is a command that has already printed its own messages and only needs an exit status.
+type exitError int
+
+func (e exitError) Error() string { return "exit status " + strconv.Itoa(int(e)) }
+
 // command runs with the arguments after its name.
 type command func(e Env, args []string) error
 
@@ -67,7 +73,7 @@ var commands map[string]command
 func init() {
 	commands = map[string]command{
 		"add": cmdAdd, "rm": cmdRm, "top": cmdTop, "reorder": cmdReorder, "move": cmdMove, "pin": cmdPin, "unpin": cmdUnpin, "ls": cmdLs, "snooze": cmdSnooze, "prune": cmdPrune,
-		"hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
+		"setup": cmdSetup, "hook": cmdHook, "statusline": cmdStatusline, "hook-summarize": cmdHookSummarize, "help": cmdHelp, "-h": cmdHelp, "--help": cmdHelp,
 	}
 }
 
@@ -96,6 +102,10 @@ func Run(args []string, e Env) int {
 		return e.die(fmt.Errorf("unknown command '%s'; run 'sitrep help'", textsafe.Clean(cmd, 200)))
 	}
 	if err := run(e, args); err != nil {
+		var code exitError
+		if errors.As(err, &code) {
+			return int(code) // the command has said what there was to say
+		}
 		return e.die(err)
 	}
 	return 0
