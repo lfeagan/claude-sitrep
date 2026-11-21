@@ -81,7 +81,7 @@ To take sitrep out, run `/sitrep:setup remove` (it restores the saved upstream s
 
 Changes to a queue take a lock, so an `add` that lands while a `move` or a `reorder` rewrites the file waits for it, and nothing is lost.
 
-The inbox is a queue that belongs to no session, for work you have not yet matched to one. Address it as `inbox` in any command that takes an id: `sitrep add inbox <text>`, `sitrep ls inbox`, `sitrep rm inbox [n]`, and `sitrep move inbox <id>` when you pick the item up. It has no Objective, so `pin` and `unpin` do not apply. `sitrep ls` prints an `Inbox:` line above the table when it holds anything, and the status line appends `Inbox: N` to the Queue line.
+The inbox is a queue that belongs to no session, for work you have not yet matched to one. Address it as `inbox` in any command that takes an id: `sitrep add inbox <text>`, `sitrep ls inbox`, `sitrep rm inbox [n]`, and `sitrep move inbox <id>` when you pick the item up. It has no Objective, so `pin` and `unpin` do not apply. `sitrep ls` prints an `Inbox:` line above the table when it holds anything, and the status line appends `Inbox: N` to the Queue line. To fill it from GitHub or Linear issues, see [docs/INBOX-SOURCES.md](docs/INBOX-SOURCES.md).
 
 Inside a session, four prefixes work on the prompt itself, and none of them is sent to Claude:
 
