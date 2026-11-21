@@ -440,6 +440,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"",
 		"  up, down, j, k, home, end      move the selection (the \u25b8 marker)",
 		"  enter                          jump to its tmux pane or cmux surface",
+		"  y, Y                           copy the id, or its claude --resume command",
 		"  d, space                       the selected session in full (esc closes)",
 		"  tab, shift+tab, left, right    switch tab (also 1 and 2)",
 		"  a                              show or hide ended sessions",

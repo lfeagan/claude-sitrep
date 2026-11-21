@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -141,6 +142,29 @@ func (m model) pruneResult(msg pruneMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// idRe is what a session id may look like. It is checked before an id goes on the clipboard,
+// because the resume command is meant to be pasted into a shell.
+var idRe = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// copyKey puts the selected session's id, or its `claude --resume` command, on the clipboard
+// through the terminal. The text is also on the status bar, for a terminal that ignores it.
+func (m model) copyKey(resume bool) (tea.Model, tea.Cmd) {
+	x := m.selected()
+	switch {
+	case x == nil:
+		return m, nil
+	case !idRe.MatchString(x.ID):
+		m.say("copy: this session's id looks unusual, so it is not copied")
+		return m, nil
+	}
+	text, what := x.ID, "session id"
+	if resume {
+		text, what = "claude --resume "+x.ID, "command"
+	}
+	m.say("copied the " + what + ": " + text)
+	return m, tea.SetClipboard(text)
+}
+
 // jumpCmd starts a jump to the selected session's tmux pane, unless one is already running.
 func (m *model) jumpCmd() tea.Cmd {
 	x := m.selected()
@@ -201,6 +225,8 @@ func (m model) detailKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.jumpCmd(); cmd != nil {
 			return m, cmd
 		}
+	case "y", "Y":
+		return m.copyKey(msg.String() == "Y")
 	case "up", "k":
 		m.moveSel(-1)
 		m.scroll = 0
@@ -334,6 +360,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cmd := m.jumpCmd(); cmd != nil {
 				return m, cmd
 			}
+		case "y", "Y":
+			return m.copyKey(msg.String() == "Y")
 		case "p":
 			return m.pruneStart()
 		case "d", "space", " ":
