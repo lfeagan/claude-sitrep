@@ -196,8 +196,8 @@ func cmdPrune(e Env, args []string) error {
 		case tty != nil:
 			fmt.Fprintf(e.Stderr, "Move %d item(s) from %s to the inbox? [y/N] ", a.Items, who)
 			line, err := tty.ReadString('\n')
-			if err != nil && line == "" {
-				line = "n"
+			if err != nil {
+				line = "n" // end of input before the end of the line is no answer
 			}
 			answer = strings.TrimSpace(line)
 		default:

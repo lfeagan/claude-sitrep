@@ -3,9 +3,11 @@ package state
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
 )
@@ -143,4 +145,39 @@ func (s Store) Resolve(prefix string) (ID, error) {
 		return "", fmt.Errorf("id '%s' matches %d; run 'sitrep ls'", prefix, len(m))
 	}
 	return m[0], nil
+}
+
+// ReadFile reads at most max bytes of a regular file, and nothing else: a pipe, a device or a directory is an error, and opening one never
+// blocks (invariant 4: a hook must not hang on a hostile file). A link to a regular file is followed, as the bash tests did.
+func ReadFile(path string, max int64) ([]byte, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file", filepath.Base(path))
+	}
+	return io.ReadAll(io.LimitReader(f, max))
+}
+
+// FirstLine is the first line of a small regular file, without leading or trailing spaces and tabs, as the shell's read -r gives it. It is
+// empty when the file cannot be read.
+func FirstLine(path string) string {
+	b, err := ReadFile(path, 4096)
+	if err != nil {
+		return ""
+	}
+	l, _, _ := strings.Cut(string(b), "\n")
+	return strings.Trim(l, " \t")
+}
+
+// IsRegular says whether path is a regular file (a link to one counts).
+func IsRegular(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.Mode().IsRegular()
 }

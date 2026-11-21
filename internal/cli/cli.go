@@ -78,6 +78,9 @@ func Run(args []string, e Env) int {
 	cmd := "ls"
 	if len(args) > 0 {
 		cmd, args = args[0], args[1:]
+		if cmd == "" {
+			cmd = "ls" // an empty word is no command, as in the shell's ${1:-ls}
+		}
 	}
 	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") && cmd != "help" && cmd != "-h" && cmd != "--help" {
 		text, ok := help[cmd]

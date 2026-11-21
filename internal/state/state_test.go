@@ -4,7 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestValidID(t *testing.T) {
@@ -180,5 +182,61 @@ func TestParseID(t *testing.T) {
 	}
 	if _, err := ParseID("../x"); err == nil || err.Error() != "bad id '../x'" {
 		t.Errorf("%v", err)
+	}
+}
+
+// promptly runs f and fails the test if it does not return in time: a hostile pipe must not hang a reader.
+func promptly(t *testing.T, what string, f func()) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() { f(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatalf("%s hung", what)
+	}
+}
+
+func TestReadFileRefusesWhatIsNotARegularFile(t *testing.T) {
+	dir := t.TempDir()
+	fifo := filepath.Join(dir, "pipe")
+	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
+		t.Skip("no mkfifo")
+	}
+	promptly(t, "ReadFile on a pipe", func() {
+		if _, err := ReadFile(fifo, 100); err == nil {
+			t.Error("a pipe was read")
+		}
+	})
+	promptly(t, "FirstLine on a pipe", func() {
+		if got := FirstLine(fifo); got != "" {
+			t.Errorf("FirstLine = %q", got)
+		}
+	})
+	if _, err := ReadFile(dir, 100); err == nil {
+		t.Error("a directory was read")
+	}
+	real := filepath.Join(dir, "real")
+	os.WriteFile(real, []byte("0123456789"), 0o600)
+	link := filepath.Join(dir, "link")
+	os.Symlink(real, link)
+	if b, err := ReadFile(link, 4); err != nil || string(b) != "0123" {
+		t.Errorf("a link to a file, cut to 4 bytes: %q, %v", b, err)
+	}
+	if IsRegular(fifo) || IsRegular(dir) || !IsRegular(link) {
+		t.Error("IsRegular is wrong")
+	}
+}
+
+func TestFirstLine(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "f")
+	for body, want := range map[string]string{"working\n": "working", " \tworking \t\nrest": "working", "": "", "\nx": "", "a b\n": "a b"} {
+		os.WriteFile(p, []byte(body), 0o600)
+		if got := FirstLine(p); got != want {
+			t.Errorf("FirstLine(%q) = %q, want %q", body, got, want)
+		}
+	}
+	if FirstLine(filepath.Join(t.TempDir(), "missing")) != "" {
+		t.Error("a missing file has a first line")
 	}
 }

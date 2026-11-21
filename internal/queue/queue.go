@@ -59,7 +59,7 @@ func (q Queue) file(id state.ID) string { return q.Store.Path(id, "queue") }
 
 // lines reads the raw lines of a queue; a missing file is an empty queue.
 func (q Queue) lines(id state.ID) ([]string, error) {
-	b, err := os.ReadFile(q.file(id))
+	b, err := state.ReadFile(q.file(id), 8<<20)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

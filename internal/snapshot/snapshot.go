@@ -185,7 +185,7 @@ func (b Builder) sessions(now int64) []found {
 		if !ok || !state.SessionID(id) {
 			continue // not ours
 		}
-		if fi, err := os.Stat(filepath.Join(b.Store.Dir, e.Name())); err != nil || !fi.Mode().IsRegular() {
+		if !state.IsRegular(filepath.Join(b.Store.Dir, e.Name())) {
 			continue
 		}
 		changed, ok := live.Changed(b.Store, id)
@@ -237,23 +237,12 @@ func labelOK(s string) bool {
 }
 
 // snoozedAt is the state-change time a `sitrep snooze` stored, as text.
-func snoozedAt(s state.Store, id state.ID) string {
-	b, err := os.ReadFile(s.Hidden(id, "snooze"))
-	if err != nil {
-		return ""
-	}
-	v, _, _ := strings.Cut(string(b), "\n")
-	return v
-}
+func snoozedAt(s state.Store, id state.ID) string { return state.FirstLine(s.Hidden(id, "snooze")) }
 
-// readText reads a file as text; a file that is missing or unreadable reads as empty, so one bad file does not blank the listing.
+// readText reads a file as text; a file that is missing, unreadable or not a regular file reads as empty, so one bad file does not blank
+// the listing, and a pipe named like a session file does not hang it.
 func readText(path string) string {
-	f, err := os.Open(path)
-	if err != nil {
-		return ""
-	}
-	defer f.Close()
-	b, _ := io.ReadAll(io.LimitReader(f, maxRead))
+	b, _ := state.ReadFile(path, maxRead)
 	return string(b)
 }
 

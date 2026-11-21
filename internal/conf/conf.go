@@ -4,7 +4,7 @@
 package conf
 
 import (
-	"io"
+	"github.com/lfeagan/claude-sitrep/internal/state"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -118,14 +118,9 @@ func Unquote(s string) string {
 
 // readSmall reads a regular file of at most 64 KB. Anything else (a pipe, a huge file, a missing one) reads as empty, so a hook never hangs.
 func readSmall(path string) []byte {
-	f, err := os.Open(path)
-	if err != nil {
+	b, err := state.ReadFile(path, 64<<10+1)
+	if err != nil || len(b) > 64<<10 {
 		return nil
 	}
-	defer f.Close()
-	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() || fi.Size() > 64<<10 {
-		return nil
-	}
-	b, _ := io.ReadAll(io.LimitReader(f, 64<<10))
 	return b
 }

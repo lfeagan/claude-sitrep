@@ -26,7 +26,7 @@ func (n Notes) Pin(id state.ID, text textsafe.Text) error {
 		return err
 	}
 	var keep []string
-	if b, err := os.ReadFile(n.Store.Path(id, "txt")); err == nil {
+	if b, err := state.ReadFile(n.Store.Path(id, "txt"), 1<<20); err == nil {
 		for _, l := range strings.SplitAfter(string(b), "\n") {
 			if l != "" && !strings.HasPrefix(l, "Objective:") {
 				keep = append(keep, l)

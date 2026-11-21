@@ -153,3 +153,26 @@ func TestPruneKeepDoesNotAsk(t *testing.T) {
 		t.Errorf("%q", out)
 	}
 }
+
+func TestAnEmptyCommandIsLs(t *testing.T) {
+	e, out, _, _ := pruneEnv(t, "none")
+	if code := Run([]string{""}, e); code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	if !strings.Contains(out.String(), "ID    DIRECTORY") {
+		t.Errorf("%q", out)
+	}
+}
+
+func TestPruneAnswerWithoutNewlineIsNo(t *testing.T) {
+	e, out, _, dir := pruneEnv(t, "y") // end of input before the end of the line
+	if code := Run([]string{"prune"}, e); code != 0 {
+		t.Fatal(code)
+	}
+	if out.String() != "0 marked ended, 0 item(s) moved to the inbox\n" {
+		t.Errorf("%q", out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "inbox.queue")); err == nil {
+		t.Error("items moved")
+	}
+}

@@ -55,7 +55,7 @@ func (p Pruner) Plan(ctx context.Context, now int64) ([]Action, error) {
 		if !ok || !state.SessionID(sid) {
 			continue
 		}
-		if fi, err := os.Stat(filepath.Join(p.Store.Dir, e.Name())); err != nil || !fi.Mode().IsRegular() {
+		if !state.IsRegular(filepath.Join(p.Store.Dir, e.Name())) {
 			continue
 		}
 		changed, ok := live.Changed(p.Store, sid)
@@ -71,7 +71,7 @@ func (p Pruner) Plan(ctx context.Context, now int64) ([]Action, error) {
 
 // dirName is the last part of the session's working directory, or ?.
 func dirName(s state.Store, id state.ID) textsafe.Text {
-	b, _ := os.ReadFile(s.Path(id, "cwd"))
+	b, _ := state.ReadFile(s.Path(id, "cwd"), 64<<10)
 	cwd := textsafe.Clean(string(b), 200).String()
 	if cwd == "" {
 		cwd = "?"

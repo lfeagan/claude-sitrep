@@ -200,3 +200,43 @@ func TestRegistryEmptyOrAbsent(t *testing.T) {
 		t.Errorf("nothing live is not OK: %+v", set)
 	}
 }
+
+func TestFoldersWithGlobCharactersAreRead(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "cfg[1]*?")
+	writeReg(t, filepath.Join(cfg, "sessions"), "1.json", `{"pid":7,"sessionId":"glob0001","procStart":""}`)
+	r := Registry{Dir: filepath.Join(cfg, "sessions"), Run: &runner.Fake{}, Alive: func(int) bool { return true }}
+	if set := r.Read(context.Background()); !set.OK || !set.Has("glob0001") {
+		t.Errorf("the registry was not read: %+v", set)
+	}
+	tr := filepath.Join(cfg, "projects", "p[x]", "glob0001.jsonl")
+	os.MkdirAll(filepath.Dir(tr), 0o755)
+	os.WriteFile(tr, []byte("{}"), 0o600)
+	at := time.Unix(9_000, 0)
+	os.Chtimes(tr, at, at)
+	if got, ok := Quiet(cfg, "glob0001", 10_000); !ok || got != 1000 {
+		t.Errorf("Quiet = %d, %v", got, ok)
+	}
+}
+
+func TestStateWordTrimsLikeRead(t *testing.T) {
+	s := state.Open(t.TempDir())
+	s.Ensure()
+	for body, want := range map[string]string{" working \t\n": "working", "\twaiting": "waiting"} {
+		os.WriteFile(s.Hidden("s1", "state"), []byte(body), 0o600)
+		if got := Word(s, "s1"); got != want {
+			t.Errorf("Word(%q) = %q, want %q", body, got, want)
+		}
+	}
+}
+
+func TestChangedNeedsRegularFiles(t *testing.T) {
+	s := state.Open(t.TempDir())
+	s.Ensure()
+	os.WriteFile(s.Path("s1", "txt"), nil, 0o600)
+	at := time.Unix(1_700_000_000, 0)
+	os.Chtimes(s.Path("s1", "txt"), at, at)
+	os.Mkdir(s.Hidden("s1", "state"), 0o700) // a directory where the state file should be: fall back to the notes
+	if got, ok := Changed(s, "s1"); !ok || got != at.Unix() {
+		t.Errorf("Changed = %d, %v", got, ok)
+	}
+}

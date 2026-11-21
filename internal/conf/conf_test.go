@@ -4,7 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestUnquote(t *testing.T) {
@@ -109,5 +111,22 @@ func TestFileThatIsNotSmallAndRegularReadsAsEmpty(t *testing.T) {
 	}
 	if got := (Conf{File: dir, Getenv: func(string) string { return "" }}).Get("X"); got != "" {
 		t.Errorf("a directory was read: %q", got)
+	}
+}
+
+func TestAPipeAsTheConfFileDoesNotHang(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "sitrep.conf")
+	if err := syscall.Mkfifo(p, 0o600); err != nil {
+		t.Skip("no mkfifo")
+	}
+	done := make(chan string)
+	go func() { done <- (Conf{File: p, Getenv: func(string) string { return "" }}).Get("X") }()
+	select {
+	case got := <-done:
+		if got != "" {
+			t.Errorf("got %q", got)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("reading the conf hung on a pipe")
 	}
 }

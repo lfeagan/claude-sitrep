@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -263,5 +264,30 @@ func TestLabelOK(t *testing.T) {
 		if got := labelOK(s); got != want {
 			t.Errorf("labelOK(%q) = %v, want %v", s, got, want)
 		}
+	}
+}
+
+func TestHostilePipesDoNotHangTheListing(t *testing.T) {
+	w := newWorld(t)
+	w.session("pipe0001", "working", time.Hour)
+	w.register("pipe0001", 1)
+	for _, name := range []string{"pipe0001.queue", "pipe0001.cwd", "inbox.queue", ".pipe0001.snooze"} {
+		if err := syscall.Mkfifo(filepath.Join(w.s.Dir, name), 0o600); err != nil {
+			t.Skip("no mkfifo")
+		}
+	}
+	// a pipe where the state file or the notes should be
+	w.session("pipe0002", "", time.Hour)
+	os.Remove(filepath.Join(w.s.Dir, ".pipe0002.state"))
+	syscall.Mkfifo(filepath.Join(w.s.Dir, ".pipe0002.state"), 0o600)
+	done := make(chan Snapshot)
+	go func() { done <- w.build(Options{All: true, Cap: 5}) }()
+	select {
+	case snap := <-done:
+		if len(snap.Sessions) == 0 || snap.Inbox.Count != 0 {
+			t.Errorf("%d sessions, inbox %d", len(snap.Sessions), snap.Inbox.Count)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("the listing hung on a pipe")
 	}
 }

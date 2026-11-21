@@ -105,16 +105,16 @@ func str(v any) string {
 
 // Read lists the live sessions. OK is false when the registry holds no file, or no live session.
 func (r Registry) Read(ctx context.Context) Set {
-	files, _ := filepath.Glob(filepath.Join(r.Dir, "*.json"))
+	entries, _ := os.ReadDir(r.Dir) // not a glob: the folder's own name may hold glob characters
 	var set Set
 	have := false
-	for _, f := range files {
-		fi, err := os.Stat(f)
-		if err != nil || !fi.Mode().IsRegular() {
+	for _, e := range entries {
+		f := filepath.Join(r.Dir, e.Name())
+		if !strings.HasSuffix(e.Name(), ".json") || !state.IsRegular(f) {
 			continue
 		}
 		have = true
-		b, err := os.ReadFile(f)
+		b, err := state.ReadFile(f, 1<<20)
 		if err != nil {
 			continue
 		}
@@ -126,7 +126,7 @@ func (r Registry) Read(ctx context.Context) Set {
 		}
 		pid, err := strconv.Atoi(str(rf.PID))
 		sid := str(rf.SessionID)
-		if err != nil || pid < 1 || !state.ValidID(sid) {
+		if err != nil || pid < 1 || !state.SessionID(sid) {
 			continue
 		}
 		if rf.PIDDomain != "" && r.Domain != "" && rf.PIDDomain != r.Domain {
@@ -156,12 +156,7 @@ func (r Registry) sameProcess(ctx context.Context, pid int, want string) bool {
 
 // Word is a session's state word from the file a hook wrote, from an allow-list (the file is untrusted input), else "-".
 func Word(s state.Store, id string) string {
-	b, err := os.ReadFile(filepath.Join(s.Dir, "."+id+".state"))
-	if err != nil {
-		return "-"
-	}
-	w, _, _ := strings.Cut(string(b), "\n")
-	switch w {
+	switch w := state.FirstLine(filepath.Join(s.Dir, "."+id+".state")); w {
 	case "working", "waiting", "ended":
 		return w
 	}
@@ -171,7 +166,7 @@ func Word(s state.Store, id string) string {
 // Changed is when a session's state last changed, in seconds since the epoch: the state file's time, else the notes file's.
 func Changed(s state.Store, id string) (int64, bool) {
 	for _, name := range []string{"." + id + ".state", id + ".txt"} {
-		if fi, err := os.Stat(filepath.Join(s.Dir, name)); err == nil {
+		if fi, err := os.Stat(filepath.Join(s.Dir, name)); err == nil && fi.Mode().IsRegular() {
 			return fi.ModTime().Unix(), true
 		}
 	}
@@ -181,10 +176,11 @@ func Changed(s state.Store, id string) (int64, bool) {
 // Quiet is how many seconds the session's transcript has been unchanged (the shortest, if there are several). An interrupt fires no Stop
 // hook, but the transcript still shows life.
 func Quiet(configDir, id string, now int64) (int64, bool) {
-	matches, _ := filepath.Glob(filepath.Join(configDir, "projects", "*", id+".jsonl"))
+	projects, _ := os.ReadDir(filepath.Join(configDir, "projects")) // not a glob: the folder's own name may hold glob characters
 	var q int64
 	found := false
-	for _, m := range matches {
+	for _, p := range projects {
+		m := filepath.Join(configDir, "projects", p.Name(), id+".jsonl")
 		li, err := os.Lstat(m)
 		if err != nil || !li.Mode().IsRegular() {
 			continue // a link is not a transcript
