@@ -25,6 +25,8 @@ Do each of these with the keyboard alone, and note how many keys it took and whe
 7. Quit from three places: the tabs, the detail view and a queue. Try `q`, `esc`, `ctrl+c` and `:q`.
 8. Try the muscle-memory keys that are not listed (`n` for the next match, `yy`, `u` for undo, `ctrl+f`, `ctrl+b`, `H`, `M`, `L`, `0`, `$`, `zz`) and note what each one does, which of them does harm, and which should work.
 
+Also, the colour tool: start it with `drive.sh start --run colors` and use only the keyboard. Move, edit a colour by typing hex and by stepping (`h` `l` `j` `k` `H` `L` and the arrows), cycle the theme with `h` and `l`, reset (`r`), switch the preview between dark and light (`t`), write (`w`, then `y` or `n`), quit with and without unwritten changes. Then open it from the dashboard with `C` and return with `q`. Do the keys agree with what the footer and `sitrep help colors` say, and do they follow the vi habits of the rest of the dashboard?
+
 ## How you work
 
 - Test the promise: for each key `docs/KEYS.md` and `?` list, press it and check that it does what they say on every screen where it is listed. A key that is listed and does nothing, or that does something else, is a finding. So is a key whose meaning changes between screens without the footer saying so.

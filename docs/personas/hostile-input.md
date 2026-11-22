@@ -26,6 +26,8 @@ For each place text can enter, find out whether anything hostile reaches your te
 6. **Identity confusion:** can an alias or a hostile name make one session look like another (for example by imitating an id, or with a bidi override)? Does `sitrep add <name> text` go to the session you meant?
 7. **Resource limits:** time `ls`, `status` and the dashboard start with the hostile fixture. Anything above a second or two, or a hang, is a finding.
 
+Also test the colour tool, which is the one place sitrep writes to a file you own. Put hostile lines in `$SITREP_STATE_DIR/sitrep.conf` before you start `drive.sh start --run colors` (escape sequences, OSC 52 and bidi characters in `SITREP_THEME` and `SITREP_COLORS`, a 5000-character value, CRLF line endings, the same setting twice, an `export` line, a commented line, a file with no final newline, a symlinked `sitrep.conf`, a read-only folder) and check: nothing reaches the screen raw (use `drive.sh raw` and `title`), the write question shows the old and new lines cleaned, only the two lines change and every other byte stays, a link stays a link, the backup exists with owner-only permissions, and a file you change from the shell while the question is open is not overwritten without a new question. Never touch anything outside the fixture.
+
 ## How you work
 
 - Report evidence precisely: the exact command or keys, and the bytes or the screen text seen. A claim without evidence is not a finding.

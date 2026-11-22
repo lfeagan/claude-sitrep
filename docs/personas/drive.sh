@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the dashboard on the fixture state, in a terminal that a persona can type into and read, in tmux (or in cmux when there is no tmux).
 #
-#   drive.sh start [--sessions N] [--hostile] [--mouse] [--size WxH]
+#   drive.sh start [--sessions N] [--hostile] [--mouse] [--size WxH] [--run "ARGS"]
 #                       builds the fixture (see fixture.sh) and starts `sitrep dash` in it, 110 columns by 34 rows unless --size says
 #                       otherwise (tmux only)
 #   drive.sh env        prints the exports that point `sitrep` at the fixture, for the persona's own shell commands
@@ -59,19 +59,20 @@ start)
 	root=$(mktemp -d "${TMPDIR:-/tmp}/sitrep-persona.XXXXXX")
 	root=$(cd "$root" && pwd -P)
 	shift
-	size=110x34 fixopts=() mouse=""
+	size=110x34 fixopts=() mouse="" runargs=dash
 	while [ $# -gt 0 ]; do
 		case $1 in
 		--size) size=${2:?--size needs WxH}; shift 2 ;;
 		--sessions) fixopts+=(--sessions "${2:?--sessions needs a number}"); shift 2 ;;
 		--hostile) fixopts+=(--hostile); shift ;;
 		--mouse) mouse=1; shift ;;
+		--run) runargs=${2:?--run needs the sitrep arguments}; shift 2 ;;
 		*) echo "drive.sh: unknown option $1" >&2; exit 2 ;;
 		esac
 	done
 	case $size in [0-9]*x[0-9]*) ;; *) echo "drive.sh: --size is WxH" >&2; exit 2 ;; esac
 	"$here/fixture.sh" "$root" "${fixopts[@]+"${fixopts[@]}"}" >/dev/null
-	run="env SITREP_STATE_DIR='$root/state' CLAUDE_CONFIG_DIR='$root/claude' ${mouse:+SITREP_TUI_MOUSE=1} '$bin' dash"
+	run="env SITREP_STATE_DIR='$root/state' CLAUDE_CONFIG_DIR='$root/claude' ${mouse:+SITREP_TUI_MOUSE=1} '$bin' $runargs"
 	ws="" surface=""
 	if [ "$backend" = tmux ]; then
 		tm new-session -d -s persona -x "${size%x*}" -y "${size#*x}" "$run"

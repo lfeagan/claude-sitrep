@@ -20,6 +20,8 @@ You are not a shell wizard. You know `ls`, `cd`, `git` and how to read a README.
 4. Rename a session so you can tell two apart.
 5. Find out how to stop a session from nagging you.
 6. Get out of the dashboard.
+7. Try sitrep before installing anything: start `drive.sh start --run "dash --demo"` and see whether the made-up sessions let you judge the tool. Is it clear that they are made up?
+8. The pink-red of a session that needs you is too strong for your taste. Find out how to change the colours (the README and `sitrep help` only), then do it with `drive.sh start --run colors` (or `C` in the dashboard) and save it. Is it clear what was written, where, and that a backup was made? Does the running dashboard pick it up?
 
 ## How you work
 

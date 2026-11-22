@@ -11,7 +11,7 @@ A persona is a short brief for a subagent that plays one kind of user against si
 | `heavy-user.md` | Twenty sessions in a 70 by 24 pane, no patience for scrolling, and a need to see at once what is waiting. |
 | `hostile-input.md` | A security reviewer who tests the claim that text from files, transcripts and models never reaches the terminal as it is. |
 | `fixture.sh` | Builds a throwaway state folder (four sessions, queues, an inbox) by writing the files of `docs/STATE-LAYOUT.md`. `--sessions N` adds more of every state and age, and `--hostile` adds files with escape sequences, bidi overrides, huge fields, links and junk. |
-| `drive.sh` | Runs the dashboard on the fixture in a detached tmux session, presses keys and reads the screen (`start --sessions N --hostile --size WxH`; `raw` and `title` show the colour codes and the window title). It uses cmux instead when there is no tmux. |
+| `drive.sh` | Runs the dashboard on the fixture in a detached tmux session, presses keys and reads the screen (`start --sessions N --hostile --size WxH --run "colors"`, where `--run` gives the sitrep arguments to start instead of `dash`; `raw` and `title` show the colour codes and the window title). It uses cmux instead when there is no tmux. |
 
 ## Run one
 

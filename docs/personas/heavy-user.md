@@ -26,6 +26,8 @@ You use the keyboard, you know the basics of vi, and you read `?` only when some
 10. Start again with `drive.sh start --sessions 15 --size 70x24 --mouse` and use the mouse (`drive.sh click COL ROW [double]`, with columns and rows counted from 1): click a row, a tile and a tab name, and double-click a row. Does each do what a user expects, on every tab? (A double click answers that sitrep does not know the session's process, here.)
 11. Resize your expectations: sessions that have waited for hours should not look as urgent as one that stopped a minute ago. Do they?
 
+12. Open the colour tool with `C` from the dashboard on this small screen (and `sitrep colors` with `drive.sh start --size 70x24 --run colors`). Is the preview readable and is the list reachable at 24 rows? What happens at 18 rows and at fewer? Does `q` bring you back to the same tab and selection?
+
 ## How you work
 
 - You are fast and impatient: note every moment where you had to press more than three keys to do something you do daily, and every place where the screen was ambiguous, cut off or wrong.
