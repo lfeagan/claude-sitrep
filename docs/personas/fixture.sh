@@ -28,6 +28,9 @@ umask 077
 mkdir -p "$root/state/sessions" "$root/claude"
 now=$(date +%s)
 
+# stamp EPOCH is the time as touch -t wants it: BSD date takes -r for seconds since the epoch, and GNU date takes -d @.
+stamp() { date -r "$1" +%Y%m%d%H%M.%S 2>/dev/null || date -d "@$1" +%Y%m%d%H%M.%S; }
+
 # session ID DIR STATE AGE_SECONDS OBJECTIVE PROGRESS NOW [ITEM...]
 session() {
 	local id=$1 dir=$2 st=$3 age=$4 obj=$5 prog=$6 nw=$7
@@ -40,7 +43,7 @@ session() {
 	printf '1\n' >"$d/count"
 	: >"$d/queue"
 	for item in "$@"; do printf '%s\n' "$item" >>"$d/queue"; done
-	perl -e 'utime $ARGV[0], $ARGV[0], @ARGV[1..$#ARGV]' $((now - age)) "$d/state" "$d/notes"
+	touch -t "$(stamp $((now - age)))" "$d/state" "$d/notes"
 }
 
 session 2f3a9c01 api waiting 180 \

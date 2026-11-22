@@ -2,9 +2,9 @@ package textsafe
 
 import (
 	"math/rand"
-	"os/exec"
 	"strings"
 	"testing"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -86,23 +86,38 @@ func TestFit(t *testing.T) {
 	}
 }
 
-// perl is the oracle: the expressions are the ones bin/sitrep and the hook ran.
-func perl(t *testing.T, expr, in string) string {
-	t.Helper()
-	cmd := exec.Command("perl", "-CSD", "-0777", "-pe", expr)
-	cmd.Stdin = strings.NewReader(in)
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("perl: %v", err)
+// The specification of Clean, Sane and Strip, written plainly and character by character, to check the implementation against.
+func spec(s string, max int, trim bool) string {
+	var out []rune
+	for _, r := range s {
+		switch {
+		case r == '\n' || r == '\t' || r == '\u2028' || r == '\u2029':
+			out = append(out, ' ')
+		case unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r):
+		default:
+			out = append(out, r)
+		}
+	}
+	if trim {
+		for len(out) > 0 && out[len(out)-1] == ' ' {
+			out = out[:len(out)-1]
+		}
+	}
+	if max > 0 && len(out) > max {
+		out = out[:max]
 	}
 	return string(out)
 }
 
-const (
-	perlClean = `s/[\n\t\p{Zl}\p{Zp}]/ /g; s/[\p{Cc}\p{Cf}]//g; s/ +$//; $_=substr($_,0,200)`
-	perlSane  = `s/[\n\t\p{Zl}\p{Zp}]/ /g; s/[\p{Cc}\p{Cf}]//g; $_=substr($_,0,140)`
-	perlStrip = `s/(?!\n|\t)[\p{Cc}\p{Cf}]//g`
-)
+func specStrip(s string) string {
+	var out []rune
+	for _, r := range s {
+		if r == '\n' || r == '\t' || !(unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r)) {
+			out = append(out, r)
+		}
+	}
+	return string(out)
+}
 
 // corpus adds seeded random strings built from the characters that matter.
 func corpus() []string {
@@ -119,23 +134,19 @@ func corpus() []string {
 	return out
 }
 
-func TestMatchesPerl(t *testing.T) {
-	if _, err := exec.LookPath("perl"); err != nil {
-		t.Skip("perl is not installed")
-	}
+func TestMatchesTheSpecification(t *testing.T) {
 	for _, in := range corpus() {
-		// Invalid UTF-8 is left out: perl keeps the bad bytes and Go replaces them, a deliberate difference.
-		if !utf8.ValidString(in) {
+		if !utf8.ValidString(in) { // invalid UTF-8 becomes U+FFFD, which the specification has no word for
 			continue
 		}
-		if got, want := Clean(in, 200).String(), perl(t, perlClean, in); got != want {
-			t.Errorf("Clean(%q)\n  go:   %q\n  perl: %q", in, got, want)
+		if got, want := Clean(in, 200).String(), spec(in, 200, true); got != want {
+			t.Errorf("Clean(%q)\n  got:  %q\n  want: %q", in, got, want)
 		}
-		if got, want := Sane(in, 140).String(), perl(t, perlSane, in); got != want {
-			t.Errorf("Sane(%q)\n  go:   %q\n  perl: %q", in, got, want)
+		if got, want := Sane(in, 140).String(), spec(in, 140, false); got != want {
+			t.Errorf("Sane(%q)\n  got:  %q\n  want: %q", in, got, want)
 		}
-		if got, want := Strip(in).String(), perl(t, perlStrip, in); got != want {
-			t.Errorf("Strip(%q)\n  go:   %q\n  perl: %q", in, got, want)
+		if got, want := Strip(in).String(), specStrip(in); got != want {
+			t.Errorf("Strip(%q)\n  got:  %q\n  want: %q", in, got, want)
 		}
 	}
 }
@@ -151,30 +162,24 @@ func TestFitSmallWidths(t *testing.T) {
 	}
 }
 
-// Every code point, against perl in one run. Perl's Unicode tables can be older than Go's, so Go may be stricter, never looser.
-func TestAllCodePointsAgainstPerl(t *testing.T) {
-	if _, err := exec.LookPath("perl"); err != nil {
-		t.Skip("perl is not installed")
-	}
-	cmd := exec.Command("perl", "-CSD", "-e", `for my $c (0..0x10FFFF) { next if $c >= 0xD800 && $c <= 0xDFFF; my $s = chr($c); print $c, "\n" if $s =~ /[\p{Cc}\p{Cf}]/ }`)
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	perlUnsafe := map[rune]bool{}
-	for _, f := range strings.Fields(string(out)) {
-		var c int
-		for _, d := range f {
-			c = c*10 + int(d-'0')
-		}
-		perlUnsafe[rune(c)] = true
-	}
+// Every code point: none that is a control or a format character in the Unicode tables of Go survives Clean, Sane or Strip, and every other
+// one is kept, so that nothing is lost that is safe (a line break becomes a space).
+func TestEveryCodePointIsKeptOrRemovedAsTheSpecificationSays(t *testing.T) {
 	for c := rune(0); c <= 0x10FFFF; c++ {
 		if c >= 0xD800 && c <= 0xDFFF {
 			continue
 		}
-		if perlUnsafe[c] && !unsafe(c) {
-			t.Errorf("U+%04X is unsafe to perl and safe to Go", c)
+		in := "a" + string(c) + "b"
+		bad := unicode.Is(unicode.Cc, c) || unicode.Is(unicode.Cf, c)
+		for name, got := range map[string]string{"Clean": Clean(in, 0).String(), "Sane": Sane(in, 0).String(), "Strip": Strip(in).String()} {
+			for _, r := range got {
+				if r != '\n' && r != '\t' && (unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r)) {
+					t.Fatalf("%s kept U+%04X", name, r)
+				}
+			}
+			if !bad && c != '\u2028' && c != '\u2029' && got != in {
+				t.Fatalf("%s lost the safe character U+%04X: %q", name, c, got)
+			}
 		}
 	}
 }

@@ -23,7 +23,7 @@ A persona is a short brief for a subagent that plays one kind of user against si
    The persona runs `drive.sh start` first and `drive.sh stop` last, even when something fails.
 3. Read the report. A finding is a lead: reproduce it before you act on it.
 
-A run starts a tmux server of its own (socket `sitrep-persona-NAME`, 110 by 34 unless `--size` says otherwise), and `DRIVE_NAME` gives each run a name so that several can go at once, so your tmux is not touched, and ends it when it stops. It needs `tmux` or `cmux`, `perl` and `bash`. `DRIVE_BACKEND=cmux` forces cmux, which opens a workspace named `sitrep-persona` without taking focus.
+A run starts a tmux server of its own (socket `sitrep-persona-NAME`, 110 by 34 unless `--size` says otherwise), and `DRIVE_NAME` gives each run a name so that several can go at once, so your tmux is not touched, and ends it when it stops. It needs `tmux` or `cmux`, and `bash`. `DRIVE_BACKEND=cmux` forces cmux, which opens a workspace named `sitrep-persona` without taking focus.
 
 ## Rules every persona follows
 

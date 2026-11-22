@@ -28,7 +28,7 @@ func lineBreak(r rune) bool {
 	return r == '\n' || r == '\t' || unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r)
 }
 
-// valid replaces each byte that is not UTF-8 with U+FFFD, one for one, as jq does.
+// valid replaces each byte that is not UTF-8 with U+FFFD, one for one.
 func valid(s string) string {
 	if utf8.ValidString(s) {
 		return s
@@ -93,7 +93,7 @@ func flat(s string) string {
 }
 
 // Clean makes text for storing: one flat line, no control or format characters, no trailing spaces, at most max characters (a max below 1
-// means no limit). Invalid UTF-8 becomes U+FFFD, where perl kept the bad bytes, so state written by the Go version is always valid UTF-8.
+// means no limit). Invalid UTF-8 becomes U+FFFD, so state written by sitrep is always valid UTF-8.
 func Clean(s string, max int) Text {
 	return Text{cut(strings.TrimRight(flat(head(s, max)), " "), max)}
 }
