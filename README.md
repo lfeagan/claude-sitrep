@@ -8,6 +8,12 @@ Write down what comes next for each of your Claude Code sessions, and see where 
 
 When you run several Claude Code sessions, you think of the next thing to ask one of them while it is still busy, or of something for another session. Where does that go? Into your head, a scratch file, or a prompt you have to remember to send. And you lose track of which session is waiting for you.
 
+## Contents
+
+[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Quick Start](#quick-start) · [What You See](#what-you-see) · [Install](#install) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [How It Works](#how-it-works) · [Privacy And Safety](#privacy-and-safety) · [Development](#development) · [Status](#status) · [License](#license)
+
+More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [the themes](docs/THEMES.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md) and [remote machines](docs/REMOTE.md).
+
 ## Why sitrep
 
 Other tools, including Claude Code's own Agent View, show which sessions are working and which are waiting. sitrep also keeps your own list of what comes next, for each session, and shows it under the prompt.
@@ -33,25 +39,7 @@ Wall shows the sessions as tiles, many to a screen, with those that need you fir
 
 ![The Wall tab: tiles of one size, the sessions that need you first](docs/img/wall.png)
 
-There are 38 themes, most with a dark and a light form, and `sitrep colors` is a tool for choosing one or making your own. A theme never repaints the terminal's background, only the rows, the bars and the marks:
-
-Ten of them are shown here, each on the same four sessions: one needs you, one has recent activity, one is working and one is snoozed.
-
-![Six themes on a dark terminal: eighties, homebrew, nord, tokyo, volcano and gameboy](docs/img/themes-dark.png)
-
-![Four themes on a light terminal: paper, novel, bossa-nova and arctic](docs/img/themes-light.png)
-
-What needs you never depends on colour alone: it has a `●` and the word `waiting`, and a snoozed session has a `○`. The `cvd-safe` theme uses only blue and orange, apart in lightness, and the picture shows it as it would look with normal sight, with protanopia and with deuteranopia:
-
-![The cvd-safe theme as seen with normal sight, and simulated protanopia and deuteranopia](docs/img/cvd.png)
-
-The pictures are made from the program itself (`make screenshots`), so they match what you get. [The colour tool](docs/COLORS.md) and [the themes](docs/SETTINGS.md#the-themes) are described in the docs.
-
-## Contents
-
-[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Quick Start](#quick-start) · [What You See](#what-you-see) · [Install](#install) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
-
-More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md) and [remote machines](docs/REMOTE.md).
+There are 38 colour themes, most with a dark and a light form, and `sitrep colors` is a tool for choosing one or making your own. [The themes page](docs/THEMES.md) shows some of them, and the colour-blind view of `cvd-safe`.
 
 ## Quick Start
 
