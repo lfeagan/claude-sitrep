@@ -147,7 +147,7 @@ Session state is stored in `~/.claude/sitrep`, which is owner-only (`700`, files
 
 ## Status
 
-The queue does not feed work to Claude automatically. Whether a `Stop` hook should hand over the next item is TBD, as an unattended session that keeps itself busy is also a runaway session. Pushing the same text to the cmux sidebar has not been built; the state is plain files, so a script can read it.
+The queue does not feed work to Claude automatically. With `SITREP_QUEUE_NUDGE=on` the hooks tell Claude how many items are queued, so that it asks you whether to start the next one when a task is done; it never starts one without a yes (see [docs/QUEUE-NEXT.md](docs/QUEUE-NEXT.md)). Whether a `Stop` hook should hand over the next item on its own is still undecided, as an unattended session that keeps itself busy is also a runaway session. Pushing the same text to the cmux sidebar has not been built; the state is plain files, so a script can read it.
 
 ## License
 

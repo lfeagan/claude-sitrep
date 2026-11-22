@@ -116,6 +116,16 @@ func (c Conf) StatusLines() map[string]bool {
 	return set
 }
 
+// QueueNudge says whether the hooks tell Claude how many items the session's queue holds (SITREP_QUEUE_NUDGE), so that it asks the user
+// whether to start the next one: off unless this is 1, on, true or yes.
+func (c Conf) QueueNudge() bool {
+	switch strings.ToLower(c.Get("SITREP_QUEUE_NUDGE")) {
+	case "1", "on", "true", "yes":
+		return true
+	}
+	return false
+}
+
 // Defaults of the history log.
 const (
 	DefaultLogMaxMB = 10

@@ -63,6 +63,10 @@ const Examples = `# Uncomment a line and change it to use it. The environment wi
 # selects text in the dashboard only with shift (or option in iTerm2 and Terminal.app) held. Off by default.
 # SITREP_TUI_MOUSE=1
 #
+# Tell Claude how many items this session's queue holds, so that it asks you whether to start the next one when a task is done.
+# It never starts one on its own, and the line holds the count and no item text. Off by default.
+# SITREP_QUEUE_NUDGE=on
+#
 # A history of every change sitrep makes (queues, pins, aliases), in the state folder. Off by default.
 # It keeps the text of items. Read it with 'sitrep log'; 'sitrep log --clear' deletes it.
 # SITREP_LOG=on

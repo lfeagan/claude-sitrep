@@ -2,4 +2,4 @@
 package version
 
 // Version is the sitrep version.
-const Version = "0.17.0"
+const Version = "0.18.0"

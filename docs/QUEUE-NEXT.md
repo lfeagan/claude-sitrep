@@ -1,6 +1,6 @@
 # Asking what is next when a task is done
 
-Status: design, not built. The hook facts marked "to confirm" must be captured from a real Claude Code first, as was done for the permission dialog in `BLOCKED-STATE.md`.
+Status: option 3 built (0.18.0), off by default. Options 1 and 2 are not built. Measured with a headless `claude -p` and a scratch settings file: text that a `SessionStart` or a `UserPromptSubmit` hook prints on standard output reaches Claude's context, as does the JSON `additionalContext` form (question 1 below). Plain text is what the hook prints.
 
 ## Claim
 
@@ -24,16 +24,16 @@ When Claude finishes a task and the session's queue still holds items, the user 
 
 Build option 3 first, off by default, with a skill that says what to do when the line is there, and the setting `SITREP_QUEUE_NUDGE=on` to turn it on. It is cheap, adds no turn, cannot start work, and leaves the model no text to obey. If real use shows Claude ignoring it, add option 2 on top, with the memory of what was asked, so that a no is final until the queue changes. Do not build option 1 alone.
 
-## Design of option 3
+## Design of option 3 (as built)
 
-1. `sitrep hook` prints the line for `SessionStart` (not for a compaction) and `UserPromptSubmit`, only when `SITREP_QUEUE_NUDGE` is on and the session's queue holds an item. The `+` prefixes still print their own text, and nothing else is printed. The queue is counted with the same call as the status line, in the time the hook has already (invariant 4: any error prints nothing and exits 0).
-2. The line is a fixed sentence with the count in it. No item text, alias or directory is put in it.
+1. `sitrep hook` prints the line at every `SessionStart` (a compaction or a resume leaves Claude without the earlier line) and at a `UserPromptSubmit` only when the count differs from the one last printed (kept in the session's `nudge` file, "0" when the queue was found empty), and only when `SITREP_QUEUE_NUDGE` is on and the queue holds an item. This answers question 3: the line is not repeated at every prompt. The `+` prefixes still print their own text, and nothing else is printed. The queue is counted with the same call as the status line, in the time the hook has already (invariant 4: any error prints nothing and exits 0).
+2. The line is a fixed sentence with the count and the first eight characters of the session id in it. No item text, alias or directory is put in it.
 3. The `sitrep-queue` skill gets a short section: when a line like that is in the context, finish the task, then say how many items are queued and ask whether to start the next one; on a yes, read it with `sitrep ls <id>`, show it, and do it only if it is what the user meant; on a no, leave the queue alone and do not ask again for that queue.
 4. The README's Status and the skill's "never fed to you" rule are reworded: the queue is still never started without a yes.
 
 ## Tests
 
-The hook prints the line only with the setting on and an item present, never for an empty queue, never for a compaction, and never with item text in it (a queue with escape sequences and a long item). A hook that cannot read the queue prints nothing and exits 0. The line is the same bytes each time.
+The hook prints the line only with the setting on and an item present, never for an empty queue, at every kind of session start, and never with item text in it (a queue with escape sequences and a long item). A hook that cannot read the queue prints nothing and exits 0. The line is the same bytes each time.
 
 ## Rollback
 
@@ -41,7 +41,7 @@ The hook prints the line only with the setting on and an item present, never for
 
 ## Questions
 
-To confirm against a real Claude Code, by capture:
+Question 1 is answered (see Status). The others are not, and none blocks option 3:
 
 1. That what a `SessionStart` and a `UserPromptSubmit` hook print on standard output reaches Claude's context, and whether the user sees it. Also what the JSON form (`additionalContext`) does that plain text does not.
 2. For option 2: the exact output that makes a `Stop` hook continue (`decision` and `reason`, or exit code 2 and standard error), whether the user sees the reason, and what `stop_hook_active` looks like on the continuation.
