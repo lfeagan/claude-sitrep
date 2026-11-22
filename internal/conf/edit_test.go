@@ -147,3 +147,13 @@ func TestSetupWritersKeepALinkedConf(t *testing.T) {
 		t.Errorf("the target holds %q", got)
 	}
 }
+
+func TestOtherLinesIgnoresTheEndingAWriteAdds(t *testing.T) {
+	out, _, _ := Edit("A=1", []Change{{"SITREP_THEME", p("mono")}})
+	if OtherLines("A=1") != OtherLines(out) {
+		t.Errorf("%q vs %q", OtherLines("A=1"), OtherLines(out))
+	}
+	if OtherLines("A=1\nB=2\n") == OtherLines("A=1\nB=3\n") {
+		t.Error("a changed line is a difference")
+	}
+}

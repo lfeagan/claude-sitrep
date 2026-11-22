@@ -32,7 +32,7 @@ type ColorsOptions struct {
 	Notes    []string // what to say at the start: an environment setting that beats the file, NO_COLOR
 }
 
-const minColorsHeight = 16
+const minColorsHeight = 18
 
 // colorRows are the rows of the list: the theme, then each colour.
 var colorRows = append([]string{"theme"}, colorNames...)
@@ -61,7 +61,8 @@ type colorsModel struct {
 	ask           *colorAsk
 	msg           string
 	width, height int
-	backedUp      bool
+	backedUp      string // the bytes last saved as a backup
+	lastBackup    string
 	savedTheme    string
 	savedColors   string
 }
@@ -137,14 +138,22 @@ func (m colorsModel) dirty() bool {
 
 // changes are the two settings as they should stand in the file.
 func (m colorsModel) changes() []conf.Change {
-	var theme, colors *string
-	if m.theme != "default" {
-		theme = &m.theme
+	var out []conf.Change
+	if m.theme != m.savedTheme { // a setting the user did not change is left as the file has it
+		var theme *string
+		if m.theme != "default" {
+			theme = &m.theme
+		}
+		out = append(out, conf.Change{Name: "SITREP_THEME", Value: theme})
 	}
-	if s := m.colorsString(); s != "" {
-		colors = &s
+	if s := m.colorsString(); s != m.savedColors {
+		var colors *string
+		if s != "" {
+			colors = &s
+		}
+		out = append(out, conf.Change{Name: "SITREP_COLORS", Value: colors})
 	}
-	return []conf.Change{{Name: "SITREP_THEME", Value: theme}, {Name: "SITREP_COLORS", Value: colors}}
+	return out
 }
 
 func (m colorsModel) previewTheme() Theme {
@@ -210,12 +219,21 @@ func (m colorsModel) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.sel == 0 {
 			m.theme = "default"
 		} else if _, ok := m.set[colorRows[m.sel]]; ok {
+			m.set = cloneSet(m.set)
 			delete(m.set, colorRows[m.sel])
 		}
 	case "w":
 		m.beginWrite()
 	}
 	return m, nil
+}
+
+func cloneSet(s map[string][2]string) map[string][2]string {
+	out := make(map[string][2]string, len(s)+1)
+	for k, v := range s {
+		out[k] = v
+	}
+	return out
 }
 
 func (m *colorsModel) cycleTheme(d int) {
@@ -257,6 +275,7 @@ func (m colorsModel) editKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		v := m.value(e.name)
 		v[m.side()] = c
+		m.set = cloneSet(m.set)
 		m.set[e.name] = v
 		m.edit = nil
 		return m, nil
@@ -333,6 +352,15 @@ func (m *colorsModel) beginWrite() {
 	m.ask = a
 }
 
+// safe is text from the file or the system, cleaned and cut before it is drawn: the lines of sitrep.conf are not ours.
+func safe(s string) string {
+	s = clean(s)
+	if r := []rune(s); len(r) > 300 {
+		s = string(r[:300]) + "…"
+	}
+	return s
+}
+
 func orNone(s string) string {
 	if s == "" {
 		return "(none)"
@@ -372,13 +400,14 @@ func (m colorsModel) write() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	backup := ""
-	if !m.backedUp {
+	if fresh != m.backedUp || m.lastBackup == "" { // each write saves the bytes it is about to replace, once
 		if backup, err = f.Backup(fresh); err != nil {
 			m.msg = "nothing written, no backup could be made: " + err.Error()
 			return m, nil
 		}
-		m.backedUp = true
+		m.backedUp, m.lastBackup = fresh, backup
 	}
+	backup = m.lastBackup
 	if err := f.Write(a.out, fresh); err != nil {
 		if errors.Is(err, settings.ErrChanged) {
 			m.msg = "the file changed just now: nothing was written, try again"
@@ -388,14 +417,17 @@ func (m colorsModel) write() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	got, err := f.Read()
+	ours := true
+	for _, n := range conf.Editable {
+		ours = ours && conf.Line(got, n) == conf.Line(a.out, n)
+	}
 	switch {
-	case err != nil || conf.OtherLines(got) != conf.OtherLines(fresh):
-		m.msg = "written, but the other lines of the file are not as they were: the backup is " + backup
+	case err != nil:
+		m.msg = "written, but the file could not be read back to check it: the backup is " + backup
+	case conf.OtherLines(got) != conf.OtherLines(fresh) || !ours:
+		m.msg = "written, but the file is not as it should be: check it, the backup is " + backup
 	default:
-		m.msg = "written; sitrep dash shows it at its next refresh"
-		if backup != "" {
-			m.msg += " (backup: " + backup + ")"
-		}
+		m.msg = "written; sitrep dash shows it at its next refresh (backup: " + backup + ")"
 	}
 	m.savedTheme, m.savedColors = m.theme, m.colorsString()
 	return m, nil
@@ -417,7 +449,7 @@ func (m colorsModel) body() string {
 		kind = "dark"
 	}
 	head := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(fmt.Sprintf(" Colours   theme: %s   preview: %s terminal (t switches)", m.theme, kind), w, "…"))
-	note := ansi.Truncate(" "+m.msg, w, "…")
+	note := ansi.Truncate(" "+safe(m.msg), w, "…")
 
 	list := m.list(w)
 	room := h - 3 - len(list) // the header, the note and the footer
@@ -487,16 +519,16 @@ func (m colorsModel) footer(w int) string {
 // writeQuestion shows the lines that would change in the file.
 func (m colorsModel) writeQuestion(room, w int) []string {
 	a := m.ask
-	out := []string{"", " Write to " + m.opts.File.Path() + ":", ""}
+	out := []string{" Write to " + safe(m.opts.File.Path()) + ":"}
 	for i := range conf.Editable {
 		if a.old[i] != a.new[i] {
-			out = append(out, "   was  "+a.old[i], "   now  "+a.new[i], "")
+			out = append(out, "   was  "+safe(a.old[i]), "   now  "+safe(a.new[i]))
 		}
 	}
 	if a.dropped > 0 {
-		out = append(out, fmt.Sprintf(" %d later line(s) of the same setting are removed: the first one is the one that counts", a.dropped), "")
+		out = append(out, fmt.Sprintf(" %d later line(s) of the same setting are removed: the first one counts", a.dropped))
 	}
-	out = append(out, " Everything else in the file stays as it is. A backup of it is made first.")
+	out = append(out, " Everything else stays as it is. A backup is made first.")
 	for i, l := range out {
 		out[i] = ansi.Truncate(l, w, "…")
 	}

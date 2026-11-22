@@ -389,3 +389,12 @@ func TestAttnFade(t *testing.T) {
 		}
 	}
 }
+
+func TestFromFileReadsALineOfAFileWithCRLF(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "sitrep.conf")
+	os.WriteFile(f, []byte("SITREP_THEME=mono\r\nSITREP_COLORS='dim=7'\r\n"), 0o600)
+	c := Conf{File: f, Getenv: func(string) string { return "" }}
+	if c.Theme() != "mono" || c.Colors() != "dim=7" {
+		t.Errorf("theme %q colours %q", c.Theme(), c.Colors())
+	}
+}

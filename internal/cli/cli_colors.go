@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/lfeagan/claude-sitrep/internal/conf"
@@ -16,7 +17,14 @@ type colorsFile struct {
 
 func (f colorsFile) Path() string { return f.c.Target() }
 func (f colorsFile) Values() (string, string) {
-	return f.c.FromFile("SITREP_THEME"), f.c.FromFile("SITREP_COLORS")
+	theme, colors := f.c.FromFile("SITREP_THEME"), f.c.FromFile("SITREP_COLORS")
+	if !conf.ValidTheme(strings.ToLower(theme)) {
+		theme = ""
+	}
+	if !conf.ValidColors(colors) {
+		colors = ""
+	}
+	return theme, colors
 }
 func (f colorsFile) Read() (string, error)              { return f.c.ReadBody() }
 func (f colorsFile) Write(out, original string) error   { return f.c.WriteBody(out, original) }
@@ -50,6 +58,9 @@ func cmdColors(e Env, args []string) error {
 		if e.Getenv(n) != "" {
 			opts.Notes = append(opts.Notes, n+" is set in the environment, which beats sitrep.conf: a change here shows only where it is unset.")
 		}
+	}
+	if f := e.conf(); !conf.ValidColors(f.FromFile("SITREP_COLORS")) || !conf.ValidTheme(strings.ToLower(f.FromFile("SITREP_THEME"))) {
+		opts.Notes = append(opts.Notes, "sitrep.conf has a theme or colours the dashboard ignores (too long, or a character it does not read): they are not shown here.")
 	}
 	if e.Getenv("NO_COLOR") != "" {
 		opts.Notes = append(opts.Notes, "NO_COLOR is set: the terminal may show no colour.")

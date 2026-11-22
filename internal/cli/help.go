@@ -177,7 +177,7 @@ next theme, r resets a setting to the theme's own, t switches the preview betwee
 light terminal, and w writes.
 
 w shows the old and new SITREP_THEME and SITREP_COLORS lines of sitrep.conf and asks. On y it
-saves a backup of the file (sitrep.conf.bak.<time>, in the state folder, once per run), then
+saves a backup of the file (sitrep.conf.bak.<time>, in the state folder, before every write), then
 changes those two lines and nothing else, through a link when sitrep.conf is one. It stops, changing
 nothing, when the file changed meanwhile. A running sitrep dash shows the change at its next
 refresh. SITREP_THEME and SITREP_COLORS in the environment win over the file, so the tool says so

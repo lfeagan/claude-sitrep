@@ -115,8 +115,8 @@ func insert(lines []string, l, eol string) []string {
 	return append(out, lines[at:]...)
 }
 
-// Backup saves body, as it was read, next to the file's own folder as sitrep.conf.bak.<time>: owner-only, never over an earlier backup. It is
-// in the state folder, not beside a linked file, so a dotfiles repository does not collect backups.
+// Backup saves body, as it was read, as sitrep.conf.bak.<time> beside sitrep.conf (the state folder, not the folder a link leads to, so a
+// dotfiles repository does not collect backups): owner-only, never over an earlier backup.
 func (c Conf) Backup(body string, now time.Time) (string, error) {
 	return settings.Backup(c.File, []byte(body), now)
 }
@@ -136,7 +136,7 @@ func OtherLines(body string) string {
 			keep = append(keep, l)
 		}
 	}
-	return strings.Join(keep, "")
+	return strings.TrimRight(strings.Join(keep, ""), "\r\n") // a write may add the ending the last line lacked
 }
 
 // Line is the first line of body that sets name, as it stands, or "".

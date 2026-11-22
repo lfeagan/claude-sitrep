@@ -211,8 +211,8 @@ func TestColorsWriteAsksBacksUpAndWrites(t *testing.T) {
 		t.Errorf("%q dirty %v", m.msg, m.dirty())
 	}
 	m = ckey(t, m, "l", "w", "y")
-	if f.writes != 2 || len(f.backups) != 1 {
-		t.Errorf("one backup for a run: writes %d backups %d", f.writes, len(f.backups))
+	if f.writes != 2 || len(f.backups) != 2 || f.backups[1] != "MINE=1\nSITREP_THEME=pastel\n" {
+		t.Errorf("each write saves the bytes it replaces: writes %d backups %q", f.writes, f.backups)
 	}
 }
 
@@ -249,7 +249,7 @@ func TestColorsWriteReportsAChangedOtherLine(t *testing.T) {
 	m, f := newColors(t, "MINE=1\n")
 	f.otherEdit = true
 	m = ckey(t, m, "l", "w", "y")
-	if !strings.Contains(m.msg, "not as they were") || !strings.Contains(m.msg, "bak") {
+	if !strings.Contains(m.msg, "not as it should be") || !strings.Contains(m.msg, "bak") {
 		t.Errorf("%q", m.msg)
 	}
 }
@@ -282,13 +282,13 @@ func TestColorsScreen(t *testing.T) {
 	golden(t, "colors_100x30", ansi.Strip(m.body()))
 	m.width, m.height = 60, 20
 	golden(t, "colors_60x20", ansi.Strip(m.body()))
-	m.height = 10
+	m.height = 12
 	if got := m.body(); !strings.Contains(got, "taller") {
 		t.Errorf("a short screen says so: %q", got)
 	}
 	// every line fits the width, at any size that is shown
 	for _, w := range []int{20, 40, 80, 150} {
-		for _, h := range []int{16, 24, 50} {
+		for _, h := range []int{18, 24, 50} {
 			m.width, m.height = w, h
 			for _, l := range strings.Split(m.body(), "\n") {
 				if ansi.StringWidth(l) > w {
@@ -334,3 +334,69 @@ func TestColorsFileOnDisk(t *testing.T) {
 func ptr(s string) *string { return &s }
 
 func demoIDForTest(s string) state.ID { id, _ := state.ParseID(s); return id }
+
+func TestColorsNeverDrawsTextFromTheFileRaw(t *testing.T) {
+	m, _ := newColors(t, "SITREP_COLORS=attn=#112233\x1b]52;c;x\x07\x1b[31m\n")
+	m = ckey(t, m, "j", "j", "j", "j")
+	m = typeColor(t, m, "#445566")
+	m = ckey(t, m, "w")
+	if m.ask == nil {
+		t.Fatalf("no question: %q", m.msg)
+	}
+	if !strings.Contains(ansi.Strip(m.body()), "was  SITREP_COLORS=attn=#112233") {
+		t.Errorf("the old line is shown, cleaned: %q", ansi.Strip(m.body()))
+	}
+	if strings.Contains(m.body(), "\x1b]") || strings.Contains(m.body(), "\x07") || strings.Contains(m.body(), "52;c") && strings.Contains(m.body(), "\x1b[31m") {
+		t.Errorf("the question draws the file's escape bytes: %q", m.body())
+	}
+	long := &memFile{body: "SITREP_COLORS=" + strings.Repeat("a", 5000) + "\n"}
+	m2 := newColorsModel(ColorsOptions{Sessions: demoSessions(), File: long})
+	m2.width, m2.height = 100, 30
+	m2 = ckey(t, m2, "l", "w")
+	for _, l := range strings.Split(m2.body(), "\n") {
+		if ansi.StringWidth(l) > 100 {
+			t.Fatalf("a long line overflows: %d", ansi.StringWidth(l))
+		}
+	}
+}
+
+func TestColorsOnlyWriteLeavesTheThemeLineAlone(t *testing.T) {
+	m, f := newColors(t, "SITREP_THEME=Mono-from-the-future\nSITREP_THEME=again\nA=1\n")
+	m = ckey(t, m, "j", "j", "j", "j")
+	m = typeColor(t, m, "#445566")
+	m = ckey(t, m, "w", "y")
+	if !strings.HasPrefix(f.body, "SITREP_THEME=Mono-from-the-future\nSITREP_THEME=again\nA=1\n") || !strings.Contains(f.body, "SITREP_COLORS=") {
+		t.Errorf("only the colours are changed: %q", f.body)
+	}
+}
+
+func TestColorsReadBackIsQuietWhenTheFileHadNoFinalNewline(t *testing.T) {
+	m, f := newColors(t, "A=1")
+	m = ckey(t, m, "l", "w", "y")
+	if !strings.HasPrefix(m.msg, "written; ") || f.body != "A=1\nSITREP_THEME=pastel\n" {
+		t.Errorf("%q %q", m.msg, f.body)
+	}
+}
+
+func TestColorsBackupFollowsEveryWriteAndEveryRetry(t *testing.T) {
+	m, f := newColors(t, "A=1\n")
+	m = ckey(t, m, "l", "w")
+	f.writeErr = settings.ErrChanged
+	m = ckey(t, m, "y")
+	f.writeErr = nil
+	f.body = "A=1\nEDITED=1\n"
+	m = ckey(t, m, "w", "y")
+	if len(f.backups) != 2 || f.backups[1] != "A=1\nEDITED=1\n" {
+		t.Errorf("the retry saves what the file holds now: %q", f.backups)
+	}
+}
+
+func TestColorsEditsDoNotChangeAnEarlierModel(t *testing.T) {
+	m, _ := newColors(t, "")
+	m = ckey(t, m, "j", "j", "j", "j")
+	before := m
+	m = typeColor(t, m, "#445566")
+	if _, ok := before.set["attn"]; ok {
+		t.Error("the model before the edit changed too")
+	}
+}

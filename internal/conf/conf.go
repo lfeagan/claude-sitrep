@@ -51,7 +51,7 @@ func (c Conf) FromFile(name string) string {
 	prefix := name + "="
 	for _, line := range strings.Split(string(b), "\n") {
 		if rest, ok := strings.CutPrefix(line, prefix); ok {
-			return Unquote(rest)
+			return Unquote(strings.TrimSuffix(rest, "\r")) // a file of \r\n lines
 		}
 	}
 	return ""
