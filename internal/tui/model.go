@@ -39,10 +39,28 @@ const (
 
 // say puts a message on the status bar for a few seconds.
 func (m *model) say(text string) {
-	m.msg, m.msgAt = text, m.now()
+	m.msg, m.msgAt, m.msgErr = text, m.now(), false
+}
+
+// sayErr is say for an action that was refused or failed: the status bar draws it in the error colour.
+func (m *model) sayErr(text string) {
+	m.say(text)
+	m.msgErr = true
+}
+
+// statusIsError says whether the status text is an error: a refused or failed action, or the last refresh error.
+func (m model) statusIsError() bool {
+	if m.pending != "" {
+		return false
+	}
+	if m.msg != "" && m.now().Sub(m.msgAt) < messageTTL {
+		return m.msgErr
+	}
+	return m.errText() != ""
 }
 
 type model struct {
+	msgErr     bool // the message is an error
 	bin        string
 	interval   time.Duration
 	snap       Snapshot
@@ -126,9 +144,9 @@ func (m model) tickCmd() tea.Cmd {
 func (m model) pruneStart() (tea.Model, tea.Cmd) {
 	switch {
 	case m.readOnly:
-		m.say("prune: the dashboard is read-only")
+		m.sayErr("prune: the dashboard is read-only")
 	case m.haveSnap && m.snap.Registry != "ok":
-		m.say("prune: Claude Code's live-session registry cannot be read")
+		m.sayErr("prune: Claude Code's live-session registry cannot be read")
 	default:
 		m.prune, m.pruneText = pruneLoading, nil
 		run, bin := m.run, m.bin
@@ -167,7 +185,7 @@ func (m model) pruneResult(msg pruneMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
 		m.prune, m.pruneText = pruneNone, nil
-		m.say("prune: " + msg.err.Error())
+		m.sayErr("prune: " + msg.err.Error())
 	case !msg.real && nothingToPrune(lines):
 		m.prune, m.pruneText = pruneNone, nil
 		m.say("nothing to prune")
@@ -198,7 +216,7 @@ func (m model) copyKey(resume bool) (tea.Model, tea.Cmd) {
 	case x == nil:
 		return m, nil
 	case !idRe.MatchString(x.ID):
-		m.say("copy: this session's id looks unusual, so it is not copied")
+		m.sayErr("copy: this session's id looks unusual, so it is not copied")
 		return m, nil
 	}
 	text, what := x.ID, "session id"
@@ -217,13 +235,13 @@ func (m model) snoozeKey() (tea.Model, tea.Cmd) {
 	case x == nil || m.acting:
 		return m, nil
 	case m.readOnly:
-		m.say("snooze: the dashboard is read-only")
+		m.sayErr("snooze: the dashboard is read-only")
 		return m, nil
 	case !idRe.MatchString(x.ID):
-		m.say("snooze: this session's id looks unusual, so it is left alone")
+		m.sayErr("snooze: this session's id looks unusual, so it is left alone")
 		return m, nil
 	case !x.NeedsInput && !x.Snoozed:
-		m.say("snooze: " + x.Label() + " does not need you, so there is nothing to snooze")
+		m.sayErr("snooze: " + x.Label() + " does not need you, so there is nothing to snooze")
 		return m, nil
 	}
 	args := []string{"snooze", x.ID}
@@ -533,7 +551,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case snoozeMsg:
 		m.acting = false
 		if msg.err != nil {
-			m.say("snooze: " + msg.err.Error())
+			m.sayErr("snooze: " + msg.err.Error())
 			return m, nil
 		}
 		if lines := pruneLines(msg.text); len(lines) > 0 {
@@ -791,7 +809,7 @@ func (m model) View() tea.View {
 		if status == "" && (m.filtering || m.filter != "") {
 			status = m.filterStatus()
 		}
-		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Demo: m.demo, Theme: theme})
+		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Demo: m.demo, Error: m.statusIsError() && m.prompt == nil && m.ask == nil && !m.filtering, Theme: theme})
 	}
 	if m.colors != nil {
 		body = m.colors.body()

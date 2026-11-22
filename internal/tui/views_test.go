@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"flag"
 	"os"
 	"path/filepath"
@@ -925,4 +926,70 @@ func TestDemoSaysSoInTheStatusBar(t *testing.T) {
 	if got := last(false); strings.Contains(got, "DEMO") {
 		t.Errorf("%q", got)
 	}
+}
+
+func TestAnErrorInTheStatusBarIsDrawnInTheErrorColour(t *testing.T) {
+	s := loadFixture(t)
+	bar := func(th Theme, errText string, isErr bool) string {
+		lines := strings.Split(render(s, tabCards, errText, viewOpts{Width: 90, Height: 20, Error: isErr, Theme: th}), "\n")
+		return lines[len(lines)-1]
+	}
+	th := themeFor(true, Settings{Colors: "error=#00ff00"})
+	got := bar(th, "error: took too long", true)
+	if !strings.Contains(got, "48;2;0;255;0") {
+		t.Errorf("the error block has the error colour: %q", got)
+	}
+	if plain := bar(th, "copied the session id: x", false); strings.Contains(plain, "48;2;0;255;0") {
+		t.Errorf("a message that is not an error does not: %q", plain)
+	}
+	if text := ansi.Strip(got); !strings.Contains(text, "error: took too long") || !strings.Contains(text, "? help") {
+		t.Errorf("the hints stay: %q", text)
+	}
+	if w := ansi.StringWidth(got); w != 90 {
+		t.Errorf("the bar is %d wide", w)
+	}
+	if mono := bar(themeFor(true, Settings{Theme: "mono"}), "error: x", true); strings.Contains(mono, "38;") || strings.Contains(mono, "48;") {
+		t.Errorf("mono has no colour: %q", mono)
+	}
+}
+
+func TestOnlyRefusalsAndFailuresAreErrors(t *testing.T) {
+	m := loaded(t, tabCards)
+	m.say("copied the session id: abc")
+	if m.statusIsError() {
+		t.Error("a success is not an error")
+	}
+	m.sayErr("snooze: nothing to snooze")
+	if !m.statusIsError() {
+		t.Error("a refusal is an error")
+	}
+	// a real refusal: z on a session that is only working
+	w := loaded(t, tabCards)
+	for _, x := range w.snap.Sessions {
+		if x.State == "working" && !x.NeedsInput {
+			w.selID = x.ID
+		}
+	}
+	w, _ = press(t, w, "z")
+	if !strings.Contains(w.statusText(), "nothing to snooze") || !w.statusIsError() {
+		t.Errorf("a refused key is an error: %q", w.statusText())
+	}
+	m.err = errors.New("took too long")
+	m.msg = ""
+	if !m.statusIsError() {
+		t.Error("a failed refresh is an error")
+	}
+}
+
+func TestPreviewOfTheColourToolShowsTheErrorColour(t *testing.T) {
+	m, _ := newColors(t, "SITREP_COLORS=error=#00ff00\n")
+	for _, l := range strings.Split(m.body(), "\n") {
+		if strings.Contains(ansi.Strip(l), "a sample error") {
+			if !strings.Contains(l, "48;2;0;255;0") {
+				t.Errorf("the sample error uses the error colour: %q", l)
+			}
+			return
+		}
+	}
+	t.Error("no sample error in the preview")
 }

@@ -110,7 +110,7 @@ func themeFor(isDark bool, st Settings) Theme {
 		Rule:      lipgloss.NewStyle().Foreground(accent),
 		Label:     lipgloss.NewStyle().Foreground(dim),
 		Dim:       lipgloss.NewStyle().Foreground(dim),
-		Err:       lipgloss.NewStyle().Foreground(pick(p.errc)).Bold(true),
+		Err:       lipgloss.NewStyle().Background(pick(p.errc)).Foreground(lipgloss.Color(onColor(p.errc[side]))).Bold(true),
 		Status:    lipgloss.NewStyle().Foreground(on).Background(accent),
 		StatusKey: lipgloss.NewStyle().Foreground(on).Background(accent).Bold(true),
 		Hot:       withText(lipgloss.NewStyle().Background(pick(p.hot)), custom["hot"], p.hot[side]),

@@ -132,7 +132,7 @@ func (m *model) queueRefresh() {
 	if mv := m.mover; mv != nil {
 		if qi, ok := m.itemsOf(mv.from); !ok || mv.n < 1 || mv.n > len(qi) || qi[mv.n-1] != mv.item {
 			m.mover = nil
-			m.say("move: the queue changed")
+			m.sayErr("move: the queue changed")
 		}
 	}
 	if m.ask == nil {
@@ -143,10 +143,10 @@ func (m *model) queueRefresh() {
 	switch {
 	case !ok || (a.target != "" && !m.running(a.target)):
 		m.ask = nil
-		m.say(a.verb + ": the session is gone")
+		m.sayErr(a.verb + ": the session is gone")
 	case a.n < 1 || a.n > len(qi) || qi[a.n-1] != a.item:
 		m.ask = nil
-		m.say(a.verb + ": the queue changed")
+		m.sayErr(a.verb + ": the queue changed")
 	}
 }
 
@@ -177,7 +177,7 @@ func (m model) running(id string) bool {
 // queueOpen shows a queue. Looking is always allowed; only the edit keys change anything.
 func (m model) queueOpen(kind int) (tea.Model, tea.Cmd) {
 	if kind == qSession && m.selected() == nil {
-		m.say("queue: no session is selected")
+		m.sayErr("queue: no session is selected")
 		return m, nil
 	}
 	m.queue, m.qKind, m.qTo, m.ask, m.prompt = true, kind, m.selID, nil, nil
@@ -286,7 +286,7 @@ func (m model) queueItems() []string {
 }
 
 func (m model) refuse(verb, why string) (tea.Model, tea.Cmd) {
-	m.say(verb + ": " + why)
+	m.sayErr(verb + ": " + why)
 	return m, nil
 }
 
@@ -643,7 +643,7 @@ func (m model) queueRun(verb string, pend int, args ...string) (tea.Model, tea.C
 func (m model) queueResult(msg queueMsg) (tea.Model, tea.Cmd) {
 	m.acting, m.settling = false, true
 	if msg.err != nil {
-		m.say(msg.verb + ": " + clean(msg.err.Error()))
+		m.sayErr(msg.verb + ": " + clean(msg.err.Error()))
 	} else {
 		if lines := pruneLines(msg.text); len(lines) > 0 {
 			m.say(lines[len(lines)-1])

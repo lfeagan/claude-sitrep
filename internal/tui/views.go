@@ -39,6 +39,7 @@ type viewOpts struct {
 	Filter        string // only sessions that contain this text are listed
 	Theme         Theme
 	Typing        bool        // a filter is being typed, so the footer lists the keys of that
+	Error         bool        // the status text is an error: it is drawn in the error colour
 	Demo          bool        // made-up sessions: the status bar says so
 	Hits          *[]string   // when set, filled with the id of the session on each screen row ("" for none), for a mouse click
 	Auto          bool        // no tile size is chosen yet: the Wall picks the one that fits
@@ -646,7 +647,7 @@ func tabAt(x int, th Theme) int {
 
 // statusBar shows the counts on the left and the keys on the right. A failed refresh
 // replaces the counts with the error, so the last good data stays on screen.
-func statusBar(s Snapshot, width int, errText string, tab int, typing, filtered, demo bool, th Theme) string {
+func statusBar(s Snapshot, width int, errText string, isErr bool, tab int, typing, filtered, demo bool, th Theme) string {
 	left := " " + shortSummary(s)
 	if demo {
 		left = " DEMO: made-up sessions   " + shortSummary(s)
@@ -673,6 +674,10 @@ func statusBar(s Snapshot, width int, errText string, tab int, typing, filtered,
 		right, gap = "", width-ansi.StringWidth(left)
 	}
 	line := ansi.Truncate(left+strings.Repeat(" ", max(gap, 0))+right, width, "")
+	if isErr && errText != "" { // the error is a block of its own colour at the left of the bar
+		lw := min(ansi.StringWidth(left)+1, width)
+		return th.Err.Render(ansi.Truncate(line, lw, "")) + th.Status.Width(width-lw).Render(ansi.TruncateLeft(line, lw, ""))
+	}
 	return th.Status.Width(width).Render(line)
 }
 
@@ -861,7 +866,7 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 	for len(body) < bodyOpts.Height { // pad, so the status bar sits on the last row
 		body = append(body, "")
 	}
-	lines := append(append(bar, body...), statusBar(s, o.Width, errText, tab, o.Typing, strings.TrimSpace(o.Filter) != "", o.Demo, o.Theme))
+	lines := append(append(bar, body...), statusBar(s, o.Width, errText, o.Error, tab, o.Typing, strings.TrimSpace(o.Filter) != "", o.Demo, o.Theme))
 	if o.Hits != nil {
 		h := append(make([]string, len(bar)), hits...)
 		for len(h) < len(bar)+len(body) { // the body was padded

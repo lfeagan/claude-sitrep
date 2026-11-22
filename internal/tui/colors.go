@@ -528,7 +528,7 @@ func (m colorsModel) body() string {
 	if m.ask != nil && m.ask.kind == "write" {
 		middle = m.writeQuestion(room, w)
 	} else {
-		middle = strings.Split(render(m.snap, tabTable, "error: a sample error (showing data from 12s ago)", viewOpts{Width: w, Height: room, Theme: m.previewTheme()}), "\n")
+		middle = strings.Split(render(m.snap, tabTable, "error: a sample error (showing data from 12s ago)", viewOpts{Width: w, Height: room, Error: true, Theme: m.previewTheme()}), "\n")
 	}
 	for len(middle) < room {
 		middle = append(middle, "")
