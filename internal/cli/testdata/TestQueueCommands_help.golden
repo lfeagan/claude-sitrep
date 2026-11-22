@@ -1,0 +1,85 @@
+== step 0: exit 0
+--- stdout
+usage: sitrep add <id> <text>
+
+Append an item to a queue. The text is one line of at most 200 characters, and longer
+text is cut. Quote text that holds shell characters such as ( ) ; or &.
+
+  sitrep add 15f1 'fix the flaky test (CI)'
+  sitrep add inbox 'look at the nightly job'
+--- stderr
+== step 1: exit 0
+--- stdout
+usage: sitrep rm <id> [n] [--item <text>]
+
+Remove item n (default 1) from a queue and print it. It refuses when the queue
+changed after it was read, so it never removes a different item. With --item, it
+also refuses unless item n is exactly that text, for a program that showed a list.
+--- stderr
+== step 2: exit 0
+--- stdout
+usage: sitrep top <id> <n> [--item <text>]
+
+Move item n to the front of a queue, so that it is the next item. With --item, it
+refuses unless item n is exactly that text.
+--- stderr
+== step 3: exit 0
+--- stdout
+usage: sitrep reorder <id> <from> <to> [--item <text>]
+
+Move the item at position from to position to. The other items keep their order. With
+--item, it refuses unless the item at from is exactly that text.
+--- stderr
+== step 4: exit 0
+--- stdout
+usage: sitrep move <from> <to> [n] [--item <text>]
+
+Hand item n (default 1) from one queue to another. Either side may be inbox. The item
+is added to the destination before it leaves the source, so a failure can leave a
+duplicate but never lose it. With --item, it refuses unless item n is exactly that
+text, so a program that showed a list never moves a different item.
+--- stderr
+== step 5: exit 0
+--- stdout
+usage: sitrep pin <id> <text>
+
+Set a session's Objective and stop the summarizer from changing it. Inside a session,
+a prompt that starts with "+pin " does the same. See unpin.
+--- stderr
+== step 6: exit 0
+--- stdout
+usage: sitrep unpin <id>
+
+Let the summarizer rewrite a session's Objective again.
+--- stderr
+== step 7: exit 0
+--- stdout
+usage: sitrep help [command]
+
+List the commands, or show the details of one. `sitrep <command> --help` shows the same.
+--- stderr
+== step 8: exit 1
+--- stdout
+--- stderr
+sitrep: unknown command 'nosuch'; run 'sitrep help'
+== step 9: exit 1
+--- stdout
+--- stderr
+sitrep: unknown command 'nosuch'; run 'sitrep help'
+== step 10: exit 1
+--- stdout
+--- stderr
+sitrep: no help for 'nosuch'; run 'sitrep help'
+== state files
+--- abcd1111.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n
+--- abce2222.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n
+--- zzzz3333.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n

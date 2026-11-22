@@ -1,0 +1,99 @@
+== step 0: exit 0
+--- stdout
+queued on zzzz (now 1)
+--- stderr
+== step 1: exit 0
+--- stdout
+queued on zzzz (now 2)
+--- stderr
+== step 2: exit 0
+--- stdout
+queued on zzzz (now 3)
+--- stderr
+== step 3: exit 0
+--- stdout
+a
+--- stderr
+== step 4: exit 0
+--- stdout
+c
+--- stderr
+== step 5: exit 1
+--- stdout
+--- stderr
+sitrep: no item 9 on zzzz
+== step 6: exit 1
+--- stdout
+--- stderr
+sitrep: item must be a number
+== step 7: exit 1
+--- stdout
+--- stderr
+sitrep: item must be a number
+== step 8: exit 1
+--- stdout
+--- stderr
+sitrep: item must be a number
+== step 9: exit 0
+--- stdout
+b
+--- stderr
+== step 10: exit 1
+--- stdout
+--- stderr
+sitrep: queue empty
+== step 11: exit 1
+--- stdout
+--- stderr
+sitrep: id 'nope' matches 0; run 'sitrep ls'
+== step 12: exit 1
+--- stdout
+--- stderr
+sitrep: usage: sitrep rm <id> [item=1] [--item <text>]
+== step 13: exit 1
+--- stdout
+--- stderr
+sitrep: queue empty
+== step 14: exit 0
+--- stdout
+queued on inbox (now 1)
+--- stderr
+== step 15: exit 0
+--- stdout
+q
+--- stderr
+== step 16: exit 0
+--- stdout
+queued on zzzz (now 1)
+--- stderr
+== step 17: exit 1
+--- stdout
+--- stderr
+sitrep: queue changed; run 'sitrep ls zzzz'
+== step 18: exit 0
+--- stdout
+z
+--- stderr
+== step 19: exit 1
+--- stdout
+--- stderr
+sitrep: --item needs the text of the item, last
+== step 20: exit 1
+--- stdout
+--- stderr
+sitrep: --item needs the text of the item, last
+== state files
+--- abcd1111.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n
+--- abce2222.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n
+--- inbox.queue (-rw-------)
+--- zzzz3333.queue (-rw-------)
+--- zzzz3333.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n

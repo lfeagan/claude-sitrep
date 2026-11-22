@@ -1,0 +1,78 @@
+== step 0: exit 0
+--- stdout
+queued on zzzz (now 1)
+--- stderr
+== step 1: exit 0
+--- stdout
+queued on zzzz (now 2)
+--- stderr
+== step 2: exit 0
+--- stdout
+queued on inbox (now 1)
+--- stderr
+== step 3: exit 0
+--- stdout
+queued on zzzz (now 3)
+--- stderr
+== step 4: exit 1
+--- stdout
+--- stderr
+sitrep: nothing to queue
+== step 5: exit 1
+--- stdout
+--- stderr
+sitrep: nothing to queue
+== step 6: exit 0
+--- stdout
+queued on zzzz (now 4)
+--- stderr
+== step 7: exit 0
+--- stdout
+queued on zzzz (now 5)
+--- stderr
+== step 8: exit 1
+--- stdout
+--- stderr
+sitrep: id 'abc' matches 2; run 'sitrep ls'
+== step 9: exit 1
+--- stdout
+--- stderr
+sitrep: id 'nope' matches 0; run 'sitrep ls'
+== step 10: exit 1
+--- stdout
+--- stderr
+sitrep: bad id '../x'
+== step 11: exit 1
+--- stdout
+--- stderr
+sitrep: usage: sitrep add <id> <text>
+== step 12: exit 1
+--- stdout
+--- stderr
+sitrep: usage: sitrep add <id> <text>
+== step 13: exit 0
+--- stdout
+queued on inbox (now 2)
+--- stderr
+== state files
+--- abcd1111.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n
+--- abce2222.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n
+--- inbox.queue (-rw-------)
+to the inbox
+世界 emoji 😀
+--- zzzz3333.queue (-rw-------)
+first
+second one
+joined words here
+tab here[31mred
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+--- zzzz3333.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n

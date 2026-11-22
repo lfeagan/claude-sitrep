@@ -6,7 +6,7 @@ Guidance for agents working in this repository. The commit and comment rules are
 
 sitrep is one Go program. After any change, run `make test`, which CI also runs: `gofmt`, `go mod tidy -diff`, `go vet` and `go test -race`. Add a test for every behavior or bug fix. The plugin cache is keyed by `version` in `.claude-plugin/plugin.json`, so bump it for every change users should receive. `claude plugin validate .` checks the manifests.
 
-The differential tests in `internal/cli` run the last bash version, the git tag `bash-final`, beside the Go program and compare exit status, output and state files. They need git, jq, perl and that tag, skip without them, and fail when `SITREP_REQUIRE_ORACLE` is set, as it is in CI. The tag must be pushed (`git push origin bash-final v0.3.0`) for CI to run them. Do not move or delete it.
+The scenario tests in `internal/cli` (with the harness in `internal/clitest`) run the built program in a throwaway `$HOME` through scenarios of commands and hook events, and compare what it printed and left in the state folder with the golden files in `internal/cli/testdata`. `go test ./internal/cli -update-golden` rewrites them: review the diff as carefully as a change of code. They began as differential tests against the last bash version, the git tag `bash-final`, which nothing uses now.
 
 ## Invariants
 

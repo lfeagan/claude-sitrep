@@ -1,0 +1,56 @@
+== step 0: exit 0
+--- stdout
+--- stderr
+== step 1: exit 0
+--- stdout
+{
+  "decision": "block",
+  "reason": "Objective pinned: keep this goal"
+}
+--- stderr
+== step 2: exit 0
+--- stdout
+--- stderr
+== step 3: exit 0
+--- stdout
+calls=1
+ARGS:
+[-p]
+[--model]
+[haiku]
+[--no-session-persistence]
+[--disable-slash-commands]
+[--tools]
+[]
+[--strict-mcp-config]
+[--mcp-config]
+[{"mcpServers":{}}]
+[--setting-sources]
+[]
+[--max-budget-usd]
+[0.05]
+SUMMARIZING=1
+STDIN:
+Objective so far: keep this goal
+
+Recent transcript:
+user: x
+
+Reply with exactly three lines and nothing else:
+Objective: <a short title for the overall objective of this session, max 80 chars; keep the objective so far if it still fits>
+Progress: <what has been accomplished so far, max 120 chars>
+Now: <what is happening or awaiting the user right now, max 120 chars>END
+--- stderr
+== state files
+--- .sess0033.count (-rw-------)
+2
+--- .sess0033.pinned (-rw-------)
+--- .sess0033.stamp (-rw-------)
+--- .sess0033.state (-rw-------)
+waiting
+--- sess0033.cwd (-rw-------)
+/tmp/proj 
+--- sess0033.txt (-rw-------)
+Objective: keep this goal
+Progress:  stub progress
+Now:       stub now

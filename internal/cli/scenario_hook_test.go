@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lfeagan/claude-sitrep/internal/difftest"
+	"github.com/lfeagan/claude-sitrep/internal/clitest"
 )
 
 // hookWorld is one run of a hook scenario: a home with a stub claude, and a transcript for each session.
 type hookWorld struct {
 	t       testing.TB
 	home    string
-	sitrep  difftest.Runner
-	results []difftest.Result
+	sitrep  clitest.Runner
+	results []clitest.Result
 }
 
 const stubClaude = `#!/bin/bash
@@ -29,7 +29,7 @@ echo x >> "$STUB_CALLS"
 printf 'Objective: stub objective\nProgress: stub progress\nNow: stub now\n'
 `
 
-func newHookWorld(t testing.TB, home string, sitrep difftest.Runner) *hookWorld {
+func newHookWorld(t testing.TB, home string, sitrep clitest.Runner) *hookWorld {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(home, "bin"), 0o755); err != nil {
 		t.Fatal(err)
@@ -84,16 +84,16 @@ func (w *hookWorld) settle(sid string, n int) {
 	w.t.Helper()
 	deadline := time.Now().Add(8 * time.Second)
 	for time.Now().Before(deadline) {
-		b, _ := os.ReadFile(difftest.Path(w.home, sid+".txt"))
-		_, pend := os.Stat(difftest.Path(w.home, "."+sid+".pending"))
+		b, _ := os.ReadFile(clitest.Path(w.home, sid+".txt"))
+		_, pend := os.Stat(clitest.Path(w.home, "."+sid+".pending"))
 		if w.calls() >= n && strings.Contains(string(b), "stub progress") && pend != nil {
 			time.Sleep(150 * time.Millisecond)
-			w.results = append(w.results, difftest.Result{Stdout: fmt.Sprintf("calls=%d\n%s", w.calls(), w.rec())})
+			w.results = append(w.results, clitest.Result{Stdout: fmt.Sprintf("calls=%d\n%s", w.calls(), w.rec())})
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	w.results = append(w.results, difftest.Result{Stdout: fmt.Sprintf("timed out at calls=%d", w.calls())})
+	w.results = append(w.results, clitest.Result{Stdout: fmt.Sprintf("timed out at calls=%d", w.calls())})
 }
 
 func ev(sid, event string, kv ...any) map[string]any {
@@ -104,8 +104,8 @@ func ev(sid, event string, kv ...any) map[string]any {
 	return m
 }
 
-func hookScenario(f func(w *hookWorld)) difftest.Scenario {
-	return func(t testing.TB, home string, sitrep difftest.Runner) []difftest.Result {
+func hookScenario(f func(w *hookWorld)) clitest.Scenario {
+	return func(t testing.TB, home string, sitrep clitest.Runner) []clitest.Result {
 		w := newHookWorld(t, home, sitrep)
 		f(w)
 		return w.results
@@ -113,7 +113,7 @@ func hookScenario(f func(w *hookWorld)) difftest.Scenario {
 }
 
 // stateNorm drops the stamp, which holds nothing, and blanks nothing else: the hook's files are compared whole.
-func TestDiffHookPrompts(t *testing.T) {
+func TestHookPrompts(t *testing.T) {
 	for name, f := range map[string]func(w *hookWorld){
 		"plain prompts": func(w *hookWorld) {
 			w.fire(ev("sess0001", "SessionStart", "source", "startup"))
@@ -179,11 +179,11 @@ func TestDiffHookPrompts(t *testing.T) {
 			w.results = append(w.results, w.sitrep(w.t, w.home, "stdin:", "hook"))
 		},
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Compare(t, hookScenario(f), goSitrep) })
+		t.Run(name, func(t *testing.T) { clitest.GoldenT(t, hookScenario(f), goSitrep) })
 	}
 }
 
-func TestDiffHookStates(t *testing.T) {
+func TestHookStates(t *testing.T) {
 	for name, f := range map[string]func(w *hookWorld){
 		"start stop end": func(w *hookWorld) {
 			w.fire(ev("sess0020", "SessionStart", "source", "startup"))
@@ -194,11 +194,11 @@ func TestDiffHookStates(t *testing.T) {
 			w.fire(ev("sess0020", "SessionEnd", "cwd", "/ignored"))
 		},
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Compare(t, hookScenario(f), goSitrep) })
+		t.Run(name, func(t *testing.T) { clitest.GoldenT(t, hookScenario(f), goSitrep) })
 	}
 }
 
-func TestDiffHookSummarizer(t *testing.T) {
+func TestHookSummarizer(t *testing.T) {
 	user := func(s string) string { return jsonl("user", s) }
 	for name, f := range map[string]func(w *hookWorld){
 		"stop summarizes": func(w *hookWorld) {
@@ -223,7 +223,7 @@ func TestDiffHookSummarizer(t *testing.T) {
 			w.fire(ev("sess0032", "Stop", "transcript_path", tp))
 			w.fire(ev("sess0032", "UserPromptSubmit", "prompt", "second, while it was summarizing", "transcript_path", tp))
 			time.Sleep(4 * time.Second)
-			w.results = append(w.results, difftest.Result{Stdout: fmt.Sprintf("calls=%d\n%s", w.calls(), w.rec())})
+			w.results = append(w.results, clitest.Result{Stdout: fmt.Sprintf("calls=%d\n%s", w.calls(), w.rec())})
 		},
 		"pinned objective survives": func(w *hookWorld) {
 			tp := w.transcript("sess0033", user("x"))
@@ -252,16 +252,16 @@ func TestDiffHookSummarizer(t *testing.T) {
 			w.fire(ev("sess0038", "UserPromptSubmit", "prompt", "via dots", "transcript_path", dots))
 			w.fire(ev("sess0038", "Stop", "transcript_path", dots))
 			time.Sleep(3 * time.Second) // the Go summarizer lets the transcript settle for a moment before it runs
-			w.results = append(w.results, difftest.Result{Stdout: fmt.Sprintf("calls=%d", w.calls())})
+			w.results = append(w.results, clitest.Result{Stdout: fmt.Sprintf("calls=%d", w.calls())})
 		},
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Compare(t, hookScenario(f), goSitrep) })
+		t.Run(name, func(t *testing.T) { clitest.GoldenT(t, hookScenario(f), goSitrep) })
 	}
 }
 
 // The hook must return at once: the summarizer is a detached child, and Claude Code waits for the hook, not for it.
 func TestHookReturnsBeforeTheSummarizerFinishes(t *testing.T) {
-	home := difftest.Home(t)
+	home := clitest.Home(t)
 	w := newHookWorld(t, home, goSitrep)
 	if err := os.WriteFile(filepath.Join(home, "bin", "claude"), []byte("#!/bin/bash\ncat >/dev/null\nsleep 3\n"), 0o755); err != nil {
 		t.Fatal(err)
@@ -277,7 +277,7 @@ func TestHookReturnsBeforeTheSummarizerFinishes(t *testing.T) {
 
 // The deadline ends claude and everything it started.
 func TestSummarizerDeadlineKillsTheWholeGroup(t *testing.T) {
-	home := difftest.Home(t)
+	home := clitest.Home(t)
 	w := newHookWorld(t, home, goSitrep)
 	pidFile := filepath.Join(home, "grandchild.pid")
 	script := "#!/bin/bash\ncat >/dev/null\nsleep 31 &\necho $! > " + pidFile + "\nsleep 30\n"
@@ -294,36 +294,4 @@ func TestSummarizerDeadlineKillsTheWholeGroup(t *testing.T) {
 		t.Errorf("a process started by claude (pid %d) outlived the deadline", pid)
 		syscall.Kill(pid, syscall.SIGKILL)
 	}
-}
-
-// What `sitrep migrate` makes of the state the bash wrote is what the Go program writes.
-func TestMigratedBashStateEqualsGoState(t *testing.T) {
-	for name, f := range map[string]func(w *hookWorld){
-		"prompts and plus commands": func(w *hookWorld) {
-			w.fire(ev("sess0001", "SessionStart", "source", "startup"))
-			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "fix the flaky test"))
-			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "+ write the docs"))
-			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "+pin The goal"))
-			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "+inbox look at CI"))
-			w.fire(ev("sess0001", "UserPromptSubmit", "prompt", "+take"))
-			w.fire(ev("sess0001", "Stop"))
-			w.fire(ev("sess0002", "UserPromptSubmit", "prompt", "second session"))
-			w.fire(ev("sess0002", "SessionEnd"))
-		},
-		"summarizer": func(w *hookWorld) {
-			tp := w.transcript("sess0003", jsonl("user", "build it"))
-			w.fire(ev("sess0003", "UserPromptSubmit", "prompt", "build it", "transcript_path", tp))
-			w.fire(ev("sess0003", "Stop", "transcript_path", tp))
-			w.settle("sess0003", 1)
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			difftest.CompareMigrated(t, hookScenario(f), goSitrep)
-		})
-	}
-}
-
-func TestMigratedQueueCommandsEqualGo(t *testing.T) {
-	steps := cmds("add|zz|a", "add|zz|b", "add|inbox|i", "move|zz|inbox", "pin|zz|ship it", "top|zz|1")
-	difftest.CompareMigrated(t, scenario(steps...), goSitrep)
 }

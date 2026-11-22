@@ -5,17 +5,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lfeagan/claude-sitrep/internal/difftest"
+	"github.com/lfeagan/claude-sitrep/internal/clitest"
 )
 
-var goSitrep difftest.Runner
+var goSitrep clitest.Runner
 
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "sitrep-cli-test")
 	if err != nil {
 		panic(err)
 	}
-	if goSitrep, err = difftest.BuildInto(dir); err != nil {
+	if goSitrep, err = clitest.BuildInto(dir); err != nil {
 		os.RemoveAll(dir)
 		panic(err)
 	}
@@ -28,14 +28,14 @@ func TestMain(m *testing.M) {
 func seed(t testing.TB, home string, objective string) {
 	t.Helper()
 	for _, id := range []string{"abcd1111", "abce2222", "zzzz3333"} {
-		difftest.Put(t, home, id+".txt", objective)
+		clitest.Put(t, home, id+".txt", objective)
 	}
 }
 
-func scenario(steps ...[]string) difftest.Scenario {
-	return func(t testing.TB, home string, sitrep difftest.Runner) []difftest.Result {
+func scenario(steps ...[]string) clitest.Scenario {
+	return func(t testing.TB, home string, sitrep clitest.Runner) []clitest.Result {
 		seed(t, home, "Objective: old goal\nProgress:  p\nNow:       n\n")
-		var out []difftest.Result
+		var out []clitest.Result
 		for _, s := range steps {
 			out = append(out, sitrep(t, home, s...))
 		}
@@ -51,7 +51,7 @@ func cmds(lines ...string) [][]string {
 	return out
 }
 
-func TestDiffQueueCommands(t *testing.T) {
+func TestQueueCommands(t *testing.T) {
 	long := strings.Repeat("x", 250)
 	for name, steps := range map[string][][]string{
 		"add": cmds("add|zz|first", "add|zz|second one", "add|inbox|to the inbox", "add|zz|joined|words|here", "add|zz|", "add|zz|   ",
@@ -67,6 +67,6 @@ func TestDiffQueueCommands(t *testing.T) {
 		"pin":  cmds("pin|zz|ship the thing", "pin|zz|   ", "pin|inbox|x", "pin|abcd|x", "pin|abcd1|multi|word|goal\x1b[0m\u202e", "pin|nope|x", "pin|zz", "unpin|zz", "unpin|zz", "unpin|inbox", "unpin", "unpin|nope"),
 		"help": cmds("add|--help", "rm|-h", "top|--help", "reorder|--help", "move|--help", "pin|--help", "unpin|--help", "help|--help", "nosuch|--help", "nosuch", "help|nosuch"),
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Compare(t, scenario(steps...), goSitrep) })
+		t.Run(name, func(t *testing.T) { clitest.GoldenT(t, scenario(steps...), goSitrep) })
 	}
 }

@@ -1,0 +1,53 @@
+== step 0: exit 0
+--- stdout
+--- stderr
+== step 1: exit 0
+--- stdout
+{
+  "decision": "block",
+  "reason": "Queued (1): q[0m  item"
+}
+--- stderr
+== step 2: exit 0
+--- stdout
+{
+  "decision": "block",
+  "reason": "Objective pinned: pin[0m text"
+}
+--- stderr
+== step 3: exit 0
+--- stdout
+{
+  "decision": "block",
+  "reason": "Inbox (1): inbox"
+}
+--- stderr
+== step 4: exit 0
+--- stdout
+--- stderr
+== state files
+--- .sess0011.count (-rw-------)
+4
+--- .sess0011.pinned (-rw-------)
+--- .sess0011.state (-rw-------)
+working
+--- .sess0012.count (-rw-------)
+1
+--- .sess0012.state (-rw-------)
+working
+--- inbox.queue (-rw-------)
+inbox
+--- sess0011.cwd (-rw-------)
+/tmp/proj 
+--- sess0011.queue (-rw-------)
+q[0m  item
+--- sess0011.txt (-rw-------)
+Objective: pin[0m text
+Progress:  -
+Now:       hi [31mRED]0;title there 31m X  tab here
+--- sess0012.cwd (-rw-------)
+/tmp/proj 
+--- sess0012.txt (-rw-------)
+Objective: héllo 世界 😀
+Progress:  -
+Now:       héllo 世界 😀

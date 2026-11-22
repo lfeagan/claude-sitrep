@@ -13,18 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lfeagan/claude-sitrep/internal/difftest"
+	"github.com/lfeagan/claude-sitrep/internal/clitest"
 )
-
-var attnFaded = regexp.MustCompile(`"attn_faded":\s*true,\s*`)
-
-var emptyAlias = regexp.MustCompile(`"alias":\s*"",\s*|,\s*"theme":\s*"",\s*"colors":\s*""|,\s*"context":\s*null`)
 
 // jsonNorm blanks what changes between two runs a second apart (the time, ages, quiet times), and appends the order of every key, so a
 // change of the document's field order is a difference too.
-func jsonNorm(r difftest.Result) difftest.Result {
-	r.Stdout = emptyAlias.ReplaceAllString(r.Stdout, "") // a field the bash version never had; no scenario sets an alias
-	r.Stdout = attnFaded.ReplaceAllString(r.Stdout, "")  // also new: the scenarios leave sessions waiting for hours
+func jsonNorm(r clitest.Result) clitest.Result {
 	if !strings.HasPrefix(strings.TrimSpace(r.Stdout), "{") {
 		return r
 	}
@@ -146,7 +140,7 @@ func seedWorld(t testing.TB, home string, withRegistry bool) {
 			if body == "" {
 				return
 			}
-			difftest.Put(t, home, name, body)
+			clitest.Put(t, home, name, body)
 		}
 		write(f.id+".txt", f.notes)
 		write(f.id+".cwd", f.cwd)
@@ -154,11 +148,11 @@ func seedWorld(t testing.TB, home string, withRegistry bool) {
 		mt := now.Add(-f.ago)
 		if f.word != "" {
 			write("."+f.id+".state", f.word+"\n")
-			if err := os.Chtimes(difftest.Path(home, "."+f.id+".state"), mt, mt); err != nil {
+			if err := os.Chtimes(clitest.Path(home, "."+f.id+".state"), mt, mt); err != nil {
 				t.Fatal(err)
 			}
 		}
-		if err := os.Chtimes(difftest.Path(home, f.id+".txt"), mt, mt); err != nil {
+		if err := os.Chtimes(clitest.Path(home, f.id+".txt"), mt, mt); err != nil {
 			t.Fatal(err)
 		}
 		if f.pinned {
@@ -205,34 +199,34 @@ func seedWorld(t testing.TB, home string, withRegistry bool) {
 		}
 	}
 	for name, body := range map[string]string{"inbox.queue": "inbox one\ninbox two\n", "bad name.txt": "junk\n", "x.y.txt": "junk\n"} {
-		difftest.Put(t, home, name, body)
+		clitest.Put(t, home, name, body)
 	}
 }
 
-func world(withRegistry bool, steps ...string) difftest.Scenario {
+func world(withRegistry bool, steps ...string) clitest.Scenario {
 	return worldWith(withRegistry, true, steps...)
 }
 
 // tidyWorld is world without the two files that are not sessions (the bash listing shows them as rows, which the Go one deliberately
 // does not, since they are not ours) and without the hostile session.
-func tidyWorld(withRegistry bool, steps ...string) difftest.Scenario {
+func tidyWorld(withRegistry bool, steps ...string) clitest.Scenario {
 	return worldWith(withRegistry, false, steps...)
 }
 
-func worldWith(withRegistry, junk bool, steps ...string) difftest.Scenario {
-	return func(t testing.TB, home string, sitrep difftest.Runner) []difftest.Result {
+func worldWith(withRegistry, junk bool, steps ...string) clitest.Scenario {
+	return func(t testing.TB, home string, sitrep clitest.Runner) []clitest.Result {
 		seedWorld(t, home, withRegistry)
 		if !junk {
-			os.Remove(difftest.Path(home, "bad name.txt"))
-			os.Remove(difftest.Path(home, "x.y.txt"))
+			os.Remove(clitest.Path(home, "bad name.txt"))
+			os.Remove(clitest.Path(home, "x.y.txt"))
 			// hand-edited text (control characters, blank lines, a field over 200 characters) is drawn from the cleaned snapshot, which
 			// differs from the bash on purpose; the hostile session is covered by the JSON and render tests
 			for _, ext := range []string{".txt", ".cwd", ".queue"} {
-				os.Remove(difftest.Path(home, "hostile0"+ext))
+				os.Remove(clitest.Path(home, "hostile0"+ext))
 			}
-			os.Remove(difftest.Path(home, ".hostile0.state"))
+			os.Remove(clitest.Path(home, ".hostile0.state"))
 		}
-		var out []difftest.Result
+		var out []clitest.Result
 		for _, l := range steps {
 			out = append(out, sitrep(t, home, strings.Split(l, "|")...))
 		}
@@ -240,19 +234,18 @@ func worldWith(withRegistry, junk bool, steps ...string) difftest.Scenario {
 	}
 }
 
-func TestDiffJSON(t *testing.T) {
-	for name, sc := range map[string]difftest.Scenario{
+func TestListJSON(t *testing.T) {
+	for name, sc := range map[string]clitest.Scenario{
 		"with registry": world(true, "ls|--json", "ls|--json|-a", "ls|--json|-a|-n|1", "ls|--json|--full", "ls|--json|-n|0", "ls|--json|-a|--full"),
 		"no registry":   world(false, "ls|--json", "ls|--json|-a"),
 		"errors":        world(true, "ls|--json|abcd", "ls|--full", "ls|abcd|--json", "ls|--json|-n", "ls|--json|-n|x", "ls|-n|-1|--json"),
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Compare(t, sc, goSitrep, jsonNorm) })
+		t.Run(name, func(t *testing.T) { clitest.GoldenT(t, sc, goSitrep, goldenNorm) })
 	}
 }
 
-func TestDiffSnoozeAndPrune(t *testing.T) {
-	var _ = bytes.NewReader
-	for name, sc := range map[string]difftest.Scenario{
+func TestSnoozeAndPrune(t *testing.T) {
+	for name, sc := range map[string]clitest.Scenario{
 		"prune dry run":     world(true, "prune|--dry-run", "ls|--json|-a"),
 		"prune keep":        world(true, "prune|-k", "ls|--json|-a", "prune|-k"),
 		"prune yes":         world(true, "prune|-y", "ls|--json|-a", "prune|-y"),
@@ -260,41 +253,47 @@ func TestDiffSnoozeAndPrune(t *testing.T) {
 		"prune usage":       world(true, "prune|-y|-k", "prune|--bogus", "prune|-y|--dry-run"),
 		"prune no registry": world(false, "prune", "prune|-y"),
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Compare(t, sc, goSitrep, jsonNorm) })
+		t.Run(name, func(t *testing.T) { clitest.GoldenT(t, sc, goSitrep, goldenNorm) })
 	}
 }
 
 var goldenVolatile = regexp.MustCompile(`"(pid|state_changed)":\s*[0-9]+`)
 
-// goldenNorm is jsonNorm and then the numbers that differ from run to run: the test process's own pid, and times seeded from the clock.
-func goldenNorm(r difftest.Result) difftest.Result {
+// goldenNorm is jsonNorm and then the numbers that differ from run to run: the test process's own pid, and times seeded from the clock. The
+// document is indented, so that a change to one field is one line of a diff.
+func goldenNorm(r clitest.Result) clitest.Result {
 	r = jsonNorm(r)
 	r.Stdout = goldenVolatile.ReplaceAllString(r.Stdout, `"$1":0`)
+	if i := strings.Index(r.Stdout, "\nORDER: "); i >= 0 {
+		var b bytes.Buffer
+		if json.Indent(&b, []byte(r.Stdout[:i]), "", "  ") == nil {
+			r.Stdout = b.String() + r.Stdout[i:]
+		}
+	}
 	return r
 }
 
-// The plain listing left the bash version on purpose: it marks a session that needs you with a dot, as the dashboard does. The scenarios
-// that list such sessions are checked against golden files, and the others still against the bash.
-// snooze refuses a session that does not need you, which the bash version did not.
+// snooze refuses a session that does not need you.
 func TestSnoozeGolden(t *testing.T) {
-	difftest.Golden(t, "snooze", world(true, "snooze|wait", "ls|--json", "snooze|--off|wait", "ls|--json", "snooze|inbox", "snooze|nope", "snooze", "snooze|--off", "snooze|a|b", "snooze|end0", "snooze|--off|end0", "snooze|run0", "snooze|wait|--off"), goSitrep, goldenNorm)
+	clitest.Golden(t, "snooze", world(true, "snooze|wait", "ls|--json", "snooze|--off|wait", "ls|--json", "snooze|inbox", "snooze|nope", "snooze", "snooze|--off", "snooze|a|b", "snooze|end0", "snooze|--off|end0", "snooze|run0", "snooze|wait|--off"), goSitrep, goldenNorm)
 }
 
-func TestDiffPlainListing(t *testing.T) {
-	for name, sc := range map[string]difftest.Scenario{
+func TestPlainListing(t *testing.T) {
+	for name, sc := range map[string]clitest.Scenario{
 		"one queue": tidyWorld(true, "ls|inbox", "ls|run0", "ls|wait", "ls|end0", "ls|zzzz", "ls|nope", "ls|../x", "ls|a|b", "ls|-v|run0"),
 		"errors":    tidyWorld(true, "ls|-n", "ls|-n|x", "ls|--full", "ls|-n|-1"),
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Compare(t, sc, goSitrep, jsonNorm) })
+		t.Run(name, func(t *testing.T) { clitest.GoldenT(t, sc, goSitrep, goldenNorm) })
 	}
 }
 
+// The plain listing marks a session that needs you with a dot, as the dashboard does.
 func TestPlainListingGolden(t *testing.T) {
-	for name, sc := range map[string]difftest.Scenario{
+	for name, sc := range map[string]clitest.Scenario{
 		"ls_default":     tidyWorld(true, "ls", "ls|-a", "env:COLUMNS=40|ls", "env:COLUMNS=60|ls|-a|-v", "env:COLUMNS=9|ls"),
 		"ls_verbose":     tidyWorld(true, "ls|-v", "ls|-v|-a", "ls|-n|2", "ls|-n|0", "ls|-a|-v|-n|1", "ls|-n|99", "env:COLUMNS=50|ls|-n|3"),
 		"ls_no_registry": tidyWorld(false, "ls", "ls|-v", "ls|-a|-n|2"),
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Golden(t, name, sc, goSitrep, goldenNorm) })
+		t.Run(name, func(t *testing.T) { clitest.Golden(t, name, sc, goSitrep, goldenNorm) })
 	}
 }

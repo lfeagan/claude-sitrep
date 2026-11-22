@@ -1,0 +1,110 @@
+== step 0: exit 0
+--- stdout
+--- stderr
+== step 1: exit 0
+--- stdout
+--- stderr
+== step 2: exit 0
+--- stdout
+calls=1
+ARGS:
+[-p]
+[--model]
+[haiku]
+[--no-session-persistence]
+[--disable-slash-commands]
+[--tools]
+[]
+[--strict-mcp-config]
+[--mcp-config]
+[{"mcpServers":{}}]
+[--setting-sources]
+[]
+[--max-budget-usd]
+[0.05]
+SUMMARIZING=1
+STDIN:
+Objective so far: build it
+
+Recent transcript:
+user: build it
+
+Reply with exactly three lines and nothing else:
+Objective: <a short title for the overall objective of this session, max 80 chars; keep the objective so far if it still fits>
+Progress: <what has been accomplished so far, max 120 chars>
+Now: <what is happening or awaiting the user right now, max 120 chars>END
+--- stderr
+== step 3: exit 0
+--- stdout
+--- stderr
+== step 4: exit 0
+--- stdout
+--- stderr
+== step 5: exit 0
+--- stdout
+calls=2
+ARGS:
+[-p]
+[--model]
+[haiku]
+[--no-session-persistence]
+[--disable-slash-commands]
+[--tools]
+[]
+[--strict-mcp-config]
+[--mcp-config]
+[{"mcpServers":{}}]
+[--setting-sources]
+[]
+[--max-budget-usd]
+[0.05]
+SUMMARIZING=1
+STDIN:
+Objective so far: build it
+
+Recent transcript:
+user: build it
+
+Reply with exactly three lines and nothing else:
+Objective: <a short title for the overall objective of this session, max 80 chars; keep the objective so far if it still fits>
+Progress: <what has been accomplished so far, max 120 chars>
+Now: <what is happening or awaiting the user right now, max 120 chars>END
+ARGS:
+[-p]
+[--model]
+[haiku]
+[--no-session-persistence]
+[--disable-slash-commands]
+[--tools]
+[]
+[--strict-mcp-config]
+[--mcp-config]
+[{"mcpServers":{}}]
+[--setting-sources]
+[]
+[--max-budget-usd]
+[0.05]
+SUMMARIZING=1
+STDIN:
+Objective so far: stub objective
+
+Recent transcript:
+user: build it
+
+Reply with exactly three lines and nothing else:
+Objective: <a short title for the overall objective of this session, max 80 chars; keep the objective so far if it still fits>
+Progress: <what has been accomplished so far, max 120 chars>
+Now: <what is happening or awaiting the user right now, max 120 chars>END
+--- stderr
+== state files
+--- .sess0031.count (-rw-------)
+1
+--- .sess0031.stamp (-rw-------)
+--- .sess0031.state (-rw-------)
+waiting
+--- sess0031.cwd (-rw-------)
+/tmp/proj 
+--- sess0031.txt (-rw-------)
+Objective: stub objective
+Progress:  stub progress
+Now:       stub now

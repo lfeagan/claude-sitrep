@@ -1,0 +1,62 @@
+== step 0: exit 0
+--- stdout
+objective set on zzzz
+--- stderr
+== step 1: exit 1
+--- stdout
+--- stderr
+sitrep: nothing to pin
+== step 2: exit 1
+--- stdout
+--- stderr
+sitrep: inbox has no objective
+== step 3: exit 0
+--- stdout
+objective set on abcd
+--- stderr
+== step 4: exit 0
+--- stdout
+objective set on abcd
+--- stderr
+== step 5: exit 1
+--- stdout
+--- stderr
+sitrep: id 'nope' matches 0; run 'sitrep ls'
+== step 6: exit 1
+--- stdout
+--- stderr
+sitrep: usage: sitrep pin <id> <text>
+== step 7: exit 0
+--- stdout
+objective on zzzz will be summarized again
+--- stderr
+== step 8: exit 0
+--- stdout
+objective on zzzz will be summarized again
+--- stderr
+== step 9: exit 1
+--- stdout
+--- stderr
+sitrep: inbox has no objective
+== step 10: exit 1
+--- stdout
+--- stderr
+sitrep: usage: sitrep unpin <id>
+== step 11: exit 1
+--- stdout
+--- stderr
+sitrep: id 'nope' matches 0; run 'sitrep ls'
+== state files
+--- .abcd1111.pinned (-rw-------)
+--- abcd1111.txt (-rw-------)
+Objective: multi word goal[0m
+Progress:  p
+Now:       n
+--- abce2222.txt (-rw-------)
+Objective: old goal
+Progress:  p
+Now:       n
+--- zzzz3333.txt (-rw-------)
+Objective: ship the thing
+Progress:  p
+Now:       n

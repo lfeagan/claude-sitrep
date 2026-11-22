@@ -1,0 +1,58 @@
+== step 0: exit 0
+--- stdout
+--- stderr
+== step 1: exit 0
+--- stdout
+calls=1
+ARGS:
+[-p]
+[--model]
+[haiku]
+[--no-session-persistence]
+[--disable-slash-commands]
+[--tools]
+[]
+[--strict-mcp-config]
+[--mcp-config]
+[{"mcpServers":{}}]
+[--setting-sources]
+[]
+[--max-budget-usd]
+[0.05]
+SUMMARIZING=1
+STDIN:
+Objective so far: the real first line
+
+Recent transcript:
+user: <command-name>/clear</command-name>
+user:   
+
+  the real first line
+second line
+user: later
+
+Reply with exactly three lines and nothing else:
+Objective: <a short title for the overall objective of this session, max 80 chars; keep the objective so far if it still fits>
+Progress: <what has been accomplished so far, max 120 chars>
+Now: <what is happening or awaiting the user right now, max 120 chars>END
+--- stderr
+== step 2: exit 0
+--- stdout
+--- stderr
+== state files
+--- .sess0034.state (-rw-------)
+waiting
+--- .sess0035.state (-rw-------)
+waiting
+--- sess0034.cwd (-rw-------)
+/tmp/proj 
+--- sess0034.txt (-rw-------)
+Objective: stub objective
+Progress:  stub progress
+Now:       stub now
+--- sess0035.cwd (-rw-------)
+/tmp/proj 
+--- sess0035.txt (-rw-------)
+Objective: -
+Progress:  -
+Now:       (resumed -- summarizing)

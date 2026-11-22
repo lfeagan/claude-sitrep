@@ -1,0 +1,50 @@
+== step 0: exit 0
+--- stdout
+--- stderr
+== step 1: exit 0
+--- stdout
+--- stderr
+== step 2: exit 0
+--- stdout
+--- stderr
+== step 3: exit 0
+--- stdout
+{
+  "decision": "block",
+  "reason": "Queued (1): xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+--- stderr
+== step 4: exit 0
+--- stdout
+--- stderr
+== step 5: exit 0
+--- stdout
+--- stderr
+== step 6: exit 0
+--- stdout
+--- stderr
+== step 7: exit 0
+--- stdout
+--- stderr
+== step 8: exit 0
+--- stdout
+--- stderr
+== step 9: exit 0
+--- stdout
+--- stderr
+== step 10: exit 0
+--- stdout
+--- stderr
+== state files
+--- .sess0010.count (-rw-------)
+11
+--- .sess0010.state (-rw-------)
+working
+--- sess0010.cwd (-rw-------)
+/tmp/proj 
+--- sess0010.queue (-rw-------)
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+--- sess0010.txt (-rw-------)
+Objective: start
+Progress:  -
+Now:       +takeout

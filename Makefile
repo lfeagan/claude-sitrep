@@ -5,8 +5,6 @@ test:
 	go vet ./...
 	go test -race -count=1 ./...
 
-# The differential tests compare with the last bash version, the git tag bash-final. They skip without git, jq, perl and the tag,
-# and fail when SITREP_REQUIRE_ORACLE is set, as it is in CI.
 .PHONY: build
 build:
 	go build -o sitrep ./cmd/sitrep

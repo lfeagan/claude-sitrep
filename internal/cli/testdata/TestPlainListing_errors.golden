@@ -1,0 +1,113 @@
+== step 0: exit 1
+--- stdout
+--- stderr
+sitrep: usage: sitrep ls [-a] [-v] [-n items] [--json [--full]] [id]
+== step 1: exit 1
+--- stdout
+--- stderr
+sitrep: items must be a number
+== step 2: exit 1
+--- stdout
+--- stderr
+sitrep: --full needs --json
+== step 3: exit 1
+--- stdout
+--- stderr
+sitrep: items must be a number
+== state files
+--- .ancient8.state (-rw-------)
+working
+--- .end00004.state (-rw-------)
+ended
+--- .ended0ff.state (-rw-------)
+ended
+--- .foreign6.state (-rw-------)
+working
+--- .old00005.state (-rw-------)
+working
+--- .pinned07.pinned (-rw-------)
+x
+--- .pinned07.state (-rw-------)
+working
+--- .run00001.state (-rw-------)
+working
+--- .snz00003.snooze (-rw-------)
+<epoch>
+--- .snz00003.state (-rw-------)
+waiting
+--- .wait0002.state (-rw-------)
+waiting
+--- ancient8.cwd (-rw-------)
+/a/eight
+--- ancient8.txt (-rw-------)
+Objective: too old
+Progress:  p
+Now:       n
+--- end00004.cwd (-rw-------)
+/a/four
+--- end00004.queue (-rw-------)
+stranded one
+stranded two
+--- end00004.txt (-rw-------)
+Objective: done
+Progress:  p
+Now:       n
+--- ended0ff.cwd (-rw-------)
+/a/ten
+--- ended0ff.txt (-rw-------)
+Objective: ended but alive
+Progress:  p
+Now:       n
+--- foreign6.cwd (-rw-------)
+/a/six
+--- foreign6.txt (-rw-------)
+Objective: elsewhere
+Progress:  p
+Now:       n
+--- inbox.queue (-rw-------)
+inbox one
+inbox two
+--- nostate9.cwd (-rw-------)
+/a/nine
+--- nostate9.txt (-rw-------)
+Objective: no state file
+Progress:  p
+Now:       n
+--- old00005.cwd (-rw-------)
+/a/five
+--- old00005.queue (-rw-------)
+left behind
+--- old00005.txt (-rw-------)
+Objective: gone quiet
+Progress:  p
+Now:       n
+--- pinned07.cwd (-rw-------)
+/a/seven
+--- pinned07.txt (-rw-------)
+Objective: pinned goal
+Progress:  p
+Now:       n
+--- run00001.cwd (-rw-------)
+/home/u/proj-one
+--- run00001.queue (-rw-------)
+first
+second item
+  third
+--- run00001.txt (-rw-------)
+Objective: build it
+Progress:  half
+Now:       compiling
+--- snz00003.cwd (-rw-------)
+/a/b/three
+--- snz00003.txt (-rw-------)
+Objective: snoozed
+Progress:  p
+Now:       n
+--- wait0002.cwd (-rw-------)
+/work/two/
+--- wait0002.queue (-rw-------)
+x
+--- wait0002.txt (-rw-------)
+Objective: wait
+Progress:  p
+Now:       n

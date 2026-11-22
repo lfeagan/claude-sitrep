@@ -4,8 +4,257 @@ snoozed wait until it changes
 --- stderr
 == step 1: exit 0
 --- stdout
-{"generated":0,"hidden":{"ended":2,"stranded_items":3},"inbox":{"count":2,"items":["inbox one","inbox two"]},"registry":"ok","sessions":[{"age":0,"cwd":"/home/u/proj-one","dir":"proj-one","highlight":false,"id":"run00001","idle":true,"needs_input":false,"now":"compiling","objective":"build it","pid":0,"pinned":false,"progress":"half","queue":{"count":3,"items":["first","second item","  third"]},"quiet_secs":0,"running":true,"short":"run0","snoozed":false,"state":"working","state_changed":0,"state_label":"idle? 2h"},{"age":0,"cwd":"/a/b/three","dir":"three","highlight":false,"id":"snz00003","idle":false,"needs_input":false,"now":"n","objective":"snoozed","pid":0,"pinned":false,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":null,"running":true,"short":"snz0","snoozed":true,"state":"waiting","state_changed":0,"state_label":"waiting 6h"},{"age":0,"cwd":"/work/two/","dir":"two","highlight":false,"id":"wait0002","idle":false,"needs_input":false,"now":"n","objective":"wait","pid":0,"pinned":false,"progress":"p","queue":{"count":1,"items":["x"]},"quiet_secs":null,"running":true,"short":"wait","snoozed":true,"state":"waiting","state_changed":0,"state_label":"waiting 7h"},{"age":0,"cwd":"/a/six","dir":"six","highlight":false,"id":"foreign6","idle":false,"needs_input":false,"now":"n","objective":"elsewhere","pid":null,"pinned":false,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":null,"running":true,"short":"fore","snoozed":false,"state":"working","state_changed":0,"state_label":"working 8h"},{"age":0,"cwd":"/a/seven","dir":"seven","highlight":false,"id":"pinned07","idle":true,"needs_input":false,"now":"n","objective":"pinned goal","pid":0,"pinned":true,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":0,"running":true,"short":"pinn","snoozed":false,"state":"working","state_changed":0,"state_label":"idle? 9h"},{"age":0,"cwd":"/a/nine","dir":"nine","highlight":false,"id":"nostate9","idle":false,"needs_input":false,"now":"n","objective":"no state file","pid":0,"pinned":false,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":null,"running":true,"short":"nost","snoozed":false,"state":"-","state_changed":0,"state_label":"-"},{"age":0,"cwd":"/x/ho\"stile\\dir [0m","dir":"ho\"stile\\dir [0m","highlight":false,"id":"hostile0","idle":false,"needs_input":false,"now":"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn","objective":"q\"uote back\\slash tab [31mred]0;x bidi �� bad","pid":0,"pinned":false,"progress":"pp","queue":{"count":2,"items":["item\"1\\ withunit","]0;tok"]},"quiet_secs":null,"running":true,"short":"host","snoozed":false,"state":"working","state_changed":0,"state_label":"working 11h"},{"age":0,"cwd":"/a/ten","dir":"ten","highlight":false,"id":"ended0ff","idle":false,"needs_input":false,"now":"n","objective":"ended but alive","pid":0,"pinned":false,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":null,"running":true,"short":"ende","snoozed":false,"state":"running","state_changed":0,"state_label":"running 12h"}],"settings":{"highlight_seconds":60,"highlight_sgr":"48;5;238","queue_items":5},"version":1}
-ORDER: version,generated,registry,settings,queue_items,highlight_seconds,highlight_sgr,hidden,ended,stranded_items,inbox,count,items,sessions,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items
+{
+  "generated": 0,
+  "hidden": {
+    "ended": 2,
+    "stranded_items": 3
+  },
+  "inbox": {
+    "count": 2,
+    "items": [
+      "inbox one",
+      "inbox two"
+    ]
+  },
+  "registry": "ok",
+  "sessions": [
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/home/u/proj-one",
+      "dir": "proj-one",
+      "highlight": false,
+      "id": "run00001",
+      "idle": true,
+      "needs_input": false,
+      "now": "compiling",
+      "objective": "build it",
+      "pid": 0,
+      "pinned": false,
+      "progress": "half",
+      "queue": {
+        "count": 3,
+        "items": [
+          "first",
+          "second item",
+          "  third"
+        ]
+      },
+      "quiet_secs": 0,
+      "running": true,
+      "short": "run0",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "idle? 2h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/b/three",
+      "dir": "three",
+      "highlight": false,
+      "id": "snz00003",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "snoozed",
+      "pid": 0,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "snz0",
+      "snoozed": true,
+      "state": "waiting",
+      "state_changed": 0,
+      "state_label": "waiting 6h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/work/two/",
+      "dir": "two",
+      "highlight": false,
+      "id": "wait0002",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "wait",
+      "pid": 0,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 1,
+        "items": [
+          "x"
+        ]
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "wait",
+      "snoozed": true,
+      "state": "waiting",
+      "state_changed": 0,
+      "state_label": "waiting 7h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/six",
+      "dir": "six",
+      "highlight": false,
+      "id": "foreign6",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "elsewhere",
+      "pid": null,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "fore",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "working 8h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/seven",
+      "dir": "seven",
+      "highlight": false,
+      "id": "pinned07",
+      "idle": true,
+      "needs_input": false,
+      "now": "n",
+      "objective": "pinned goal",
+      "pid": 0,
+      "pinned": true,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": 0,
+      "running": true,
+      "short": "pinn",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "idle? 9h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/nine",
+      "dir": "nine",
+      "highlight": false,
+      "id": "nostate9",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "no state file",
+      "pid": 0,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "nost",
+      "snoozed": false,
+      "state": "-",
+      "state_changed": 0,
+      "state_label": "-"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/x/ho\"stile\\dir [0m",
+      "dir": "ho\"stile\\dir [0m",
+      "highlight": false,
+      "id": "hostile0",
+      "idle": false,
+      "needs_input": false,
+      "now": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "objective": "q\"uote back\\slash tab [31mred]0;x bidi �� bad",
+      "pid": 0,
+      "pinned": false,
+      "progress": "pp",
+      "queue": {
+        "count": 2,
+        "items": [
+          "item\"1\\ withunit",
+          "]0;tok"
+        ]
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "host",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "working 11h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/ten",
+      "dir": "ten",
+      "highlight": false,
+      "id": "ended0ff",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "ended but alive",
+      "pid": 0,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "ende",
+      "snoozed": false,
+      "state": "running",
+      "state_changed": 0,
+      "state_label": "running 12h"
+    }
+  ],
+  "settings": {
+    "colors": "",
+    "highlight_seconds": 60,
+    "highlight_sgr": "48;5;238",
+    "queue_items": 5,
+    "theme": ""
+  },
+  "version": 1
+}
+ORDER: version,generated,registry,settings,queue_items,highlight_seconds,highlight_sgr,theme,colors,hidden,ended,stranded_items,inbox,count,items,sessions,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context
 --- stderr
 == step 2: exit 0
 --- stdout
@@ -13,8 +262,258 @@ wait is no longer snoozed
 --- stderr
 == step 3: exit 0
 --- stdout
-{"generated":0,"hidden":{"ended":2,"stranded_items":3},"inbox":{"count":2,"items":["inbox one","inbox two"]},"registry":"ok","sessions":[{"age":0,"cwd":"/home/u/proj-one","dir":"proj-one","highlight":false,"id":"run00001","idle":true,"needs_input":false,"now":"compiling","objective":"build it","pid":0,"pinned":false,"progress":"half","queue":{"count":3,"items":["first","second item","  third"]},"quiet_secs":0,"running":true,"short":"run0","snoozed":false,"state":"working","state_changed":0,"state_label":"idle? 2h"},{"age":0,"cwd":"/a/b/three","dir":"three","highlight":false,"id":"snz00003","idle":false,"needs_input":false,"now":"n","objective":"snoozed","pid":0,"pinned":false,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":null,"running":true,"short":"snz0","snoozed":true,"state":"waiting","state_changed":0,"state_label":"waiting 6h"},{"age":0,"cwd":"/work/two/","dir":"two","highlight":false,"id":"wait0002","idle":false,"needs_input":true,"now":"n","objective":"wait","pid":0,"pinned":false,"progress":"p","queue":{"count":1,"items":["x"]},"quiet_secs":null,"running":true,"short":"wait","snoozed":false,"state":"waiting","state_changed":0,"state_label":"waiting 7h"},{"age":0,"cwd":"/a/six","dir":"six","highlight":false,"id":"foreign6","idle":false,"needs_input":false,"now":"n","objective":"elsewhere","pid":null,"pinned":false,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":null,"running":true,"short":"fore","snoozed":false,"state":"working","state_changed":0,"state_label":"working 8h"},{"age":0,"cwd":"/a/seven","dir":"seven","highlight":false,"id":"pinned07","idle":true,"needs_input":false,"now":"n","objective":"pinned goal","pid":0,"pinned":true,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":0,"running":true,"short":"pinn","snoozed":false,"state":"working","state_changed":0,"state_label":"idle? 9h"},{"age":0,"cwd":"/a/nine","dir":"nine","highlight":false,"id":"nostate9","idle":false,"needs_input":false,"now":"n","objective":"no state file","pid":0,"pinned":false,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":null,"running":true,"short":"nost","snoozed":false,"state":"-","state_changed":0,"state_label":"-"},{"age":0,"cwd":"/x/ho\"stile\\dir [0m","dir":"ho\"stile\\dir [0m","highlight":false,"id":"hostile0","idle":false,"needs_input":false,"now":"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn","objective":"q\"uote back\\slash tab [31mred]0;x bidi �� bad","pid":0,"pinned":false,"progress":"pp","queue":{"count":2,"items":["item\"1\\ withunit","]0;tok"]},"quiet_secs":null,"running":true,"short":"host","snoozed":false,"state":"working","state_changed":0,"state_label":"working 11h"},{"age":0,"cwd":"/a/ten","dir":"ten","highlight":false,"id":"ended0ff","idle":false,"needs_input":false,"now":"n","objective":"ended but alive","pid":0,"pinned":false,"progress":"p","queue":{"count":0,"items":[]},"quiet_secs":null,"running":true,"short":"ende","snoozed":false,"state":"running","state_changed":0,"state_label":"running 12h"}],"settings":{"highlight_seconds":60,"highlight_sgr":"48;5;238","queue_items":5},"version":1}
-ORDER: version,generated,registry,settings,queue_items,highlight_seconds,highlight_sgr,hidden,ended,stranded_items,inbox,count,items,sessions,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,id,short,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items
+{
+  "generated": 0,
+  "hidden": {
+    "ended": 2,
+    "stranded_items": 3
+  },
+  "inbox": {
+    "count": 2,
+    "items": [
+      "inbox one",
+      "inbox two"
+    ]
+  },
+  "registry": "ok",
+  "sessions": [
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/home/u/proj-one",
+      "dir": "proj-one",
+      "highlight": false,
+      "id": "run00001",
+      "idle": true,
+      "needs_input": false,
+      "now": "compiling",
+      "objective": "build it",
+      "pid": 0,
+      "pinned": false,
+      "progress": "half",
+      "queue": {
+        "count": 3,
+        "items": [
+          "first",
+          "second item",
+          "  third"
+        ]
+      },
+      "quiet_secs": 0,
+      "running": true,
+      "short": "run0",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "idle? 2h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/b/three",
+      "dir": "three",
+      "highlight": false,
+      "id": "snz00003",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "snoozed",
+      "pid": 0,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "snz0",
+      "snoozed": true,
+      "state": "waiting",
+      "state_changed": 0,
+      "state_label": "waiting 6h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "attn_faded": true,
+      "context": null,
+      "cwd": "/work/two/",
+      "dir": "two",
+      "highlight": false,
+      "id": "wait0002",
+      "idle": false,
+      "needs_input": true,
+      "now": "n",
+      "objective": "wait",
+      "pid": 0,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 1,
+        "items": [
+          "x"
+        ]
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "wait",
+      "snoozed": false,
+      "state": "waiting",
+      "state_changed": 0,
+      "state_label": "waiting 7h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/six",
+      "dir": "six",
+      "highlight": false,
+      "id": "foreign6",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "elsewhere",
+      "pid": null,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "fore",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "working 8h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/seven",
+      "dir": "seven",
+      "highlight": false,
+      "id": "pinned07",
+      "idle": true,
+      "needs_input": false,
+      "now": "n",
+      "objective": "pinned goal",
+      "pid": 0,
+      "pinned": true,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": 0,
+      "running": true,
+      "short": "pinn",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "idle? 9h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/nine",
+      "dir": "nine",
+      "highlight": false,
+      "id": "nostate9",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "no state file",
+      "pid": 0,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "nost",
+      "snoozed": false,
+      "state": "-",
+      "state_changed": 0,
+      "state_label": "-"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/x/ho\"stile\\dir [0m",
+      "dir": "ho\"stile\\dir [0m",
+      "highlight": false,
+      "id": "hostile0",
+      "idle": false,
+      "needs_input": false,
+      "now": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "objective": "q\"uote back\\slash tab [31mred]0;x bidi �� bad",
+      "pid": 0,
+      "pinned": false,
+      "progress": "pp",
+      "queue": {
+        "count": 2,
+        "items": [
+          "item\"1\\ withunit",
+          "]0;tok"
+        ]
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "host",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "working 11h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/ten",
+      "dir": "ten",
+      "highlight": false,
+      "id": "ended0ff",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "ended but alive",
+      "pid": 0,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "ende",
+      "snoozed": false,
+      "state": "running",
+      "state_changed": 0,
+      "state_label": "running 12h"
+    }
+  ],
+  "settings": {
+    "colors": "",
+    "highlight_seconds": 60,
+    "highlight_sgr": "48;5;238",
+    "queue_items": 5,
+    "theme": ""
+  },
+  "version": 1
+}
+ORDER: version,generated,registry,settings,queue_items,highlight_seconds,highlight_sgr,theme,colors,hidden,ended,stranded_items,inbox,count,items,sessions,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,attn_faded,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context
 --- stderr
 == step 4: exit 1
 --- stdout

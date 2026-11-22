@@ -144,7 +144,7 @@ Session state is stored in `~/.claude/sitrep`, which is owner-only (`700`, files
 
 ## Development
 
-`make test` runs `gofmt`, `go mod tidy -diff`, `go vet` and `go test -race`, in CI on Linux and macOS. `make build` builds `./sitrep`. The tests use a throwaway `$HOME` and a stub `claude`, so they never touch real settings or the API. The differential tests compare with the last shell version, the git tag `bash-final`, and need git, jq, perl and that tag. `docs/GO-PORT.md` describes the port from shell to Go.
+`make test` runs `gofmt`, `go mod tidy -diff`, `go vet` and `go test -race`, in CI on Linux and macOS. `make build` builds `./sitrep`. The tests use a throwaway `$HOME` and a stub `claude`, so they never touch real settings or the API. The scenario tests run the built program through commands and hook events and compare with golden files (`go test ./internal/cli -update-golden` rewrites them). They began as comparisons with the last shell version, the git tag `bash-final`, which nothing uses now. `docs/GO-PORT.md` describes the port from shell to Go.
 
 ## Status
 

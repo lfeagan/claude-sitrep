@@ -4,18 +4,17 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
-	"github.com/lfeagan/claude-sitrep/internal/difftest"
+	"github.com/lfeagan/claude-sitrep/internal/clitest"
 )
 
-func statusScenario(setup func(home, dir string), sessions ...string) difftest.Scenario {
-	return func(t testing.TB, home string, sitrep difftest.Runner) []difftest.Result {
+func statusScenario(setup func(home, dir string), sessions ...string) clitest.Scenario {
+	return func(t testing.TB, home string, sitrep clitest.Runner) []clitest.Result {
 		dir := filepath.Join(home, ".claude", "sitrep")
 		setup(home, dir)
-		var out []difftest.Result
+		var out []clitest.Result
 		for _, sid := range sessions {
 			in, _ := json.Marshal(map[string]any{"session_id": sid, "model": map[string]string{"display_name": "X"}})
 			out = append(out, sitrep(t, home, "stdin:"+string(in), "statusline"))
@@ -25,22 +24,12 @@ func statusScenario(setup func(home, dir string), sessions ...string) difftest.S
 }
 
 func put(home, name, body string) {
-	p := difftest.Path(home, name)
+	p := clitest.Path(home, name)
 	os.MkdirAll(filepath.Dir(p), 0o700)
 	os.WriteFile(p, []byte(body), 0o600)
 }
 
-// bashQueueLine matches the queue line as the bash version drew it, with the id last. It need not start a line: a notes file without a final
-// newline runs into it.
-var bashQueueLine = regexp.MustCompile(`(?m)Queue: (.*)  \[id ([A-Za-z0-9_-]+)\]((?:  Inbox: [0-9]+)?)$`)
-
-// idFirst rewrites the bash queue line into the form the Go version draws, which puts the id right after the word Queue.
-func idFirst(r difftest.Result) difftest.Result {
-	r.Stdout = bashQueueLine.ReplaceAllString(r.Stdout, "Queue [id $2]: $1$3")
-	return r
-}
-
-func TestDiffStatusline(t *testing.T) {
+func TestStatusline(t *testing.T) {
 	for name, c := range map[string]struct {
 		setup    func(home, dir string)
 		sessions []string
@@ -83,7 +72,7 @@ func TestDiffStatusline(t *testing.T) {
 		}, []string{"a0000001"}},
 		"upstream reads the event": {func(home, dir string) {
 			put(home, "a0000001.txt", "Objective: build\n")
-			put(home, "sitrep.conf", "SITREP_HUD_CMD='jq -r .model.display_name'\n")
+			put(home, "sitrep.conf", "SITREP_HUD_CMD='cut -c1-24'\n") // the first characters of the event that reaches its standard input
 		}, []string{"a0000001"}},
 		"upstream prints nothing": {func(home, dir string) {
 			put(home, "a0000001.txt", "Objective: build\n")
@@ -102,14 +91,14 @@ func TestDiffStatusline(t *testing.T) {
 			put(home, "sitrep.conf", "SITREP_HUD_CMD='echo $SITREP_RENDERING'\n")
 		}, []string{"a0000001"}},
 	} {
-		t.Run(name, func(t *testing.T) { difftest.Compare(t, statusScenario(c.setup, c.sessions...), goSitrep, idFirst) })
+		t.Run(name, func(t *testing.T) { clitest.GoldenT(t, statusScenario(c.setup, c.sessions...), goSitrep) })
 	}
 }
 
-func TestDiffStatuslineGuardAndBadInput(t *testing.T) {
-	sc := func(t testing.TB, home string, sitrep difftest.Runner) []difftest.Result {
+func TestStatuslineGuardAndBadInput(t *testing.T) {
+	sc := func(t testing.TB, home string, sitrep clitest.Runner) []clitest.Result {
 		put(home, "a0000001.txt", "Objective: build\n")
-		return []difftest.Result{
+		return []clitest.Result{
 			sitrep(t, home, "env:SITREP_RENDERING=1", `stdin:{"session_id":"a0000001"}`, "statusline"),
 			sitrep(t, home, "stdin:", "statusline"),
 			sitrep(t, home, "stdin:{not json", "statusline"),
@@ -117,7 +106,5 @@ func TestDiffStatuslineGuardAndBadInput(t *testing.T) {
 			sitrep(t, home, `stdin:{"session_id":"a0000001"} trailing`, "statusline"),
 		}
 	}
-	// jq complains on standard error about input that is not JSON; the Go version is quiet. A numeric session id, which jq prints and
-	// the Go version does not accept, is a deliberate difference.
-	difftest.Compare(t, sc, goSitrep, idFirst, func(r difftest.Result) difftest.Result { r.Stderr = ""; return r })
+	clitest.GoldenT(t, sc, goSitrep)
 }

@@ -1,0 +1,65 @@
+== step 0: exit 0
+--- stdout
+Objective: build
+Progress:  half
+Now:       compiling
+Queue [id a000]: empty
+--- stderr
+== step 1: exit 0
+--- stdout
+Objective: x
+Progress:  -
+Now:       -
+Queue [id b000]: 1 item, next: only one
+--- stderr
+== step 2: exit 0
+--- stdout
+Objective: y
+Progress:  -
+Now:       -
+Queue [id c000]: 3 items, next: first item
+--- stderr
+== step 3: exit 0
+--- stdout
+no trailing newlineQueue [id d000]: empty
+--- stderr
+== step 4: exit 0
+--- stdout
+Objective: z
+Queue [id e000]: 1 item
+--- stderr
+== step 5: exit 0
+--- stdout
+Objective: w
+Queue [id f000]: 1 item, next: padded item
+--- stderr
+== state files
+--- a0000001.txt (-rw-------)
+Objective: build
+Progress:  half
+Now:       compiling
+--- b0000002.queue (-rw-------)
+only one
+--- b0000002.txt (-rw-------)
+Objective: x
+Progress:  -
+Now:       -
+--- c0000003.queue (-rw-------)
+first item
+second
+third
+--- c0000003.txt (-rw-------)
+Objective: y
+Progress:  -
+Now:       -
+--- d0000004.txt (-rw-------)
+no trailing newline
+--- e0000005.queue (-rw-------)
+
+after a blank
+--- e0000005.txt (-rw-------)
+Objective: z
+--- f0000006.queue (-rw-------)
+   padded item   
+--- f0000006.txt (-rw-------)
+Objective: w
