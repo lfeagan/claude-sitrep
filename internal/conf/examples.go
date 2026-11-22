@@ -47,7 +47,7 @@ const Examples = `# Uncomment a line and change it to use it. The environment wi
 # pink-red for what needs you), pastel (soft lavender, mint and peach), rainbow (a colour of the spectrum
 # for each role: green accent, blue text, orange for recent activity, yellow for what needs you, red for
 # errors), high-contrast, mono (no colour), and ocean, forest, homebrew, red-sands, novel, nord, solarized, winter,
-# spring, summer, fall, eighties and blues (see sitrep colors, which shows each).
+# spring, summer, fall and twenty-two more (music, places, things you can hold) (see docs/SETTINGS.md; sitrep colors shows each).
 # A colour is #rrggbb or a terminal colour number from 0 to 255, or light/dark for each kind of terminal.
 # The names are accent, dim, hot (recent activity), attn (needs you), error and snoozed (the ○ mark).
 # SITREP_THEME=default

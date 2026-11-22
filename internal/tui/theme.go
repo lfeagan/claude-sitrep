@@ -104,6 +104,106 @@ var presets = map[string]palette{
 		accent: [2]string{"#2a3a9c", "#8c9cff"}, dim: [2]string{"#4a5280", "#9096c0"}, hot: [2]string{"#dfe3f7", "#1a1f4a"},
 		attn: [2]string{"#e8c04a", "#554700"}, errc: [2]string{"#b0303a", "#ff8f9a"}, snooze: [2]string{"#7a4fa8", "#b79cf0"},
 	},
+	// green, gold and red on warm black: the gold is what needs you on a light terminal, the red on a dark one, where gold would be brown
+	"reggae": {
+		accent: [2]string{"#1e7a2e", "#3fd45a"}, dim: [2]string{"#6f6310", "#c9b858"}, hot: [2]string{"#dcf2d4", "#12351a"},
+		attn: [2]string{"#f2c230", "#8a1f1f"}, errc: [2]string{"#b3261e", "#ff7a6a"}, snooze: [2]string{"#a04a00", "#ffa04d"},
+	},
+	// burgundy velvet and gold leaf, for the opera house; ivory on a light terminal
+	"opera": {
+		accent: [2]string{"#8c1c3a", "#e0b050"}, dim: [2]string{"#7a5a62", "#b89aa0"}, hot: [2]string{"#f6ecd8", "#2a0f1c"},
+		attn: [2]string{"#e8c060", "#7a1a3c"}, errc: [2]string{"#b3261e", "#ff8a7a"}, snooze: [2]string{"#6a4a8a", "#b9a0e0"},
+	},
+	// black, chrome and blood red
+	"metal": {
+		accent: [2]string{"#3a3d42", "#c8ccd2"}, dim: [2]string{"#55595f", "#9aa0a8"}, hot: [2]string{"#e2e4e8", "#26282c"},
+		attn: [2]string{"#ff9488", "#8c1010"}, errc: [2]string{"#b00020", "#ff6b6b"}, snooze: [2]string{"#3a6a9a", "#7fb0e0"},
+	},
+	// a 1960s album sleeve: sea-foam, sand and coral
+	"bossa-nova": {
+		accent: [2]string{"#1a7a6c", "#7fe0cc"}, dim: [2]string{"#5a7a74", "#9cc4bc"}, hot: [2]string{"#dff5ee", "#17332e"},
+		attn: [2]string{"#ffa88a", "#7d2f2a"}, errc: [2]string{"#c23a2a", "#ff8a78"}, snooze: [2]string{"#8a6a2a", "#d8c08a"},
+	},
+	// a gold chain, purple and concrete
+	"hip-hop": {
+		accent: [2]string{"#8a6400", "#ffcc33"}, dim: [2]string{"#5e6066", "#a4a6ac"}, hot: [2]string{"#e6e0f2", "#2a2140"},
+		attn: [2]string{"#c9a0ff", "#5b2a9a"}, errc: [2]string{"#c0392b", "#ff7b6b"}, snooze: [2]string{"#2a7a9a", "#6cc8e8"},
+	},
+	// gold and mirror-ball silver on burgundy
+	"disco": {
+		accent: [2]string{"#9a6400", "#ffd24d"}, dim: [2]string{"#6a5a74", "#c8b0c0"}, hot: [2]string{"#f8e6ee", "#3a1226"},
+		attn: [2]string{"#f0b84a", "#7d1f72"}, errc: [2]string{"#c2185b", "#ff6b9a"}, snooze: [2]string{"#3a6ab0", "#8fb4ff"},
+	},
+	// acid yellow and red on black, with nothing soft about it
+	"punk": {
+		accent: [2]string{"#7a6d00", "#f2ff2a"}, dim: [2]string{"#5a5a5a", "#a8a8a8"}, hot: [2]string{"#e4e4e4", "#2a2a2a"},
+		attn: [2]string{"#ff8080", "#930c0c"}, errc: [2]string{"#b34700", "#ff9a3c"}, snooze: [2]string{"#0a7a8a", "#4de3ff"},
+	},
+	// pink, cyan and lavender in the haze of an old mall; mint (teal on a dark terminal) is what needs you
+	"vaporwave": {
+		accent: [2]string{"#9a3fc0", "#ff71ce"}, dim: [2]string{"#2f7a8a", "#7fe8f5"}, hot: [2]string{"#e6defa", "#1f1a4a"},
+		attn: [2]string{"#5fd4a8", "#0f5055"}, errc: [2]string{"#d6246e", "#ff6b9e"}, snooze: [2]string{"#7a4fd0", "#b967ff"},
+	},
+	// indigo sky, sand and a coral flare
+	"desert-night": {
+		accent: [2]string{"#9a5b2a", "#e8c48a"}, dim: [2]string{"#6a5a7a", "#a89ac8"}, hot: [2]string{"#ece6f6", "#1a1840"},
+		attn: [2]string{"#ff9a7a", "#7a2a3a"}, errc: [2]string{"#b3261e", "#ff8a7a"}, snooze: [2]string{"#3a6a9a", "#7fb0e0"},
+	},
+	// rain on neon: teal and magenta, with amber for what needs you on a light terminal
+	"tokyo": {
+		accent: [2]string{"#0a7a8a", "#29e0d0"}, dim: [2]string{"#4a5a78", "#8a9ac0"}, hot: [2]string{"#dde6f2", "#141c2e"},
+		attn: [2]string{"#f5b030", "#7a1f5a"}, errc: [2]string{"#d01050", "#ff5c8a"}, snooze: [2]string{"#5a4fc0", "#9a90ff"},
+	},
+	// ice, snow and a single orange parka
+	"arctic": {
+		accent: [2]string{"#1a5a8a", "#bfe6ff"}, dim: [2]string{"#4a6a80", "#9ab8cc"}, hot: [2]string{"#e4f1fa", "#1c2b38"},
+		attn: [2]string{"#ffb070", "#882a1a"}, errc: [2]string{"#c0392b", "#ff8f80"}, snooze: [2]string{"#3a7a9a", "#7fd0e8"},
+	},
+	// charcoal and ash, lava orange and ember red
+	"volcano": {
+		accent: [2]string{"#b83a00", "#ff7a2a"}, dim: [2]string{"#6a5248", "#b89a8c"}, hot: [2]string{"#f2e4de", "#2a1a18"},
+		attn: [2]string{"#ff9060", "#8a1a1a"}, errc: [2]string{"#8e1b1b", "#ff6b4a"}, snooze: [2]string{"#6a6a8a", "#9a9ac0"},
+	},
+	// lagoon teal and palm green, with hibiscus pink for what needs you
+	"tropical": {
+		accent: [2]string{"#0a7a6a", "#2fe0c0"}, dim: [2]string{"#3a7a5a", "#8ad0a8"}, hot: [2]string{"#d8f5ea", "#0e2f2a"},
+		attn: [2]string{"#ff8fb8", "#7a1f4a"}, errc: [2]string{"#c01a3a", "#ff7a8a"}, snooze: [2]string{"#c06a00", "#ffb050"},
+	},
+	// violet dusk and apricot sky
+	"sunset": {
+		accent: [2]string{"#b0402a", "#ffa05a"}, dim: [2]string{"#7a5a8a", "#c0a0d0"}, hot: [2]string{"#f4e4f0", "#2a1840"},
+		attn: [2]string{"#ffb870", "#861e3e"}, errc: [2]string{"#b3261e", "#ff8a70"}, snooze: [2]string{"#4a5ab0", "#8fa0ff"},
+	},
+	// bubblegum pink, mint and lemon
+	"candy": {
+		accent: [2]string{"#d6307a", "#ff7ab8"}, dim: [2]string{"#147a6c", "#7ae8d0"}, hot: [2]string{"#e0f8ee", "#123a30"},
+		attn: [2]string{"#ffd23a", "#861e58"}, errc: [2]string{"#d0102a", "#ff6070"}, snooze: [2]string{"#6a3fd0", "#a98fff"},
+	},
+	// espresso greys and caramel
+	"coffee": {
+		accent: [2]string{"#8a5a2a", "#d9b080"}, dim: [2]string{"#6e625a", "#b0a498"}, hot: [2]string{"#f0e8e0", "#2c2826"},
+		attn: [2]string{"#e8b878", "#70382a"}, errc: [2]string{"#a8281e", "#ff8a78"}, snooze: [2]string{"#5a6a7a", "#98a8b8"},
+	},
+	// an amber screen from 1982
+	"terminal-amber": {
+		accent: [2]string{"#8a5a00", "#ffb000"}, dim: [2]string{"#6a5400", "#c89a30"}, hot: [2]string{"#fdf0d0", "#2a1c00"},
+		attn: [2]string{"#ffd060", "#544500"}, errc: [2]string{"#b3261e", "#ff7a5a"}, snooze: [2]string{"#3a6a5a", "#78c0a8"},
+	},
+	// navy ink on newsprint, with red pencil for what needs you
+	"paper": {
+		accent: [2]string{"#1a2a4a", "#c8d0e8"}, dim: [2]string{"#5a5a5a", "#a8a8a8"}, hot: [2]string{"#ece8dc", "#26262a"},
+		attn: [2]string{"#ffa090", "#8a1a1a"}, errc: [2]string{"#a8201a", "#ff7a70"}, snooze: [2]string{"#3a5a8a", "#8aa8d8"},
+	},
+	// four olive greens, as on a handheld from 1989
+	"gameboy": {
+		accent: [2]string{"#306230", "#9bbc0f"}, dim: [2]string{"#4a6a30", "#8bac0f"}, hot: [2]string{"#d4e4a0", "#0f380f"},
+		attn: [2]string{"#9bbc0f", "#265026"}, errc: [2]string{"#a8281e", "#ff8a70"}, snooze: [2]string{"#5a7a6a", "#a0c8b0"},
+	},
+	// blue and orange only, apart in lightness, for red-green colour blindness
+	"cvd-safe": {
+		accent: [2]string{"#0a4f9a", "#7ab8ff"}, dim: [2]string{"#4a5a6a", "#a0acba"}, hot: [2]string{"#e0ecfa", "#14243a"},
+		attn: [2]string{"#ffb060", "#833000"}, errc: [2]string{"#b34700", "#ff9a4a"}, snooze: [2]string{"#a8507f", "#e8a0c8"},
+	},
 	"fall": {
 		accent: [2]string{"#9a4a1a", "#e0a060"}, dim: [2]string{"#86705c", "#b8a28c"}, hot: [2]string{"#f6ead6", "#36301c"},
 		attn: [2]string{"#f0a070", "#7a2e1c"}, errc: [2]string{"#a52a1a", "#ff8a70"}, snooze: [2]string{"#5f7a3f", "#b0c488"},
@@ -114,7 +214,7 @@ var presets = map[string]palette{
 var solidThemes = map[string]bool{"rainbow": true}
 
 // ThemeNames are the themes SITREP_THEME may name. "mono" uses no colours, only bold, faint and reverse.
-var ThemeNames = []string{"default", "pastel", "rainbow", "high-contrast", "ocean", "forest", "homebrew", "red-sands", "novel", "nord", "solarized", "winter", "spring", "summer", "fall", "eighties", "blues", "mono"}
+var ThemeNames = []string{"default", "pastel", "rainbow", "high-contrast", "ocean", "forest", "homebrew", "red-sands", "novel", "nord", "solarized", "winter", "spring", "summer", "fall", "eighties", "blues", "reggae", "opera", "metal", "bossa-nova", "hip-hop", "disco", "punk", "vaporwave", "desert-night", "tokyo", "arctic", "volcano", "tropical", "sunset", "candy", "coffee", "terminal-amber", "paper", "gameboy", "cvd-safe", "mono"}
 
 // colorNames are the entries of SITREP_COLORS.
 var colorNames = []string{"accent", "dim", "hot", "attn", "error", "snoozed"}

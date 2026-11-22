@@ -624,6 +624,7 @@ func TestColorsThemeGallery(t *testing.T) {
 	if m.gallery == nil || m.gallery.sel != 0 {
 		t.Fatal("enter on the theme row opens the gallery")
 	}
+	m.height = len(ThemeNames) + 2 // a screen tall enough for every theme at once
 	body := ansi.Strip(m.body())
 	for _, name := range ThemeNames {
 		if !strings.Contains(body, name) {
