@@ -1,6 +1,6 @@
 # claude-sitrep
 
-[![CI](https://github.com/lfeagan/claude-sitrep/actions/workflows/ci.yml/badge.svg)](https://github.com/lfeagan/claude-sitrep/actions/workflows/ci.yml) [![Go version](https://img.shields.io/github/go-mod/go-version/lfeagan/claude-sitrep)](go.mod) [![License: MIT](https://img.shields.io/github/license/lfeagan/claude-sitrep)](LICENSE)
+[![CI](https://github.com/lfeagan/claude-sitrep/actions/workflows/ci.yml/badge.svg)](https://github.com/lfeagan/claude-sitrep/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/lfeagan/claude-sitrep)](https://github.com/lfeagan/claude-sitrep/releases/latest) [![Go version](https://img.shields.io/github/go-mod/go-version/lfeagan/claude-sitrep)](go.mod) [![License: MIT](https://img.shields.io/github/license/lfeagan/claude-sitrep)](LICENSE)
 
 A to-do list for each of your Claude Code sessions, and a dashboard that shows which one is waiting for you.
 
@@ -27,7 +27,7 @@ Other tools, including Claude Code's own Agent View, show which sessions are wor
 
 Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts. [docs/COMPARISON.md](docs/COMPARISON.md) compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
-To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Install](#install)). To look around first, with nothing installed, run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@main dash --demo` (it needs Go 1.26 or newer, and shows made-up sessions).
+To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Install](#install)). To look around first, with nothing installed, run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@latest dash --demo` (it needs Go 1.26 or newer, and shows made-up sessions).
 
 ## Contents
 
