@@ -8,7 +8,17 @@ See which of your Claude Code sessions needs you, and what each one is doing.
 
 When you run several Claude Code sessions in separate terminals, you lose track of them. Which one has stopped and waits for you? Which one is still working? What did you mean to ask next?
 
-sitrep puts a short report under each prompt: the objective, the progress, what the session is doing now, and a queue of what comes next. A full-screen dashboard lists all sessions on one screen and puts the ones that need you first. It is one Go program with plain files, and there is no server.
+## Why sitrep
+
+Most tools show what your sessions are doing. sitrep also holds what you plan to do next, per session, and tells you which session is waiting for you.
+
+1. **See which session needs you.** The dashboard puts the sessions that have stopped and wait for you first, marks them with a `●`, and rings the terminal bell when one newly does.
+2. **Queue what comes next, for each session.** Type `+ <text>` in a prompt to queue an item without sending anything to Claude. An inbox holds work you have not yet matched to a session, and the next item shows under the prompt.
+3. **See what each session is for.** The Objective, the Progress and what it is doing Now show under each prompt. A short Haiku call rewrites them after each turn (see Privacy And Safety for the cost cap and what is sent).
+4. **Nothing to run.** It is one Go program with plain files, so the status line renders at once and there is no server.
+5. **Yours to script.** `sitrep ls --json` is a stable JSON format for your own tools.
+
+Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts. [docs/COMPARISON.md](docs/COMPARISON.md) compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
 To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Quick Start](#quick-start)). To look around first, clone the repository, run `make build`, then `./sitrep dash --demo`.
 
@@ -38,7 +48,7 @@ The pictures are made from the program itself (`make screenshots`), so they matc
 
 ## Contents
 
-[What It Looks Like](#what-it-looks-like) · [Quick Start](#quick-start) · [What You See](#what-you-see) · [Why sitrep](#why-sitrep) · [Install](#install) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
+[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Quick Start](#quick-start) · [What You See](#what-you-see) · [Install](#install) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
 
 More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md) and [remote machines](docs/REMOTE.md).
 
@@ -68,17 +78,6 @@ The block works as follows:
 1. Objective starts as the first prompt (a resumed session is seeded from its transcript), so the raw prompt shows until the first turn finishes. A short title written by the same Haiku call that writes Progress and Now then replaces it. A pinned Objective (`+pin` or `sitrep pin`) stays until you run `sitrep unpin`.
 2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
 3. Queue shows how many items are waiting, the next item and the first four characters of the session id, which is how `sitrep` addresses the session (`sitrep add a1b2 ...`).
-
-## Why sitrep
-
-Most tools show what your sessions are doing. sitrep also holds what you plan to do next, per session, and uses plain files and one small program, so the status line renders instantly and there is no server to run.
-
-1. A status block and a per-session queue under each prompt, plus an inbox for work you have not yet matched to a session. `+ <text>` queues an item without sending anything to Claude.
-2. Objective, Progress and Now come from a short Haiku call after each turn. See Privacy And Safety for the cost cap and what is sent.
-3. A full-screen dashboard (`sitrep dash`) and a stable JSON format (`sitrep ls --json`) for your own tools.
-4. Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts.
-
-`docs/COMPARISON.md` compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
 ## Install
 
