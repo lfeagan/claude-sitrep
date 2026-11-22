@@ -1,22 +1,23 @@
 # claude-sitrep
 
-See which of your Claude Code sessions needs you, and what each one is doing.
+Write down what comes next for each of your Claude Code sessions, and see where each one stands.
 
 ![The sitrep dashboard on the Cards tab: two sessions that need you in pink, one working, one snoozed](docs/img/hero-cards.png)
 
-*`sitrep dash --demo`, on made-up sessions. A row with `●` needs you; `○` is a snoozed session; `▶` marks the selected row; the grey row is working.*
+*`sitrep dash --demo`, on made-up sessions. The Inbox and the Queue lines are your own lists. A row with `●` needs you; `○` is a snoozed session; `▶` marks the selected row; the grey row is working.*
 
-When you run several Claude Code sessions in separate terminals, you lose track of them. Which one has stopped and waits for you? Which one is still working? What did you mean to ask next?
+When you run several Claude Code sessions, you think of the next thing to ask one of them while it is still busy, or of something for another session. Where does that go? Into your head, a scratch file, or a prompt you have to remember to send. And you lose track of which session is waiting for you.
 
 ## Why sitrep
 
-Most tools show what your sessions are doing. sitrep also holds what you plan to do next, per session, and tells you which session is waiting for you.
+Other tools, including Claude Code's own Agent View, show which sessions are working and which are waiting. sitrep also keeps your own list of what comes next, for each session, and shows it under the prompt.
 
-1. **See which session needs you.** The dashboard puts the sessions that have stopped and wait for you first, marks them with a `●`, and rings the terminal bell when one newly does.
-2. **Queue what comes next, for each session.** Type `+ <text>` in a prompt to queue an item without sending anything to Claude. An inbox holds work you have not yet matched to a session, and the next item shows under the prompt.
-3. **See what each session is for.** The Objective, the Progress and what it is doing Now show under each prompt. A short Haiku call rewrites them after each turn (see Privacy And Safety for the cost cap and what is sent).
-4. **Nothing to run.** It is one Go program with plain files, so the status line renders at once and there is no server.
-5. **Yours to script.** `sitrep ls --json` is a stable JSON format for your own tools.
+1. **A queue for each session.** Type `+ <text>` in a prompt to queue an item without sending anything to Claude. The queue is yours: nothing in it goes to Claude unless you ask, and the next item shows under the prompt.
+2. **An inbox for work that has no session yet.** Write it down now, and take the item into a session when you know where it belongs.
+3. **A report for each session.** The Objective, the Progress and what it is doing Now show under each prompt. A short Haiku call rewrites them after each turn (see Privacy And Safety for the cost cap and what is sent).
+4. **A dashboard that puts the sessions that need you first.** A session that has stopped and waits for you has a `●`, and the terminal bell rings when one newly does.
+5. **Nothing to run.** It is one Go program with plain files, so the status line renders at once and there is no server.
+6. **Yours to script.** `sitrep ls --json` is a stable JSON format for your own tools.
 
 Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts. [docs/COMPARISON.md](docs/COMPARISON.md) compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
