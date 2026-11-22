@@ -883,3 +883,46 @@ func TestSnoozedMarkHasItsOwnColour(t *testing.T) {
 		}
 	}
 }
+
+func TestCardsAreCompactWhenManySessionsDoNotFit(t *testing.T) {
+	s := wallSnap(15)
+	s.Inbox = Queue{Count: 3, Items: []string{"one", "two", "three"}}
+	out := render(s, tabCards, "", viewOpts{Width: 70, Height: 24, Theme: plainTheme()})
+	rows := 0
+	for _, l := range strings.Split(out, "\n") {
+		if strings.Contains(l, "waiting") || strings.Contains(l, "working") {
+			rows++
+		}
+	}
+	if rows < 6 || !strings.Contains(out, "Inbox: 3 items (i)") || strings.Contains(out, "Progress:") {
+		t.Errorf("many sessions on a short screen: the inbox on a line, a short card each, %d rows:\n%s", rows, out)
+	}
+	if n := len(strings.Split(out, "\n")); n != 24 {
+		t.Errorf("%d lines", n)
+	}
+	// few sessions keep the whole card, and scroll
+	few := wallSnap(3)
+	few.Inbox = s.Inbox
+	if got := render(few, tabCards, "", viewOpts{Width: 70, Height: 12, Theme: plainTheme()}); !strings.Contains(got, "Objective:") || strings.Contains(got, "(i)") {
+		t.Errorf("a few sessions keep whole cards:\n%s", got)
+	}
+	// and the selection stays on screen in the compact form
+	o := viewOpts{Width: 70, Height: 24, Sel: s.Sessions[14].ID, Theme: plainTheme()}
+	if got := render(s, tabCards, "", o); !strings.Contains(got, s.Sessions[14].Short) && !strings.Contains(got, s.Sessions[14].Label()) {
+		t.Errorf("the selected session is on screen:\n%s", got)
+	}
+}
+
+func TestDemoSaysSoInTheStatusBar(t *testing.T) {
+	s := loadFixture(t)
+	last := func(demo bool) string {
+		lines := strings.Split(render(s, tabCards, "", viewOpts{Width: 100, Height: 20, Demo: demo, Theme: plainTheme()}), "\n")
+		return lines[len(lines)-1]
+	}
+	if got := last(true); !strings.Contains(got, "DEMO: made-up sessions") || !strings.Contains(got, "need you") {
+		t.Errorf("%q", got)
+	}
+	if got := last(false); strings.Contains(got, "DEMO") {
+		t.Errorf("%q", got)
+	}
+}

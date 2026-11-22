@@ -89,6 +89,7 @@ type model struct {
 	now        func() time.Time
 	wallSize   int // the tile size of the Wall tab, once s has chosen one
 	wallSet    bool
+	demo       bool           // the sessions are made up
 	colorsOpts *ColorsOptions // what C opens, or nil
 	colors     *colorsModel   // the colour tool, while it is open over the dashboard
 	mouse      bool           // clicks select a row or open a tab, and a double click jumps
@@ -790,7 +791,7 @@ func (m model) View() tea.View {
 		if status == "" && (m.filtering || m.filter != "") {
 			status = m.filterStatus()
 		}
-		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Theme: theme})
+		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Demo: m.demo, Theme: theme})
 	}
 	if m.colors != nil {
 		body = m.colors.body()

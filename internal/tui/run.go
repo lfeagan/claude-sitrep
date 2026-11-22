@@ -24,6 +24,8 @@ type Engine struct {
 	Snapshot func(ctx context.Context) (snapshot.Snapshot, error)
 	// Command runs one fixed sitrep command line (without the program name) and returns what it printed. An error carries its message.
 	Command func(ctx context.Context, args ...string) (string, error)
+	// Demo says the sessions are made up, which the status bar then says too.
+	Demo bool
 }
 
 // Options are the dashboard's settings.
@@ -112,7 +114,7 @@ func Frame(ctx context.Context, eng Engine, tab string, width int, showEnded boo
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimRight(render(snap, t, "", viewOpts{Width: width, Height: 0, ShowEnded: showEnded, Theme: plainTheme()}), "\n"), nil
+	return strings.TrimRight(render(snap, t, "", viewOpts{Width: width, Height: 0, ShowEnded: showEnded, Demo: eng.Demo, Theme: plainTheme()}), "\n"), nil
 }
 
 // Run shows the dashboard until the user quits.
@@ -128,6 +130,7 @@ func Run(opts Options, eng Engine) error {
 	m.fetcher, m.run = fetcher(eng), routed(eng)
 	m.quitJump, m.readOnly, m.bell, m.mouse = opts.QuitOnJump, opts.ReadOnly, !opts.NoBell, opts.Mouse
 	m.colorsOpts = opts.Colors
+	m.demo = eng.Demo
 	_, err = tea.NewProgram(m).Run()
 	return err
 }

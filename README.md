@@ -30,7 +30,7 @@ Inbox: 3 items
  ● 1 need you   2 running   q quit  enter jump  / filter  ? help
 ```
 
-Start on Cards for the detail of a few sessions, Table for a quick scan of many, and Wall when you have more than fit on a screen; `tab` switches. The `Inbox` line is work you queued for no session yet. `enter` jumps to the terminal that shows the selected session, `z` snoozes one that can wait (it then shows a `○` instead of the `●`), and `n` gives a session a name. The colour of a row that needs you fades after ten minutes, and the `●` stays.
+Start on Cards for the detail of a few sessions, Table for a quick scan of many, and Wall when you have more than fit on a screen; `tab` switches. The `Inbox` line is work you queued for no session yet. `enter` jumps to the terminal that shows the selected session, `z` snoozes one that can wait (it then shows a `○` instead of the `●`, and the snooze ends by itself when the session changes), and `n` gives a session a name. The colour of a row that needs you fades after ten minutes, and the `●` stays.
 
 ## What You See
 
@@ -118,7 +118,7 @@ The keys you need first:
 | `z` | Snooze a session that can wait. |
 | `?` | Every key and colour. `q` goes back or quits. |
 
-`--mouse` makes a click select a row (or a tile), a click on a tab name open that tab, and a double click jump. All keys, how the jump works for each terminal, the queue screens, the options (`--read-only`, `--no-bell`, `--interval`) and the colours are in [docs/DASHBOARD.md](docs/DASHBOARD.md).
+The dashboard rings the terminal bell once when a session starts needing you; `sitrep dash --no-bell` (or `SITREP_TUI_BELL=0`) turns that off, and `z` mutes one session. `--mouse` makes a click select a row (or a tile), a click on a tab name open that tab, and a double click jump. All keys, how the jump works for each terminal, the queue screens, the options (`--read-only`, `--no-bell`, `--interval`) and the colours are in [docs/DASHBOARD.md](docs/DASHBOARD.md).
 
 ## Settings
 

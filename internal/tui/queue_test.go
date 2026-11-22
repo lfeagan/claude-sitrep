@@ -584,3 +584,17 @@ func TestQueueStatusSitsBesideTheHints(t *testing.T) {
 		t.Errorf("the message and the keys share the bar: %q", last)
 	}
 }
+
+func TestLeavingAQueueDropsItsMessage(t *testing.T) {
+	for _, leave := range []string{"q", "esc", "e"} {
+		m, _ := queueModel(t, qSession)
+		m.say("edited")
+		if m.statusText() != "edited" {
+			t.Fatal("the message is up")
+		}
+		m, _ = press(t, m, leave)
+		if m.queue || m.statusText() != "" {
+			t.Errorf("%s: queue open %v, status %q", leave, m.queue, m.statusText())
+		}
+	}
+}

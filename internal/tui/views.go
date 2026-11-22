@@ -39,6 +39,7 @@ type viewOpts struct {
 	Filter        string // only sessions that contain this text are listed
 	Theme         Theme
 	Typing        bool        // a filter is being typed, so the footer lists the keys of that
+	Demo          bool        // made-up sessions: the status bar says so
 	Hits          *[]string   // when set, filled with the id of the session on each screen row ("" for none), for a mouse click
 	Auto          bool        // no tile size is chosen yet: the Wall picks the one that fits
 	Size          int         // the Wall's tile size (wallStandard, wallRoomy or wallCompact)
@@ -346,11 +347,18 @@ func needYou(s Snapshot) int {
 }
 
 // cardRoom is how many lines a field of a card, and an item of a queue, may take.
-type cardRoom struct{ field, item int }
+type cardRoom struct {
+	field, item int
+	compact     bool // only the header and the Now line of a session, and the inbox on one line
+}
 
 // cardRooms goes from the roomiest to the tightest: the Cards tab uses the first that shows every session whole, so a screen with
 // few sessions gives each its full text, and one with many cuts each to the short form.
-var cardRooms = []cardRoom{{8, 8}, {5, 4}, {3, 2}}
+var cardRooms = []cardRoom{{8, 8, false}, {5, 4, false}, {3, 2, false}}
+
+// cardsCompactFrom is how many sessions it takes for the Cards tab to give up the Objective and the Progress of each when even the short form
+// does not fit: with fewer, scrolling through whole cards is fine.
+const cardsCompactFrom = 5
 
 // cardsBody is today's multi-line view: a block per session.
 func cardsBody(s Snapshot, o viewOpts) []string {
@@ -366,7 +374,16 @@ func cardsBody(s Snapshot, o viewOpts) []string {
 			}
 		}
 	}
-	head, blocks, ids, _ := cardBlocks(s, o, cardRooms[len(cardRooms)-1])
+	head, blocks, ids, foot := cardBlocks(s, o, cardRooms[len(cardRooms)-1])
+	if o.Height > 0 && len(ids) >= cardsCompactFrom {
+		total := len(head) + foot
+		for _, b := range blocks {
+			total += len(b)
+		}
+		if total > o.Height {
+			head, blocks, ids, _ = cardBlocks(s, o, cardRoom{field: 1, item: 1, compact: true})
+		}
+	}
 	return layBlocks(s, o, head, blocks, ids)
 }
 
@@ -383,7 +400,11 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 	list = sorted(filterSessions(list, o.Filter), sortState) // the Wall's order: the sessions that need you first
 	if s.Inbox.Count > 0 {
 		head = append(head, "Inbox: "+queueWord(s.Inbox.Count))
-		head = append(head, queueLines("", s.Inbox, o.Width, room.item, 4, s.Settings.QueueItems)...)
+		if room.compact {
+			head[len(head)-1] += " (i)"
+		} else {
+			head = append(head, queueLines("", s.Inbox, o.Width, room.item, 4, s.Settings.QueueItems)...)
+		}
 	}
 	dw, sw, iw := 9, 5, idWidth(s)
 	for _, x := range list {
@@ -396,10 +417,18 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 		ids = append(ids, x.ID)
 		row := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %s", idCell(x.Label(), iw), padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
 		block := []string{ansi.Truncate(row, o.Width, "…")}
-		block = append(block, field("Objective:", x.Objective, o.Width, room.field)...)
-		block = append(block, field("Progress:", x.Progress, o.Width, room.field)...)
-		block = append(block, field("Now:", x.Now, o.Width, room.field)...)
-		block = append(block, queueLines("Queue:", x.Queue, o.Width, room.item, 4+11, s.Settings.QueueItems)...)
+		if room.compact {
+			now, label := x.Now, "Now:"
+			if now == "" {
+				now, label = x.Objective, "Objective:"
+			}
+			block = append(block, field(label, now, o.Width, 1)...)
+		} else {
+			block = append(block, field("Objective:", x.Objective, o.Width, room.field)...)
+			block = append(block, field("Progress:", x.Progress, o.Width, room.field)...)
+			block = append(block, field("Now:", x.Now, o.Width, room.field)...)
+			block = append(block, queueLines("Queue:", x.Queue, o.Width, room.item, 4+11, s.Settings.QueueItems)...)
+		}
 		blocks = append(blocks, selectBlock(mark(block, x, o), x, o))
 	}
 	if ended > 0 {
@@ -617,8 +646,11 @@ func tabAt(x int, th Theme) int {
 
 // statusBar shows the counts on the left and the keys on the right. A failed refresh
 // replaces the counts with the error, so the last good data stays on screen.
-func statusBar(s Snapshot, width int, errText string, tab int, typing, filtered bool, th Theme) string {
+func statusBar(s Snapshot, width int, errText string, tab int, typing, filtered, demo bool, th Theme) string {
 	left := " " + shortSummary(s)
+	if demo {
+		left = " DEMO: made-up sessions   " + shortSummary(s)
+	}
 	if errText != "" {
 		left = " " + errText
 	}
@@ -829,7 +861,7 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 	for len(body) < bodyOpts.Height { // pad, so the status bar sits on the last row
 		body = append(body, "")
 	}
-	lines := append(append(bar, body...), statusBar(s, o.Width, errText, tab, o.Typing, strings.TrimSpace(o.Filter) != "", o.Theme))
+	lines := append(append(bar, body...), statusBar(s, o.Width, errText, tab, o.Typing, strings.TrimSpace(o.Filter) != "", o.Demo, o.Theme))
 	if o.Hits != nil {
 		h := append(make([]string, len(bar)), hits...)
 		for len(h) < len(bar)+len(body) { // the body was padded

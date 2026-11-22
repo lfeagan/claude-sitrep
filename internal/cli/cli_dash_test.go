@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"context"
+	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/statetest"
 	"io"
 	"os"
 	"path/filepath"
@@ -140,6 +142,9 @@ func TestDashDemoNeedsNoStateAndChangesNothing(t *testing.T) {
 	if code := Run([]string{"dash", "--demo", "--once", "--tab", "table"}, e); code != 0 {
 		t.Fatalf("exit %d: %s", code, errb.String())
 	}
+	if !strings.Contains(out.String(), "DEMO: made-up sessions") {
+		t.Errorf("the demo says what it is:\n%s", out.String())
+	}
 	if !strings.Contains(out.String(), "a1f3") || !strings.Contains(out.String(), "need you") {
 		t.Errorf("the demo lists made-up sessions:\n%s", out.String())
 	}
@@ -156,5 +161,22 @@ func TestColorsNeedsATerminal(t *testing.T) {
 	}
 	if code := Run([]string{"colors", "--light", "--dark"}, e); code == 0 {
 		t.Error("--light and --dark exclude each other")
+	}
+}
+
+func TestLsOfOneSessionCutsALongObjective(t *testing.T) {
+	e, out, errb, dir := pruneEnv(t, "none")
+	st := state.Store{Dir: dir}
+	statetest.Put(t, st, "live0001.txt", "Objective: "+strings.Repeat("y", 20000)+"\n", 0)
+	if code := Run([]string{"ls", "live0001"}, e); code != 0 {
+		t.Fatalf("exit %d: %s", code, errb)
+	}
+	for _, l := range strings.Split(out.String(), "\n") {
+		if len([]rune(l)) > 400 {
+			t.Fatalf("a line of %d characters", len([]rune(l)))
+		}
+	}
+	if !strings.Contains(out.String(), "Objective: yyy") {
+		t.Errorf("%q", out.String())
 	}
 }

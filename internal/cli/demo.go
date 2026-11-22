@@ -14,6 +14,7 @@ import (
 // command it is asked to run fails.
 func (e Env) demoEngine() tui.Engine {
 	return tui.Engine{
+		Demo:     true,
 		Snapshot: func(context.Context) (snapshot.Snapshot, error) { return demoSnapshot(e.Clock.Now().Unix()), nil },
 		Command: func(context.Context, ...string) (string, error) {
 			return "", errors.New("this is a demo: nothing is changed")

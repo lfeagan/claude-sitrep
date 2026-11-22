@@ -293,7 +293,7 @@ func (e Env) lsQueue(prefix string) error {
 		notes, _ := state.ReadFile(st.Path(id, "notes"), 1<<20)
 		for _, l := range strings.Split(string(notes), "\n") {
 			if rest, ok := strings.CutPrefix(l, "Objective: "); ok {
-				fmt.Fprintln(e.Stdout, "  Objective: "+textsafe.Strip(rest).String())
+				fmt.Fprintln(e.Stdout, "  Objective: "+textsafe.Clean(rest, 300).String()) // a notes file is not trusted to be short
 			}
 		}
 	}

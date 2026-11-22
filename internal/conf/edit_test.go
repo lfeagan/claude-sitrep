@@ -30,6 +30,8 @@ func TestEditRules(t *testing.T) {
 		{"drops later lines of the same name", "SITREP_THEME=a\nX=1\nSITREP_THEME=b\n", []Change{{"SITREP_THEME", p("mono")}}, "SITREP_THEME=mono\nX=1\n", 1},
 		{"leaves a comment, an export and an indented line", "# SITREP_THEME=a\nexport SITREP_THEME=b\n SITREP_THEME=c\n", []Change{{"SITREP_THEME", p("mono")}}, "# SITREP_THEME=a\nexport SITREP_THEME=b\n SITREP_THEME=c\nSITREP_THEME=mono\n", 0},
 		{"keeps CRLF", "A=1\r\nSITREP_THEME=a\r\n", []Change{{"SITREP_THEME", p("mono")}, {"SITREP_COLORS", p("dim=7")}}, "A=1\r\nSITREP_THEME=mono\r\nSITREP_COLORS='dim=7'\r\n", 0},
+		{"a replaced line keeps its own ending", "A=1\r\nSITREP_THEME=a\nB=2\r\n", []Change{{"SITREP_THEME", p("mono")}}, "A=1\r\nSITREP_THEME=mono\nB=2\r\n", 0},
+		{"a replaced last line with no ending keeps none", "A=1\nSITREP_THEME=a", []Change{{"SITREP_THEME", p("mono")}}, "A=1\nSITREP_THEME=mono", 0},
 		{"both at once", "", []Change{{"SITREP_THEME", p("rainbow")}, {"SITREP_COLORS", p("hot=236")}}, "SITREP_THEME=rainbow\nSITREP_COLORS='hot=236'\n", 0},
 	}
 	for _, c := range cases {

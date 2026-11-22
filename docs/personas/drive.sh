@@ -76,6 +76,8 @@ start)
 	ws="" surface=""
 	if [ "$backend" = tmux ]; then
 		tm new-session -d -s persona -x "${size%x*}" -y "${size#*x}" "$run"
+		tm set-option -g set-clipboard off # a persona's y must not reach the real clipboard
+		tm set-option -g allow-passthrough off
 	else
 		out=$(cmux workspace create --name sitrep-persona --focus false --command "$run")
 		ws=$(printf '%s\n' "$out" | grep -o 'workspace:[0-9A-Za-z-]*' | head -1)

@@ -375,7 +375,7 @@ func TestColorsOnlyWriteLeavesTheThemeLineAlone(t *testing.T) {
 func TestColorsReadBackIsQuietWhenTheFileHadNoFinalNewline(t *testing.T) {
 	m, f := newColors(t, "A=1")
 	m = ckey(t, m, "l", "w", "y")
-	if !strings.HasPrefix(m.msg, "written; ") || f.body != "A=1\nSITREP_THEME=pastel\n" {
+	if !strings.HasPrefix(m.msg, "written (") || f.body != "A=1\nSITREP_THEME=pastel\n" {
 		t.Errorf("%q %q", m.msg, f.body)
 	}
 }
@@ -572,5 +572,48 @@ func TestColorsMarksAreAboutTheFile(t *testing.T) {
 	m = ckey(t, m, "g", "l")
 	if got := ansi.Strip(m.body()); !strings.Contains(got, "pastel  ") || !strings.Contains(got, "*") {
 		t.Errorf("a theme not written is marked: %q", got)
+	}
+}
+
+func lastLine(m colorsModel) string {
+	lines := strings.Split(ansi.Strip(m.body()), "\n")
+	return strings.TrimRight(lines[len(lines)-1], " ")
+}
+
+func TestColorsResultIsInTheFooter(t *testing.T) {
+	m, _ := newColors(t, "A=1\n")
+	m = ckey(t, m, "l", "w", "y")
+	if got := lastLine(m); !strings.Contains(got, "written (backup sitrep.conf.bak.1)") {
+		t.Errorf("the footer says what happened: %q", got)
+	}
+	m = ckey(t, m, "j")
+	if got := lastLine(m); !strings.Contains(got, "j/k move") {
+		t.Errorf("the next key brings the hints back: %q", got)
+	}
+	// a field that is refused says why where the eyes are, and the next key clears it
+	m = ckey(t, m, "j")
+	m = typeColor(t, m, "red")
+	if got := lastLine(m); !strings.Contains(got, "not a colour") {
+		t.Errorf("%q", got)
+	}
+	m = ckey(t, m, "a")
+	if got := lastLine(m); strings.Contains(got, "not a colour") || !strings.Contains(got, "enter keeps") {
+		t.Errorf("%q", got)
+	}
+}
+
+func TestColorsNoBackupOfAnEmptyFile(t *testing.T) {
+	m, f := newColors(t, "")
+	m = ckey(t, m, "l", "w", "y")
+	if len(f.backups) != 0 || !strings.Contains(m.msg, "no backup, the file was empty") || f.body != "SITREP_THEME=pastel\n" {
+		t.Errorf("backups %q msg %q body %q", f.backups, m.msg, f.body)
+	}
+}
+
+func TestColorsTooSmallSaysHowToQuit(t *testing.T) {
+	m, _ := newColors(t, "")
+	m.width, m.height = 60, 10
+	if got := m.body(); !strings.Contains(got, "q quits") {
+		t.Errorf("%q", got)
 	}
 }

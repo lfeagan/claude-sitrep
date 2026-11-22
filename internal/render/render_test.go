@@ -149,11 +149,11 @@ func TestAliasWidensTheFirstColumn(t *testing.T) {
 		t.Fatalf("rows %q", rows)
 	}
 	for _, r := range rows {
-		if i := strings.Index(r, "proj"); i >= 0 && utf8.RuneCountInString(r[:i]) != 18 {
+		if i := strings.Index(r, "proj"); i >= 0 && utf8.RuneCountInString(r[:i]) != 21 {
 			t.Errorf("the second column starts at %d in %q", utf8.RuneCountInString(r[:i]), r)
 		}
 	}
-	if !strings.HasPrefix(rows[2], "sitrep  ") || !strings.HasPrefix(rows[3], "a-name-that-is-…  ") || !strings.HasPrefix(rows[1], "aaaa  ") {
+	if !strings.HasPrefix(rows[2], "sitrep (bbbb)  ") || !strings.HasPrefix(rows[3], "a-name-that… (cccc)  ") || !strings.HasPrefix(rows[1], "aaaa  ") {
 		t.Errorf("rows %q", rows)
 	}
 	// without an alias the column is four wide, as before

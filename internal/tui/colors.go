@@ -3,6 +3,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -285,6 +286,7 @@ func (m colorsModel) open() (tea.Model, tea.Cmd) {
 
 func (m colorsModel) editKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	e := *m.edit
+	m.msg = ""
 	switch k := msg.String(); k {
 	case "esc":
 		m.edit = nil
@@ -464,14 +466,20 @@ func (m colorsModel) write() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	backup := ""
-	if fresh != m.backedUp || m.lastBackup == "" { // each write saves the bytes it is about to replace, once
+	if fresh != "" && (fresh != m.backedUp || m.lastBackup == "") { // each write saves the bytes it is about to replace, once
 		if backup, err = f.Backup(fresh); err != nil {
 			m.msg = "nothing written, no backup could be made: " + err.Error()
 			return m, nil
 		}
 		m.backedUp, m.lastBackup = fresh, backup
 	}
-	backup = m.lastBackup
+	if fresh != "" {
+		backup = m.lastBackup
+	}
+	saved := "no backup, the file was empty"
+	if backup != "" {
+		saved = "backup " + filepath.Base(backup)
+	}
 	if err := f.Write(a.out, fresh); err != nil {
 		if errors.Is(err, settings.ErrChanged) {
 			m.msg = "the file changed just now: nothing was written, try again"
@@ -487,11 +495,11 @@ func (m colorsModel) write() (tea.Model, tea.Cmd) {
 	}
 	switch {
 	case err != nil:
-		m.msg = "written, but the file could not be read back to check it: the backup is " + backup
+		m.msg = "written, but the file could not be read back to check it (" + saved + ")"
 	case conf.OtherLines(got) != conf.OtherLines(fresh) || !ours:
-		m.msg = "written, but the file is not as it should be: check it, the backup is " + backup
+		m.msg = "written, but the file is not as it should be: check it (" + saved + ")"
 	default:
-		m.msg = "written; sitrep dash shows it at its next refresh (backup: " + backup + ")"
+		m.msg = "written (" + saved + "); sitrep dash shows it at its next refresh"
 	}
 	m.savedTheme, m.savedColors, m.saved = m.theme, m.colorsString(), cloneSet(m.set)
 	return m, nil
@@ -506,17 +514,16 @@ func (m colorsModel) View() tea.View {
 func (m colorsModel) body() string {
 	w, h := max(m.width, 1), m.height
 	if h < minColorsHeight {
-		return ansi.Truncate(fmt.Sprintf("make the window taller (%d rows) to choose colours", minColorsHeight), w, "…")
+		return ansi.Truncate(fmt.Sprintf("make the window taller (%d rows) to choose colours; q quits", minColorsHeight), w, "…")
 	}
 	kind := "light"
 	if m.dark {
 		kind = "dark"
 	}
 	head := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(fmt.Sprintf(" Colours   theme: %s   preview: %s terminal (t switches)", m.theme, kind), w, "…"))
-	note := ansi.Truncate(" "+safe(m.msg), w, "…")
 
 	list := m.list(w)
-	room := h - 3 - len(list) // the header, the note and the footer
+	room := h - 2 - len(list) // the header and the footer
 	var middle []string
 	if m.ask != nil && m.ask.kind == "write" {
 		middle = m.writeQuestion(room, w)
@@ -526,7 +533,7 @@ func (m colorsModel) body() string {
 	for len(middle) < room {
 		middle = append(middle, "")
 	}
-	out := append([]string{head, note}, middle[:room]...)
+	out := append([]string{head}, middle[:room]...)
 	out = append(out, list...)
 	out = append(out, m.footer(w))
 	return strings.Join(out, "\n")
@@ -583,8 +590,12 @@ func (m colorsModel) footer(w int) string {
 		text = " quit without writing?  y/n"
 	case m.ask != nil:
 		text = " y write these lines  n cancel"
+	case m.edit != nil && m.msg != "": // why the field was refused
+		text = " " + safe(m.msg)
 	case m.edit != nil:
 		text = fmt.Sprintf(" %s (%s terminal): %s▏  h/l hue  j/k light  H/L chroma  enter keeps  esc cancels", m.edit.name, map[bool]string{true: "dark", false: "light"}[m.dark], m.edit.text)
+	case m.msg != "": // what just happened, where the eyes are; the next key brings the hints back
+		text = " " + safe(m.msg)
 	default:
 		text = " j/k move  enter edit  r reset  t light/dark  w write  q quit"
 		if m.sel == 0 {

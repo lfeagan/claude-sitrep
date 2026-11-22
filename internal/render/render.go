@@ -29,8 +29,17 @@ func (o Opts) Cap() int {
 	return 1 // the next item
 }
 
-// MaxLabelWidth is the widest the first column grows for an alias; a longer alias is cut with an ellipsis.
-const MaxLabelWidth = 16
+// MaxLabelWidth is the widest the first column grows: a name of at most 12 columns, a space and the short id in parentheses.
+const MaxLabelWidth = 19
+
+// idLabel is what the first column holds: the short id, or, for a session with a name, the name (cut with an ellipsis) and the short id, so
+// that the id is never hidden by the name.
+func idLabel(s snapshot.Session) string {
+	if s.Alias == "" {
+		return s.Short
+	}
+	return textsafe.Fit(text(s.Alias), 12).String() + " (" + s.Short + ")"
+}
 
 // idCell is a session's label cut to the column and padded to its width.
 func idCell(label string, w int) string {
@@ -98,7 +107,7 @@ func stateCell(s snapshot.Session) textsafe.Text {
 func Frame(snap snapshot.Snapshot, o Opts) []string {
 	dirW, stateW, idW := 9, 5, 4
 	for _, s := range snap.Sessions {
-		idW = min(max(idW, textsafe.Width(text(s.Label()))), MaxLabelWidth)
+		idW = min(max(idW, textsafe.Width(text(idLabel(s)))), MaxLabelWidth)
 		stateW = max(stateW, textsafe.Width(stateCell(s)))
 		dirW = max(dirW, textsafe.Width(s.Dir))
 	}
@@ -118,7 +127,7 @@ func Frame(snap snapshot.Snapshot, o Opts) []string {
 	}
 	avail := max(10, o.Cols-idW-dirW-stateW-6)
 	for _, s := range snap.Sessions {
-		out = append(out, fmt.Sprintf("%s  %s  %s  %s", idCell(s.Label(), idW), pad(s.Dir, dirW), pad(stateCell(s), stateW), fit(summary(s.Queue, o.List()), avail)))
+		out = append(out, fmt.Sprintf("%s  %s  %s  %s", idCell(idLabel(s), idW), pad(s.Dir, dirW), pad(stateCell(s), stateW), fit(summary(s.Queue, o.List()), avail)))
 		out = append(out, "    Objective: "+s.Objective.String())
 		if o.Verbose {
 			out = append(out, "    Progress:  "+s.Progress.String())

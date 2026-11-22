@@ -55,7 +55,7 @@ func Edit(body string, changes []Change) (out string, dropped int, err error) {
 			}
 			done = true
 			if ch.Value != nil {
-				kept = append(kept, line(ch, eol))
+				kept = append(kept, line(ch, endingOf(l)))
 			}
 		}
 		lines = kept
@@ -84,6 +84,17 @@ func check(ch Change) error {
 		return errors.New("the colours are too long, or have a character the dashboard does not read")
 	}
 	return nil
+}
+
+// endingOf is the line ending a line has, which its replacement keeps: a file may mix \n and \r\n, and a last line may have none.
+func endingOf(l string) string {
+	switch {
+	case strings.HasSuffix(l, "\r\n"):
+		return "\r\n"
+	case strings.HasSuffix(l, "\n"):
+		return "\n"
+	}
+	return ""
 }
 
 // line is the setting as a line; a theme name is bare letters, and the colours are quoted for their spaces and commas.

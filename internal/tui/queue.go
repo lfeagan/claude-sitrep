@@ -225,16 +225,16 @@ func (m model) queueKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	last, i := max(len(m.queueItems())-1, 0), m.queueIndex()
 	switch key {
 	case "q", "esc", "backspace": // q goes back; only ctrl+c quits from here
-		m.queue = false
+		m.queue, m.msg = false, "" // what the queue said is not news on the tabs
 	case "i": // the key of the queue on screen closes it, and the other one switches to its queue
 		if m.qKind == qInbox {
-			m.queue = false
+			m.queue, m.msg = false, ""
 		} else {
 			return m.queueOpen(qInbox)
 		}
 	case "e":
 		if m.qKind == qSession {
-			m.queue = false
+			m.queue, m.msg = false, ""
 		} else {
 			return m.queueOpen(qSession)
 		}
