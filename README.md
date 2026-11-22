@@ -94,7 +94,7 @@ The inbox is a queue that belongs to no session, for work you have not yet match
 1. **Watch** shows Objective, Progress, Now and the queue of each session.
 2. **Top** is a summary line and one line per session, with its state, queue size, the share of its context window left (CTX) and what it is doing now.
 
-A session that needs you, meaning Claude has stopped and the next move is yours, or it waits at a permission dialog, has a `●` before its state and a coloured background, and the status bar leads with `● 2 need you`. The colour fades after ten minutes and the `●` stays. The terminal bell rings once when a session starts needing you.
+A session that needs you, meaning Claude has stopped and the next move is yours, or it waits at a permission dialog, has a `●` before its state and a coloured background, and the status bar leads with `● 2 need you`. The colour fades after ten minutes (`SITREP_ATTN_FADE`, see [docs/SETTINGS.md](docs/SETTINGS.md)) and the `●` stays. The terminal bell rings once when a session starts needing you.
 
 The keys you need first:
 
@@ -118,11 +118,11 @@ Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the envi
 
 1. `SITREP_THEME=<name>` picks the dashboard's colours: `default`, `pastel`, `rainbow`, `high-contrast` or `mono`.
 2. `SITREP_STATUS_LINES=<names>` chooses which lines of the status line show: any of `objective`, `progress`, `now` and `queue` (default all four).
-3. `SITREP_ATTN_FADE=<seconds>` is how long a session that needs you keeps its colour (default 600; 0 never fades).
-4. `SITREP_QUEUE_ITEMS=<items>` is the queue list limit (default 5).
+3. `SITREP_QUEUE_ITEMS=<items>` is the queue list limit (default 5).
+4. `SITREP_CHECK_UPDATES=<0|1>` lets sitrep look once a day for a newer release (default on). It is the only setting that uses the network, and 0 turns it off.
 5. `SITREP_LOG=on` turns on the history log (default off), which keeps the text of your items.
 
-The rest (colours, refresh, debounce, update check, a state folder of your own and the log limits) are in [docs/SETTINGS.md](docs/SETTINGS.md).
+The rest (single colours, how long a session that needs you keeps its colour, refresh, debounce, a state folder of your own and the log limits) are in [docs/SETTINGS.md](docs/SETTINGS.md).
 
 ## For Programs
 
