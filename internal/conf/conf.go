@@ -5,6 +5,7 @@ package conf
 
 import (
 	"errors"
+	"github.com/lfeagan/claude-sitrep/internal/settings"
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"os"
 	"path/filepath"
@@ -181,28 +182,44 @@ const MaxColors = 300
 // the dashboard's to know; a name it does not have gives the default theme.
 func (c Conf) Theme() string {
 	v := strings.ToLower(c.Get("SITREP_THEME"))
-	if len(v) > 20 {
+	if !ValidTheme(v) {
 		return ""
+	}
+	return v
+}
+
+// ValidTheme says whether the dashboard would read v as a theme name: lower-case letters and hyphens, at most 20.
+func ValidTheme(v string) bool {
+	if len(v) > 20 {
+		return false
 	}
 	for _, r := range v {
 		if !(r >= 'a' && r <= 'z' || r == '-') {
-			return ""
+			return false
 		}
 	}
-	return v
+	return true
+}
+
+// ValidColors says whether the dashboard would be given v as the colour overrides: at most MaxColors characters of those a list is made of.
+func ValidColors(v string) bool {
+	if len(v) > MaxColors {
+		return false
+	}
+	for _, r := range v {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("#=,/- ", r)) {
+			return false
+		}
+	}
+	return true
 }
 
 // Colors is the dashboard's colour overrides (SITREP_COLORS), such as "accent=#ff8800,attn=#400020". Only the characters such a list is made
 // of are accepted, and the dashboard reads the entries itself, ignoring each one it cannot use.
 func (c Conf) Colors() string {
 	v := c.Get("SITREP_COLORS")
-	if len(v) > MaxColors {
+	if !ValidColors(v) {
 		return ""
-	}
-	for _, r := range v {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("#=,/- ", r)) {
-			return ""
-		}
 	}
 	return strings.TrimSpace(v)
 }
@@ -341,6 +358,15 @@ func Quote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + 
 
 func (c Conf) store() state.Store { return state.Store{Dir: filepath.Dir(c.File)} }
 
+// write replaces the file with out, through a link when sitrep.conf is one (a dotfiles manager does that), and only when the file still holds
+// original, the bytes the new text was made from.
+func (c Conf) write(out string, original []byte) error {
+	if len(original) == 0 {
+		original = nil
+	}
+	return settings.Write(c.File, settings.Doc(out), original)
+}
+
 // DropHUD removes our SITREP_HUD_CMD line. Every other line is the user's and stays; the file goes when nothing else is left.
 func (c Conf) DropHUD() error {
 	b, err := state.ReadFileFollow(c.File, 64<<10)
@@ -360,7 +386,7 @@ func (c Conf) DropHUD() error {
 	if strings.TrimSpace(strings.ReplaceAll(rest, "\n", "")) == "" {
 		return os.Remove(c.File)
 	}
-	return c.store().WriteFile(c.File, []byte(rest))
+	return c.write(rest, b)
 }
 
 // PutHUD saves the upstream status line, replacing any earlier one and keeping the user's own lines.
@@ -379,5 +405,5 @@ func (c Conf) PutHUD(cmd string) error {
 	if body != "" && !strings.HasSuffix(body, "\n") {
 		body += "\n"
 	}
-	return c.store().WriteFile(c.File, []byte(body+hudKey+"="+Quote(cmd)+"\n"))
+	return c.write(body+hudKey+"="+Quote(cmd)+"\n", b)
 }

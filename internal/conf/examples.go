@@ -123,7 +123,7 @@ func (c Conf) PutExamples() error {
 	if out == body {
 		return nil
 	}
-	return c.store().WriteFile(c.File, []byte(out))
+	return c.write(out, []byte(body))
 }
 
 // DropExamples removes the block. The file goes when nothing else is left.
@@ -140,5 +140,5 @@ func (c Conf) DropExamples() error {
 	if strings.TrimSpace(rest) == "" {
 		return os.Remove(c.File)
 	}
-	return c.store().WriteFile(c.File, []byte(rest+"\n"))
+	return c.write(rest+"\n", []byte(body))
 }
