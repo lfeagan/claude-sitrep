@@ -71,13 +71,13 @@ sitrep add inbox 'check the contrast in dark mode'
 sitrep ls
 sitrep alias <id> api
 sitrep alias <id> web
-sitrep move inbox api 1
-sitrep move inbox api 1
-sitrep move inbox web 1
+sitrep move inbox api 2 --item 'fix the flaky checkout test'
+sitrep move inbox api 2 --item 'add pagination to the orders endpoint'
+sitrep move inbox web 2 --item 'check the contrast in dark mode'
 sitrep ls -v
 ```
 
-The first `ls` shows four-character ids, as the status line does, and the two `alias` commands use them. After that the first column shows names, and an id still works anywhere a name does. Each `move` takes an item from the inbox to the end of a session's queue, and `ls -v` shows every queue under its session.
+The first `ls` shows four-character ids, as the status line does, and the two `alias` commands use them. After that the first column shows names, and an id still works anywhere a name does. Each `move` takes an item from the inbox to the end of a session's queue, and `ls -v` shows every queue under its session. The inbox starts with the slow-query item from scene 2, so the items to move are at position 2, and `--item` makes each move refuse if that position holds anything else. The slow query stays in the inbox.
 
 ### 4. Work and finish (40 s, cut for time)
 
@@ -94,7 +94,7 @@ sitrep done api
 The pagination item was for the web side after all:
 
 ```
-sitrep move api web 1
+sitrep move api web 1 --item 'add pagination to the orders endpoint'
 ```
 
 In the dashboard it is `m`, which opens a short list of queues.
@@ -102,7 +102,7 @@ In the dashboard it is `m`, which opens a short list of queues.
 ### 6. It is just commands (30 s)
 
 ```
-sitrep add web 'check the contrast in dark mode'
+sitrep add web 'update the settings page copy'
 sitrep ls --json | jq '.sessions[] | {id, alias, state, queue: .queue.count}'
 ```
 
@@ -113,7 +113,7 @@ Then back to `sitrep watch`: the rows now show a different picture from the open
 ## Recording
 
 - **By hand.** Run the demo in a cmux window and record the screen, for example with `cmux record start --format mp4`, or with the system's screen recorder. This is the simplest while we rehearse.
-- **Driven by a script.** cmux has `send`, `send-key` and `read-screen`, so a script could type the commands and wait for what a surface shows, as in "wait until `needs_input` appears, then press `enter`". It saves effort only if we record many takes. We try it after the first hand recording.
+- **Driven by a script.** `demo.sh` types the cues and commands into the three demo terminals with `cmux send`, and waits on sitrep's own state (`sitrep ls --json`), not on the screen. Set `DEMO_API`, `DEMO_WEB` and `DEMO_SHELL` to their cmux surfaces (`cmux list-pane-surfaces`), run `./demo.sh check`, then `cue`, then `scene1` to `scene6` or `all`. The surfaces have no default, so it never types into the terminal it runs in. Scene 1 stays by hand, since the jump moves focus. It saves effort only if we record many takes.
 - **Editing.** Real turns take ten seconds to a minute. Cut the waiting in scenes 1 and 4, or speed it up and say so on screen.
 - **In the deck.** Marp builds one HTML file. A recording is a short video on the Demo slide, or one slide per scene with the commands on it as a fallback when nothing can play.
 
