@@ -1,6 +1,6 @@
 # Install, update and remove
 
-The short version is in the [README](../README.md#quick-start). This page has the details.
+The short version is in the [README](../README.md#install). This page has the details.
 
 ## Install
 

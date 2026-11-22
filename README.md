@@ -25,11 +25,11 @@ Other tools, including Claude Code's own Agent View, show which sessions are wor
 
 Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts. [docs/COMPARISON.md](docs/COMPARISON.md) compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
-To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Quick Start](#quick-start)). To look around first, with nothing installed, run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@main dash --demo` (it needs Go 1.26 or newer, and shows made-up sessions).
+To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Install](#install)). To look around first, with nothing installed, run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@main dash --demo` (it needs Go 1.26 or newer, and shows made-up sessions).
 
 ## Contents
 
-[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Quick Start](#quick-start) · [The Queue](#the-queue) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
+[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Install](#install) · [The Queue](#the-queue) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
 
 More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [the themes](docs/THEMES.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md) and [remote machines](docs/REMOTE.md).
 
@@ -45,17 +45,28 @@ Wall shows the sessions as tiles, many to a screen, with those that need you fir
 
 There are 38 colour themes, most with a dark and a light form, and `sitrep colors` is a tool for choosing one or making your own. [The themes page](docs/THEMES.md) shows some of them, and the colour-blind view of `cvd-safe`.
 
-## Quick Start
+## Install
 
-You need Go 1.26 or newer (`go version`) and the `claude` CLI, because setup builds the program.
+You need Go 1.26 or newer (`go version`) and the `claude` CLI. Go is needed only to build the program: what you run afterwards is one program with plain files, and no runtime to keep up to date. sitrep runs on macOS and Linux; it uses file locks and process groups, so there is no Windows build. On Windows, use WSL.
 
-1. In Claude Code, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep`, then `/sitrep:setup`. Claude Code asks before setup changes `~/.claude/settings.json`, and setup backs it up first (see Install).
+1. In Claude Code, run:
+
+   ```
+   /plugin install sitrep --marketplace lfeagan/claude-sitrep
+   /sitrep:setup
+   ```
+
+   The first line installs the plugin (the program's source, the hooks and two skills). A plugin cannot build a program or declare a status line, so `/sitrep:setup` builds the program into `~/.claude/sitrep/bin/sitrep`, points the status line at it (an existing status line, such as Claude HUD, is saved and runs first), and links `sitrep` into `~/bin`. Claude Code asks before it changes `~/.claude/settings.json`, which setup backs up first.
 2. Restart your Claude Code sessions, and send a prompt in one. The status block shows under the prompt, and the session appears in the dashboard. With no sessions the dashboard shows only the tabs and `0 running, 0 ended`, and fills in as sessions start.
 3. In any terminal, run `sitrep dash` (`sitrep dash --demo` shows made-up sessions, if you want to look around first). Press `?` for the keys and `q` to quit. Setup links `sitrep` into `~/bin`, so that folder must be on your `PATH`; if the shell says `sitrep: command not found`, add it, or run `~/.claude/sitrep/bin/sitrep dash`.
 
 A session "needs you" when Claude has stopped and the next move is yours, or when it waits at a permission dialog. It has a `●` before its state, and the dashboard puts it first.
 
 Start on Cards for a few sessions, Table for many, and Wall when you have more than fit on a screen. The `Inbox` line is work you queued for no session yet. `enter` jumps to the terminal that shows the selected session, `z` snoozes one that can wait (it then shows a `○` instead of the `●`, and the snooze ends by itself when the session changes), and `n` gives a session a name. The colour of a row that needs you fades after ten minutes, and the `●` stays.
+
+### Updating
+
+When a newer release exists, the status line says so under the queue line. Update the plugin, restart Claude Code, then run `/sitrep:setup` again, so that the program matches the plugin. From a clone, run `git pull --tags && make install`. The details, upgrading from 0.3.x and taking sitrep out are in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## What You See
 
@@ -71,23 +82,6 @@ The block works as follows:
 1. Objective starts as the first prompt (a resumed session is seeded from its transcript), so the raw prompt shows until the first turn finishes. A short title written by the same Haiku call that writes Progress and Now then replaces it. A pinned Objective (`+pin` or `sitrep pin`) stays until you run `sitrep unpin`.
 2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
 3. Queue shows how many items are waiting, the next item and the first four characters of the session id, which is how `sitrep` addresses the session (`sitrep add a1b2 ...`).
-
-## Install
-
-sitrep is one Go program. It needs Go 1.26 or newer to build, and the `claude` CLI.
-
-```
-/plugin install sitrep --marketplace lfeagan/claude-sitrep
-/sitrep:setup
-```
-
-The first line installs the plugin (the program's source, the hooks and two skills). A plugin cannot build a program or declare a status line, so `/sitrep:setup` builds the program into `~/.claude/sitrep/bin/sitrep`, points the status line at it (an existing status line, such as Claude HUD, is saved and runs first), and links `sitrep` into `~/bin`. Claude Code asks before it changes `~/.claude/settings.json`, which setup backs up first.
-
-sitrep runs on macOS and Linux; it uses file locks and process groups, so there is no Windows build. On Windows, use WSL.
-
-### Updating
-
-When a newer release exists, the status line says so under the queue line. Update the plugin, restart Claude Code, then run `/sitrep:setup` again, so that the program matches the plugin. From a clone, run `git pull --tags && make install`. The details, upgrading from 0.3.x and taking sitrep out are in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## The Queue
 
