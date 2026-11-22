@@ -90,7 +90,7 @@ The inbox is a queue that belongs to no session, for work you have not yet match
 
 ## Listing Sessions
 
-`sitrep ls` prints a table of the running sessions: id, directory, state and queue, then Objective and Now, newest first. `-v` adds Progress and every queue, and `-a` adds ended sessions. The state comes from the hooks: `working` from the moment a prompt goes to Claude, `waiting` when Claude has stopped and it is your turn, `blocked` while it waits at a permission dialog, and `ended` when the session exits. A `working` session that has been quiet for ten minutes shows `idle?`, since Claude Code fires no hook when you interrupt a turn. `sitrep prune` tidies sessions that are gone. How a session counts as running, the hidden lines, what an unreadable state folder does and `prune` are in [docs/LISTING.md](docs/LISTING.md).
+`sitrep ls` prints a table of the running sessions: id, directory, state and queue, then Objective and Now, newest first. `-v` adds Progress and every queue, and `-a` adds ended sessions. A `●` before the state marks a session that needs you, and a `○` one you snoozed. The state comes from the hooks: `working` from the moment a prompt goes to Claude, `waiting` when Claude has stopped and it is your turn, `blocked` while it waits at a permission dialog, and `ended` when the session exits. A `working` session that has been quiet for ten minutes shows `idle?`, since Claude Code fires no hook when you interrupt a turn. `sitrep prune` tidies sessions that are gone. How a session counts as running, the hidden lines, what an unreadable state folder does and `prune` are in [docs/LISTING.md](docs/LISTING.md).
 
 ## The Dashboard
 

@@ -265,10 +265,21 @@ func (s Store) Resolve(prefix string) (ID, error) {
 	return m[0], nil
 }
 
-// ReadFile reads at most max bytes of a regular file, and nothing else: a pipe, a device or a directory is an error, and opening one never
-// blocks (invariant 4: a hook must not hang on a hostile file). A link to a regular file is followed, as the bash tests did.
+// ReadFile reads at most max bytes of a regular file, and nothing else: a link, a pipe, a device or a directory is an error, and opening
+// one never blocks (invariant 4: a hook must not hang on a hostile file). It is for the files in the state folder, which sitrep writes
+// itself and never through a link, so a link there is not ours.
 func ReadFile(path string, max int64) ([]byte, error) {
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	return readFile(path, max, syscall.O_NOFOLLOW)
+}
+
+// ReadFileFollow is ReadFile for a file that is not ours and may be a link on purpose: sitrep.conf and settings.json, which a dotfiles
+// manager links into place, and the registry files of Claude Code.
+func ReadFileFollow(path string, max int64) ([]byte, error) {
+	return readFile(path, max, 0)
+}
+
+func readFile(path string, max int64, flags int) ([]byte, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK|flags, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -294,9 +305,9 @@ func FirstLine(path string) string {
 	return strings.Trim(l, " \t")
 }
 
-// IsRegular says whether path is a regular file (a link to one counts).
+// IsRegular says whether path is a regular file, not a link to one.
 func IsRegular(path string) bool {
-	fi, err := os.Stat(path)
+	fi, err := os.Lstat(path)
 	return err == nil && fi.Mode().IsRegular()
 }
 

@@ -48,6 +48,7 @@ func logHome(t *testing.T) string {
 	home := t.TempDir()
 	st := state.Open(home)
 	statetest.PutAt(t, st, "abcd1111.txt", "Objective: x\n", logNow.Add(-time.Hour))
+	statetest.PutAt(t, st, ".abcd1111.state", "waiting\n", logNow.Add(-time.Hour)) // snooze needs a session that waits
 	return home
 }
 

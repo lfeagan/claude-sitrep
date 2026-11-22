@@ -93,7 +93,7 @@ func without(body string) (rest string, found bool) {
 }
 
 func (c Conf) readAll() (string, error) {
-	b, err := state.ReadFile(c.File, 64<<10+1)
+	b, err := state.ReadFileFollow(c.File, 64<<10+1)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}

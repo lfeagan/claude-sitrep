@@ -82,12 +82,24 @@ func list(q snapshot.Queue, max int, first, other string) []string {
 
 func fit(s string, cols int) string { return textsafe.Fit(text(s), cols).String() }
 
+// stateCell is the state as the listing draws it: a ● leads the state of a session that needs the user, and a hollow ○ one that was
+// snoozed, as in the dashboard, so that waiting for you can be told from waiting for nothing in plain text.
+func stateCell(s snapshot.Session) textsafe.Text {
+	switch {
+	case s.NeedsInput:
+		return text("● " + s.StateLabel)
+	case s.Snoozed:
+		return text("○ " + s.StateLabel)
+	}
+	return text(s.StateLabel)
+}
+
 // Frame draws the listing, one string per line. It is empty when there is nothing to show.
 func Frame(snap snapshot.Snapshot, o Opts) []string {
 	dirW, stateW, idW := 9, 5, 4
 	for _, s := range snap.Sessions {
 		idW = min(max(idW, textsafe.Width(text(s.Label()))), MaxLabelWidth)
-		stateW = max(stateW, textsafe.Width(text(s.StateLabel)))
+		stateW = max(stateW, textsafe.Width(stateCell(s)))
 		dirW = max(dirW, textsafe.Width(s.Dir))
 	}
 	var out []string
@@ -106,7 +118,7 @@ func Frame(snap snapshot.Snapshot, o Opts) []string {
 	}
 	avail := max(10, o.Cols-idW-dirW-stateW-6)
 	for _, s := range snap.Sessions {
-		out = append(out, fmt.Sprintf("%s  %s  %s  %s", idCell(s.Label(), idW), pad(s.Dir, dirW), pad(text(s.StateLabel), stateW), fit(summary(s.Queue, o.List()), avail)))
+		out = append(out, fmt.Sprintf("%s  %s  %s  %s", idCell(s.Label(), idW), pad(s.Dir, dirW), pad(stateCell(s), stateW), fit(summary(s.Queue, o.List()), avail)))
 		out = append(out, "    Objective: "+s.Objective.String())
 		if o.Verbose {
 			out = append(out, "    Progress:  "+s.Progress.String())

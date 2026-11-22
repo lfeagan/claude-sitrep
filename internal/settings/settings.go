@@ -238,7 +238,7 @@ func (d Doc) HookCommands() []string {
 
 // Read reads a settings file through any link. It reports whether the file exists.
 func Read(path string) (Doc, bool, error) {
-	b, err := state.ReadFile(path, 16<<20)
+	b, err := state.ReadFileFollow(path, 16<<20)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, false, nil

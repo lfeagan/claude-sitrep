@@ -139,7 +139,12 @@ func cmdSnooze(e Env, args []string) error {
 	if !ok {
 		return fmt.Errorf("cannot read when %s last changed", e.label(id))
 	}
-	if _, at, blocked := live.Blocked(e.store(), e.configDir(), string(id), live.Word(e.store(), string(id)), e.Clock.Now().Unix()); blocked {
+	word := live.Word(e.store(), string(id))
+	_, at, blocked := live.Blocked(e.store(), e.configDir(), string(id), word, e.Clock.Now().Unix())
+	if word != "waiting" && !blocked { // a snooze keys on the time of a change the session has yet to make, so it would mute nothing
+		return fmt.Errorf("%s does not need you, so there is nothing to snooze", e.label(id))
+	}
+	if blocked {
 		changed = at // a session at a dialog is muted until the dialog is over, which the time of the block names
 	}
 	if err := e.notes().Snooze(id, changed); err != nil {

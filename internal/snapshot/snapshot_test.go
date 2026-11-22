@@ -472,3 +472,27 @@ func TestAttnFadedIsLeftOutOfTheJSONUnlessSet(t *testing.T) {
 		t.Errorf("the field must be absent unless set: %s", buf.String())
 	}
 }
+
+func TestLinkedStateFilesAreNotFollowed(t *testing.T) {
+	w := newWorld(t)
+	w.session("link0001", "waiting", time.Minute)
+	w.register("link0001", 1)
+	target := filepath.Join(t.TempDir(), "outside")
+	if err := os.WriteFile(target, []byte("/secret/place\nsecond line\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"queue", "cwd"} {
+		p := w.s.Path("link0001", name)
+		os.Remove(p)
+		if err := os.Symlink(target, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := byID(w.build(Options{Cap: 5}), "link0001")
+	if s.Queue.Count != 0 || s.Dir.String() != "?" || s.Cwd.String() != "" {
+		t.Errorf("a linked queue and cwd read as nothing, never as the file they point at: %+v", s)
+	}
+	if !s.NeedsInput {
+		t.Error("the session is still listed, and still waits")
+	}
+}

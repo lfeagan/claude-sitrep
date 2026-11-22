@@ -110,11 +110,11 @@ func (r Registry) Read(ctx context.Context) Set {
 	have := false
 	for _, e := range entries {
 		f := filepath.Join(r.Dir, e.Name())
-		if !strings.HasSuffix(e.Name(), ".json") || !state.IsRegular(f) {
+		if fi, err := os.Stat(f); !strings.HasSuffix(e.Name(), ".json") || err != nil || !fi.Mode().IsRegular() { // Claude's own files, which may be links
 			continue
 		}
 		have = true
-		b, err := state.ReadFile(f, 1<<20)
+		b, err := state.ReadFileFollow(f, 1<<20)
 		if err != nil {
 			continue
 		}

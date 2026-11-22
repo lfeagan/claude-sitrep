@@ -253,7 +253,6 @@ func TestDiffJSON(t *testing.T) {
 func TestDiffSnoozeAndPrune(t *testing.T) {
 	var _ = bytes.NewReader
 	for name, sc := range map[string]difftest.Scenario{
-		"snooze":            world(true, "snooze|wait", "ls|--json", "snooze|--off|wait", "ls|--json", "snooze|inbox", "snooze|nope", "snooze", "snooze|--off", "snooze|a|b", "snooze|end0", "snooze|--off|end0"),
 		"prune dry run":     world(true, "prune|--dry-run", "ls|--json|-a"),
 		"prune keep":        world(true, "prune|-k", "ls|--json|-a", "prune|-k"),
 		"prune yes":         world(true, "prune|-y", "ls|--json|-a", "prune|-y"),
@@ -265,14 +264,37 @@ func TestDiffSnoozeAndPrune(t *testing.T) {
 	}
 }
 
+var goldenVolatile = regexp.MustCompile(`"(pid|state_changed)":\s*[0-9]+`)
+
+// goldenNorm is jsonNorm and then the numbers that differ from run to run: the test process's own pid, and times seeded from the clock.
+func goldenNorm(r difftest.Result) difftest.Result {
+	r = jsonNorm(r)
+	r.Stdout = goldenVolatile.ReplaceAllString(r.Stdout, `"$1":0`)
+	return r
+}
+
+// The plain listing left the bash version on purpose: it marks a session that needs you with a dot, as the dashboard does. The scenarios
+// that list such sessions are checked against golden files, and the others still against the bash.
+// snooze refuses a session that does not need you, which the bash version did not.
+func TestSnoozeGolden(t *testing.T) {
+	difftest.Golden(t, "snooze", world(true, "snooze|wait", "ls|--json", "snooze|--off|wait", "ls|--json", "snooze|inbox", "snooze|nope", "snooze", "snooze|--off", "snooze|a|b", "snooze|end0", "snooze|--off|end0", "snooze|run0", "snooze|wait|--off"), goSitrep, goldenNorm)
+}
+
 func TestDiffPlainListing(t *testing.T) {
 	for name, sc := range map[string]difftest.Scenario{
-		"default":     tidyWorld(true, "ls", "ls|-a", "env:COLUMNS=40|ls", "env:COLUMNS=60|ls|-a|-v", "env:COLUMNS=9|ls"),
-		"verbose":     tidyWorld(true, "ls|-v", "ls|-v|-a", "ls|-n|2", "ls|-n|0", "ls|-a|-v|-n|1", "ls|-n|99", "env:COLUMNS=50|ls|-n|3"),
-		"no registry": tidyWorld(false, "ls", "ls|-v", "ls|-a|-n|2"),
-		"one queue":   tidyWorld(true, "ls|inbox", "ls|run0", "ls|wait", "ls|end0", "ls|zzzz", "ls|nope", "ls|../x", "ls|a|b", "ls|-v|run0"),
-		"errors":      tidyWorld(true, "ls|-n", "ls|-n|x", "ls|--full", "ls|-n|-1"),
+		"one queue": tidyWorld(true, "ls|inbox", "ls|run0", "ls|wait", "ls|end0", "ls|zzzz", "ls|nope", "ls|../x", "ls|a|b", "ls|-v|run0"),
+		"errors":    tidyWorld(true, "ls|-n", "ls|-n|x", "ls|--full", "ls|-n|-1"),
 	} {
 		t.Run(name, func(t *testing.T) { difftest.Compare(t, sc, goSitrep, jsonNorm) })
+	}
+}
+
+func TestPlainListingGolden(t *testing.T) {
+	for name, sc := range map[string]difftest.Scenario{
+		"ls_default":     tidyWorld(true, "ls", "ls|-a", "env:COLUMNS=40|ls", "env:COLUMNS=60|ls|-a|-v", "env:COLUMNS=9|ls"),
+		"ls_verbose":     tidyWorld(true, "ls|-v", "ls|-v|-a", "ls|-n|2", "ls|-n|0", "ls|-a|-v|-n|1", "ls|-n|99", "env:COLUMNS=50|ls|-n|3"),
+		"ls_no_registry": tidyWorld(false, "ls", "ls|-v", "ls|-a|-n|2"),
+	} {
+		t.Run(name, func(t *testing.T) { difftest.Golden(t, name, sc, goSitrep, goldenNorm) })
 	}
 }

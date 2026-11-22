@@ -70,6 +70,14 @@ func TestSnoozeInProcess(t *testing.T) {
 	st := state.Open(home)
 	at := time.Unix(1_700_000_000, 0)
 	statetest.PutAt(t, st, "abcd1111.txt", "Objective: x\n", at)
+	statetest.PutAt(t, st, ".abcd1111.state", "working\n", at)
+	if code, _, errs := run(t, home, "snooze", "abcd"); code != 1 || errs != "sitrep: abcd does not need you, so there is nothing to snooze\n" {
+		t.Errorf("a working session: %d %q", code, errs)
+	}
+	if _, err := os.Stat(statetest.Path(st, ".abcd1111.snooze")); !os.IsNotExist(err) {
+		t.Error("a refused snooze left a file")
+	}
+	statetest.PutAt(t, st, ".abcd1111.state", "waiting\n", at)
 	if code, out, _ := run(t, home, "snooze", "abcd"); code != 0 || out != "snoozed abcd until it changes\n" {
 		t.Errorf("snooze: %d %q", code, out)
 	}

@@ -313,7 +313,7 @@ func Unquote(s string) string {
 
 // readSmall reads a regular file of at most 64 KB. Anything else (a pipe, a huge file, a missing one) reads as empty, so a hook never hangs.
 func readSmall(path string) []byte {
-	b, err := state.ReadFile(path, 64<<10+1)
+	b, err := state.ReadFileFollow(path, 64<<10+1)
 	if err != nil || len(b) > 64<<10 {
 		return nil
 	}
@@ -333,7 +333,7 @@ func (c Conf) store() state.Store { return state.Store{Dir: filepath.Dir(c.File)
 
 // DropHUD removes our SITREP_HUD_CMD line. Every other line is the user's and stays; the file goes when nothing else is left.
 func (c Conf) DropHUD() error {
-	b, err := state.ReadFile(c.File, 64<<10)
+	b, err := state.ReadFileFollow(c.File, 64<<10)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
@@ -361,7 +361,7 @@ func (c Conf) PutHUD(cmd string) error {
 	if err := c.DropHUD(); err != nil {
 		return err
 	}
-	b, err := state.ReadFile(c.File, 64<<10)
+	b, err := state.ReadFileFollow(c.File, 64<<10)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

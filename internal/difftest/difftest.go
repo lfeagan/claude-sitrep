@@ -5,10 +5,13 @@ package difftest
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -348,6 +351,66 @@ func Diff(t testing.TB, scenario Scenario, a, b Runner, norm ...func(Result) Res
 		}
 	}
 	return diffs
+}
+
+var epoch = regexp.MustCompile(`^[0-9]{9,10}\n?$`)
+
+var updateGolden = flag.Bool("update-golden", false, "rewrite the golden files of difftest.Golden")
+
+// Golden runs the scenario with the Go program only and compares what it saw (each result, then the state files) with
+// testdata/<name>.golden, or rewrites that file with -update-golden. It is for behaviour that has left the bash version on purpose, so the
+// bash oracle can no longer be the judge: review the diff of a rewritten file as carefully as a change of code.
+func Golden(t *testing.T, name string, scenario Scenario, goRunner Runner, norm ...func(Result) Result) {
+	t.Helper()
+	home := Home(t)
+	rs := scenario(t, home, goRunner)
+	var b strings.Builder
+	for i, r := range rs {
+		for _, n := range norm {
+			r = n(r)
+		}
+		r = Normalize(r, home)
+		fmt.Fprintf(&b, "== step %d: exit %d\n--- stdout\n%s--- stderr\n%s", i, r.Code, ensureNL(r.Stdout), ensureNL(r.Stderr))
+	}
+	st := State(t, home)
+	names := make([]string, 0, len(st))
+	for n := range st {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	b.WriteString("== state files\n")
+	for _, n := range names {
+		body := strings.ReplaceAll(st[n].Content, home, "$HOME")
+		if epoch.MatchString(body) { // a time seeded from the clock, such as the one a snooze keeps
+			body = "<epoch>\n"
+		}
+		fmt.Fprintf(&b, "--- %s (%v)\n%s", n, st[n].Mode, ensureNL(body))
+	}
+	got := b.String()
+	path := filepath.Join("testdata", name+".golden")
+	if *updateGolden {
+		if err := os.MkdirAll("testdata", 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	want, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("missing golden file %s (run with -update-golden): %v", path, err)
+	}
+	if string(want) != got {
+		t.Errorf("%s differs from the golden file; run with -update-golden and review the diff\n--- got ---\n%s\n--- want ---\n%s", name, got, want)
+	}
+}
+
+func ensureNL(s string) string {
+	if s != "" && !strings.HasSuffix(s, "\n") {
+		return s + "\n"
+	}
+	return s
 }
 
 func keys(m map[string]File) []string {

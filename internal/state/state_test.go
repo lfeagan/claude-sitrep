@@ -270,11 +270,20 @@ func TestReadFileRefusesWhatIsNotARegularFile(t *testing.T) {
 	os.WriteFile(real, []byte("0123456789"), 0o600)
 	link := filepath.Join(dir, "link")
 	os.Symlink(real, link)
-	if b, err := ReadFile(link, 4); err != nil || string(b) != "0123" {
-		t.Errorf("a link to a file, cut to 4 bytes: %q, %v", b, err)
+	if b, err := ReadFile(real, 4); err != nil || string(b) != "0123" {
+		t.Errorf("a file, cut to 4 bytes: %q, %v", b, err)
 	}
-	if IsRegular(fifo) || IsRegular(dir) || !IsRegular(link) {
-		t.Error("IsRegular is wrong")
+	if b, err := ReadFile(link, 100); err == nil {
+		t.Errorf("a link to a file was read: %q", b)
+	}
+	if got := FirstLine(link); got != "" {
+		t.Errorf("FirstLine follows a link: %q", got)
+	}
+	if b, err := ReadFileFollow(link, 4); err != nil || string(b) != "0123" {
+		t.Errorf("a file that may be a link on purpose is followed: %q, %v", b, err)
+	}
+	if IsRegular(fifo) || IsRegular(dir) || IsRegular(link) || !IsRegular(real) {
+		t.Error("IsRegular is wrong: a link to a file is not a regular file")
 	}
 }
 
