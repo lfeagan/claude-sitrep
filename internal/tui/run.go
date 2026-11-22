@@ -150,3 +150,14 @@ func RunColors(opts ColorsOptions) error {
 	_, err := tea.NewProgram(newColorsModel(opts)).Run()
 	return err
 }
+
+// ShotFrame draws one frame of a tab with colours, as the dashboard would show it on a dark or a light terminal, for the pictures of the
+// README (see docs/theme-shots). sel is the id of the selected session, or "".
+func ShotFrame(s snapshot.Snapshot, tab string, width, height int, theme string, dark bool, sel string, demo bool) (string, error) {
+	t, err := tabByName(tab)
+	if err != nil {
+		return "", err
+	}
+	o := viewOpts{Width: width, Height: height, Sel: sel, Demo: demo, Auto: true, Theme: themeFor(dark, Settings{Theme: theme})}
+	return strings.TrimRight(render(FromSnapshot(s), t, "", o), "\n"), nil
+}

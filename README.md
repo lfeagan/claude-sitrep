@@ -1,6 +1,38 @@
 # claude-sitrep
 
-A situation report for each Claude Code session, plus a small per-session work queue. When several sessions run at once in separate terminals, the status line under each prompt says what the session is for, how far along it is, what it is doing right now and what is queued next.
+See which of your Claude Code sessions needs you, and what each one is doing.
+
+![The sitrep dashboard on the Cards tab: two sessions that need you in pink, one working, one snoozed](docs/img/hero-cards.png)
+
+*`sitrep dash --demo`, on made-up sessions. The pink rows need you; the `▶` is the selected one.*
+
+When you run several Claude Code sessions in separate terminals, you lose track of them. Which one has stopped and waits for you? Which one is still working? What did you mean to ask next?
+
+sitrep puts a short report under each prompt: the objective, the progress, what the session is doing now, and a queue of what comes next. A full-screen dashboard lists all sessions on one screen and puts the ones that need you first. It is one Go program with plain files, and there is no server.
+
+To look around before you install anything, build it (`make build`) and run `./sitrep dash --demo`. The install is in [Quick Start](#quick-start).
+
+## What It Looks Like
+
+The dashboard has three tabs, and `tab` switches between them. Cards shows the detail of a few sessions, as above. Table is a quick scan of many:
+
+![The Table tab: one line per session, with state, queue, context left and what it is doing now](docs/img/table.png)
+
+Wall shows the sessions as tiles, many to a screen, with those that need you first:
+
+![The Wall tab: tiles of one size, the sessions that need you first](docs/img/wall.png)
+
+There are 38 themes, each for a dark and a light terminal, and `sitrep colors` is a tool for choosing one or making your own. A theme never repaints the terminal's background, only the rows, the bars and the marks:
+
+![Six themes on a dark terminal: eighties, homebrew, nord, tokyo, volcano and gameboy](docs/img/themes-dark.png)
+
+![Four themes on a light terminal: paper, novel, bossa-nova and arctic](docs/img/themes-light.png)
+
+What needs you never depends on colour alone: it has a `●` and the word `waiting`, and a snoozed session has a `○`. The `cvd-safe` theme uses only blue and orange, apart in lightness, and the picture shows it as it looks with normal sight, with protanopia and with deuteranopia:
+
+![The cvd-safe theme as seen with normal sight, protanopia and deuteranopia](docs/img/cvd.png)
+
+The pictures are made from the program itself (`make screenshots`), so they match what you get. [The colour tool](docs/COLORS.md) and [the themes](docs/SETTINGS.md#the-themes) are described in the docs.
 
 ## Contents
 
