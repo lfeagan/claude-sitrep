@@ -137,7 +137,7 @@ var presets = map[string]palette{
 	// acid yellow and red on black, with nothing soft about it
 	"punk": {
 		accent: [2]string{"#7a6d00", "#f2ff2a"}, dim: [2]string{"#5a5a5a", "#a8a8a8"}, hot: [2]string{"#e4e4e4", "#2a2a2a"},
-		attn: [2]string{"#ff8080", "#930c0c"}, errc: [2]string{"#b34700", "#ff9a3c"}, snooze: [2]string{"#0a7a8a", "#4de3ff"},
+		attn: [2]string{"#ff8080", "#8a0f4a"}, errc: [2]string{"#b34700", "#ff9a3c"}, snooze: [2]string{"#0a7a8a", "#4de3ff"},
 	},
 	// pink, cyan and lavender in the haze of an old mall; mint (teal on a dark terminal) is what needs you
 	"vaporwave": {
@@ -146,7 +146,7 @@ var presets = map[string]palette{
 	},
 	// indigo sky, sand and a coral flare
 	"desert-night": {
-		accent: [2]string{"#9a5b2a", "#e8c48a"}, dim: [2]string{"#6a5a7a", "#a89ac8"}, hot: [2]string{"#ece6f6", "#1a1840"},
+		accent: [2]string{"#9a5b2a", "#e8c48a"}, dim: [2]string{"#6a5a7a", "#a89ac8"}, hot: [2]string{"#ece6f6", "#10344a"},
 		attn: [2]string{"#ff9a7a", "#7a2a3a"}, errc: [2]string{"#b3261e", "#ff8a7a"}, snooze: [2]string{"#3a6a9a", "#7fb0e0"},
 	},
 	// rain on neon: teal and magenta, with amber for what needs you on a light terminal
@@ -191,7 +191,7 @@ var presets = map[string]palette{
 	},
 	// navy ink on newsprint, with red pencil for what needs you
 	"paper": {
-		accent: [2]string{"#1a2a4a", "#c8d0e8"}, dim: [2]string{"#5a5a5a", "#a8a8a8"}, hot: [2]string{"#ece8dc", "#26262a"},
+		accent: [2]string{"#1a2a4a", "#c8d0e8"}, dim: [2]string{"#5a5a5a", "#a8a8a8"}, hot: [2]string{"#ece8dc", "#262d40"},
 		attn: [2]string{"#ffa090", "#8a1a1a"}, errc: [2]string{"#a8201a", "#ff7a70"}, snooze: [2]string{"#3a5a8a", "#8aa8d8"},
 	},
 	// four olive greens, as on a handheld from 1989
