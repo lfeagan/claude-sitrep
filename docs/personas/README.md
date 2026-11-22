@@ -9,7 +9,7 @@ A persona is a short brief for a subagent that plays one kind of user against si
 | `first-timer.md` | Never used sitrep, reads the README and `sitrep help`, and has ten minutes to decide whether it helps. |
 | `keyboard-only.md` | Lives in vi and tmux, uses no mouse, and tests what `docs/KEYS.md` and `?` promise against what the keys do. |
 | `fixture.sh` | Builds a throwaway state folder (four sessions, queues, an inbox) by writing the files of `docs/STATE-LAYOUT.md`. |
-| `drive.sh` | Opens the dashboard on the fixture in a separate cmux workspace, presses keys and reads the screen. |
+| `drive.sh` | Runs the dashboard on the fixture in a detached tmux session, presses keys and reads the screen. It uses cmux instead when there is no tmux. |
 
 ## Run one
 
@@ -21,7 +21,7 @@ A persona is a short brief for a subagent that plays one kind of user against si
    The persona runs `drive.sh start` first and `drive.sh stop` last, even when something fails.
 3. Read the report. A finding is a lead: reproduce it before you act on it.
 
-A run opens one extra cmux workspace named `sitrep-persona`, without taking focus, and removes it when it stops. It needs `cmux`, `perl` and `bash`.
+A run starts a tmux server of its own (socket `sitrep-persona`, 110 by 34), so your tmux is not touched, and ends it when it stops. It needs `tmux` or `cmux`, `perl` and `bash`. `DRIVE_BACKEND=cmux` forces cmux, which opens a workspace named `sitrep-persona` without taking focus.
 
 ## Rules every persona follows
 
