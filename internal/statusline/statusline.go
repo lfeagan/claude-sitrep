@@ -53,9 +53,10 @@ func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 		return
 	}
 	id := state.ID(ev.SessionID)
+	show := l.Conf.StatusLines()
 	if b, err := state.ReadFile(l.Store.Path(id, "notes"), 1<<20); err == nil {
-		fmt.Fprint(out, textsafe.Strip(string(b)))
-	} else {
+		fmt.Fprint(out, onlyShown(textsafe.Strip(string(b)).String(), show))
+	} else if show["objective"] {
 		fmt.Fprintln(out, "Objective: (set on your first prompt)")
 	}
 	qpath := l.Store.Path(id, "queue")
@@ -86,13 +87,31 @@ func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 	if a := l.Store.Alias(id); a != "" {
 		name += " " + a // the id stays: it is the stable name, and a name that moves must not mislead
 	}
-	fmt.Fprintf(out, "Queue [id %s]: %s%s\n", name, summary, inbox)
+	if show["queue"] {
+		fmt.Fprintf(out, "Queue [id %s]: %s%s\n", name, summary, inbox)
+	}
 	if l.Version != "" {
 		if n := update.Notice(l.Store, l.Version); n != "" {
 			fmt.Fprintln(out, n)
 		}
 	}
 	l.recordContext(id, input) // last, and best effort: the line is already written
+}
+
+// onlyShown drops the lines of the notes that the user has turned off; any other line stays.
+func onlyShown(notes string, show map[string]bool) string {
+	var out strings.Builder
+	for _, ln := range strings.SplitAfter(notes, "\n") {
+		k, _, _ := strings.Cut(ln, ":")
+		switch k = strings.ToLower(k); k {
+		case "objective", "progress", "now":
+			if !show[k] {
+				continue
+			}
+		}
+		out.WriteString(ln)
+	}
+	return out.String()
 }
 
 // window is the part of Claude Code's input that says how full the context window is.

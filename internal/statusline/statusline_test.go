@@ -224,3 +224,63 @@ func TestTheStatusLineRecordsTheContextWindow(t *testing.T) {
 		t.Errorf("a read-only folder changes the line: %q", got)
 	}
 }
+
+func renderWith(t *testing.T, setting string) string {
+	t.Helper()
+	s := state.Open(t.TempDir())
+	s.Ensure()
+	statetest.Put(t, s, "s1.txt", "Objective: build\nProgress:  half\nNow:       compiling\n", 0)
+	statetest.Put(t, s, "s1.queue", "first item\n", 0)
+	get := func(n string) string {
+		if n == "SITREP_STATUS_LINES" {
+			return setting
+		}
+		return ""
+	}
+	l := Line{Store: s, Conf: conf.Conf{File: filepath.Join(s.Dir, "sitrep.conf"), Getenv: get}, Run: &runner.Fake{}}
+	var out bytes.Buffer
+	l.Render(context.Background(), strings.NewReader(`{"session_id":"s1"}`), &out)
+	return out.String()
+}
+
+func TestStatusLinesChoosesWhichLinesShow(t *testing.T) {
+	const (
+		obj  = "Objective: build\n"
+		prog = "Progress:  half\n"
+		now  = "Now:       compiling\n"
+		q    = "Queue [id s1]: 1 item, next: first item\n"
+	)
+	for setting, want := range map[string]string{
+		"":                             obj + prog + now + q,
+		"objective,progress,now,queue": obj + prog + now + q,
+		"now,queue":                    now + q,
+		"NOW, Queue":                   now + q,
+		"objective now":                obj + now,
+		"queue":                        q,
+		"objective":                    obj,
+		"now,now,queue":                now + q,
+		"nwo":                          obj + prog + now + q, // no known name: everything shows
+		",":                            obj + prog + now + q,
+		"queue,bogus":                  q,
+	} {
+		if got := renderWith(t, setting); got != want {
+			t.Errorf("%q: got %q, want %q", setting, got, want)
+		}
+	}
+}
+
+func TestStatusLinesWithNoNotesYet(t *testing.T) {
+	s := state.Open(t.TempDir())
+	s.Ensure()
+	l := Line{Store: s, Conf: conf.Conf{File: filepath.Join(s.Dir, "sitrep.conf"), Getenv: func(n string) string {
+		if n == "SITREP_STATUS_LINES" {
+			return "queue"
+		}
+		return ""
+	}}, Run: &runner.Fake{}}
+	var out bytes.Buffer
+	l.Render(context.Background(), strings.NewReader(`{"session_id":"abcdef"}`), &out)
+	if out.String() != "Queue [id abcd]: empty\n" {
+		t.Errorf("%q", out.String())
+	}
+}

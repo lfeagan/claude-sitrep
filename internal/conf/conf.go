@@ -87,6 +87,29 @@ func (c Conf) CheckUpdates() bool {
 	return true
 }
 
+// StatusLineNames are the lines of the status line's block, in the order they are drawn.
+var StatusLineNames = []string{"objective", "progress", "now", "queue"}
+
+// StatusLines is the set of lines the status line shows (SITREP_STATUS_LINES): names from StatusLineNames, separated by commas or spaces,
+// in any case. A name it does not know is ignored, and a value with no known name is the same as none, so every line shows: a typo costs
+// a line and never blanks the status line.
+func (c Conf) StatusLines() map[string]bool {
+	set := map[string]bool{}
+	for _, f := range strings.FieldsFunc(strings.ToLower(c.Get("SITREP_STATUS_LINES")), func(r rune) bool { return r == ',' || r == ' ' || r == '\t' }) {
+		for _, n := range StatusLineNames {
+			if f == n {
+				set[n] = true
+			}
+		}
+	}
+	if len(set) == 0 {
+		for _, n := range StatusLineNames {
+			set[n] = true
+		}
+	}
+	return set
+}
+
 // Defaults of the history log.
 const (
 	DefaultLogMaxMB = 10

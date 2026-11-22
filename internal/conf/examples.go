@@ -23,6 +23,10 @@ const Examples = `# Uncomment a line and change it to use it. The environment wi
 # How many queue items a listing shows.
 # SITREP_QUEUE_ITEMS=5
 #
+# The lines of the status line's block: any of objective, progress, now and queue, separated by commas. The default is all four.
+# The inbox count is part of the queue line. A value with no known name shows all four.
+# SITREP_STATUS_LINES=objective,progress,now,queue
+#
 # Seconds a session counts as recently active (the dashboard colours it). 0 turns it off.
 # SITREP_HIGHLIGHT_SECONDS=60
 #
