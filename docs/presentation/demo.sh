@@ -3,7 +3,7 @@
 # terminals and waits on sitrep's own state, never on what the screen shows.
 #
 #   DEMO_API=surface:2 DEMO_WEB=surface:3 DEMO_SHELL=surface:4 ./demo.sh check
-#   ./demo.sh cue | scene1 .. scene6 | all
+#   ./demo.sh reset | cue | scene1 .. scene6 | all
 #
 # The three surfaces are required and are never defaulted: cmux would otherwise type into
 # the terminal this script runs in. Start `claude` in the api and web terminals, and export
@@ -24,17 +24,54 @@ WEB_CUE='Before changing anything, ask me in plain text, without using a questio
 say() { printf '\n== %s\n' "$*"; }
 pause() { [ -n "${DEMO_AUTO:-}" ] || read -r -p "-- $* (enter to go on) " _; }
 
-# type SURFACE TEXT: types the text and presses enter.
+# at_prompt: the recorded shell's last line is a bare prompt, with no draft and no program
+# (such as `sitrep watch`) that would take the typing as keys. DEMO_PROMPT_RE matches that line.
+at_prompt() {
+	local re=${DEMO_PROMPT_RE:-}
+	[ -n "$re" ] || re='(^|[[:space:]])\$$'
+	cmux read-screen --surface "$DEMO_SHELL" --lines 5 | sed 's/[[:space:]]*$//' | grep -v '^$' | tail -1 | grep -Eq "$re"
+}
+
+# require_prompt waits a few seconds for the previous command to finish, then gives up.
+require_prompt() {
+	local end=$((SECONDS + ${DEMO_PROMPT_WAIT:-10}))
+	until at_prompt; do
+		if [ "$SECONDS" -ge "$end" ]; then
+			echo "the shell $DEMO_SHELL is not at a bare prompt: quit the program in it or clear its draft" >&2
+			return 1
+		fi
+		sleep 1
+	done
+}
+
+# clear_draft SURFACE: a blocked prompt stays in a Claude input box, and the next text would be
+# added to it. Each ctrl+u removes one wrapped line, so it repeats until the prompt line is empty.
+clear_draft() {
+	local i line
+	for i in 1 2 3 4 5; do
+		line=$(cmux read-screen --surface "$1" --lines 14 | grep '^❯' | tail -1 | sed 's/^❯[[:space:]]*//')
+		[ -n "$line" ] || return 0
+		cmux send-key --surface "$1" ctrl+u >/dev/null
+		sleep 1
+	done
+	echo "could not clear the input box of $1" >&2
+	return 1
+}
+
+# type_into SURFACE TEXT: types the text and presses enter. The shell is typed into only at a prompt.
 type_into() {
+	[ "$1" != "$DEMO_SHELL" ] || require_prompt
 	cmux send --surface "$1" -- "$2"
 	cmux send-key --surface "$1" enter
+	# Lets the screen redraw before the next prompt check, and gives a viewer time to read.
+	[ "$1" != "$DEMO_SHELL" ] || sleep "${DEMO_BEAT:-1.5}"
 }
 
 snapshot() { sitrep ls --json; }
 
 # field DIR JQ-FIELD: a field of the session whose directory ends in DIR.
 field() {
-	snapshot | jq -r --arg d "$1" '[.sessions[] | select(.dir | endswith("/" + $d))][0] | '"$2"
+	snapshot | jq -r --arg d "$1" '[.sessions[] | select(.dir == $d)][0] | '"$2"
 }
 
 # wait_for DESCRIPTION JQ-TEST: polls the snapshot until the test is true.
@@ -50,7 +87,7 @@ wait_for() {
 }
 
 session_test() { # DIR JQ-CONDITION
-	printf '[.sessions[] | select(.dir | endswith("/%s"))][0] | %s' "$1" "$2"
+	printf '[.sessions[] | select(.dir == "%s")][0] | %s' "$1" "$2"
 }
 
 check() {
@@ -59,13 +96,24 @@ check() {
 	local v
 	v=$(sitrep version)
 	echo "sitrep $v, state in $SITREP_STATE_DIR"
-	for d in shop-api shop-web; do
-		[ "$(field "$d" '.id // empty')" ] || { echo "no session for $d yet: start claude there" >&2; return 1; }
-	done
 	for s in "$DEMO_API" "$DEMO_WEB" "$DEMO_SHELL"; do
 		cmux read-screen --surface "$s" --lines 3 >/dev/null
 	done
-	echo "ok: both sessions are known and the three surfaces answer"
+	# A session is listed only after its first prompt, so cue is what makes them appear.
+	echo "ok: the three surfaces answer"
+}
+
+# reset puts the two demo projects back to their first commit's files, so a take starts
+# with work to do. It restores tracked files only and deletes nothing.
+reset() {
+	say "reset the demo projects"
+	local root=$HOME/demo-projects d
+	for d in shop-api shop-web; do
+		git -C "$root/$d" rev-parse --is-inside-work-tree >/dev/null
+		git -C "$root/$d" checkout -- .
+		git -C "$root/$d" status --short
+	done
+	echo "ok"
 }
 
 cue() {
@@ -87,6 +135,7 @@ scene2() {
 	say "2. capture"
 	type_into "$DEMO_API" '+inbox look at the slow dashboard query later'
 	wait_for "the inbox to hold 1 item" '.inbox.count >= 1'
+	clear_draft "$DEMO_API"
 }
 
 scene3() {
@@ -132,15 +181,17 @@ scene6() {
 
 case "${1:-}" in
 check) check ;;
+reset) reset ;;
 cue) cue ;;
 scene[1-6]) "$1" ;;
 all)
 	check
+	reset
 	cue
 	for s in scene1 scene2 scene3 scene4 scene5 scene6; do
 		pause "next: $s"
 		"$s"
 	done
 	;;
-*) echo "usage: demo.sh check | cue | scene1..scene6 | all" >&2; exit 2 ;;
+*) echo "usage: demo.sh check | reset | cue | scene1..scene6 | all" >&2; exit 2 ;;
 esac
