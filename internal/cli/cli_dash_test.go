@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/lfeagan/claude-sitrep/internal/clock"
 )
 
 func TestEnvSwitches(t *testing.T) {
@@ -127,5 +130,20 @@ func TestTheEngineSnapshotHasEverything(t *testing.T) {
 	snap, err := e.tuiEngine().Snapshot(context.Background())
 	if err != nil || len(snap.Sessions) != 2 {
 		t.Fatalf("%d sessions, %v", len(snap.Sessions), err)
+	}
+}
+
+func TestDashDemoNeedsNoStateAndChangesNothing(t *testing.T) {
+	home := t.TempDir()
+	var out, errb bytes.Buffer
+	e := Env{Home: home, Getenv: func(string) string { return "" }, Stdout: &out, Stderr: &errb, Clock: clock.Real{}}
+	if code := Run([]string{"dash", "--demo", "--once", "--tab", "table"}, e); code != 0 {
+		t.Fatalf("exit %d: %s", code, errb.String())
+	}
+	if !strings.Contains(out.String(), "a1f3") || !strings.Contains(out.String(), "need you") {
+		t.Errorf("the demo lists made-up sessions:\n%s", out.String())
+	}
+	if entries, _ := os.ReadDir(home); len(entries) != 0 {
+		t.Errorf("the demo leaves nothing behind: %v", entries)
 	}
 }

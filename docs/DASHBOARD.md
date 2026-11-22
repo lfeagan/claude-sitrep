@@ -2,7 +2,7 @@
 
 The short version is in the [README](../README.md#the-dashboard). This page has every key, the jump backends, the mouse and the bell. `docs/KEYS.md` is the design note behind the keys, and `?` in the dashboard lists them.
 
-`sitrep dash` is a full-screen view with three tabs and a status bar, written with Bubble Tea and Lip Gloss and built into the same program. Without a terminal (a pipe, `TERM` unset or `dumb`) it prints one frame and exits, and `sitrep status` always does: `sitrep status [--tab cards|table|wall] [--width n] [-a]`.
+`sitrep dash` is a full-screen view with three tabs and a status bar, written with Bubble Tea and Lip Gloss and built into the same program. `sitrep dash --demo` shows made-up sessions, read-only, and reads nothing from disk, so you can try the tabs, the keys and the mouse before installing. Without a terminal (a pipe, `TERM` unset or `dumb`) it prints one frame and exits, and `sitrep status` always does: `sitrep status [--tab cards|table|wall] [--width n] [-a]`.
 
 The three tabs are:
 

@@ -134,7 +134,10 @@ It reads Claude Code's live-session registry and changes nothing if it cannot. I
 touches a running session or one under two minutes old, and never deletes a queue.
 `,
 	"dash": `usage: sitrep dash [--tab cards|table|wall] [--interval 3s] [--once] [--width n] [--quit-on-jump]
-                    [--read-only] [--no-bell]
+                    [--read-only] [--no-bell] [--demo]
+
+--demo shows made-up sessions, read-only and without reading anything, to try the
+dashboard before sitrep is installed.
 
 A live full-screen dashboard of the sessions, with a Cards tab, a Table tab and a Wall tab (the
 sessions as tiles, for many at once) and a status bar.

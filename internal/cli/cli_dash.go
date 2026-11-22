@@ -90,10 +90,8 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 
 // cmdDash is the live dashboard. Without a terminal it prints one frame, as `status` does, never a loop of escape codes.
 func cmdDash(e Env, args []string) error {
-	if err := e.store().Check(); err != nil {
-		return err
-	}
 	fs := e.flags("dash")
+	demo := fs.Bool("demo", false, "show made-up sessions, read-only, so the dashboard can be tried before sitrep is installed")
 	tab := fs.String("tab", "cards", "the tab to start on: cards, table or wall")
 	interval := fs.Duration("interval", e.conf().TUIInterval(), "how often to refresh (or set SITREP_TUI_INTERVAL)")
 	once := fs.Bool("once", false, "print one frame as plain text and exit")
@@ -105,10 +103,16 @@ func cmdDash(e Env, args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	if *once || !e.isTerminal() {
-		return e.printFrame(*tab, *width, false)
+	eng := e.tuiEngine()
+	if *demo {
+		eng, *readOnly = e.demoEngine(), true
+	} else if err := e.store().Check(); err != nil {
+		return err
 	}
-	err := tui.Run(tui.Options{Tab: *tab, Interval: *interval, ReadOnly: *readOnly, NoBell: *noBell, Mouse: *mouse, QuitOnJump: *quitOnJump}, e.tuiEngine())
+	if *once || !e.isTerminal() {
+		return e.printFrame(eng, *tab, *width, false)
+	}
+	err := tui.Run(tui.Options{Tab: *tab, Interval: *interval, ReadOnly: *readOnly, NoBell: *noBell, Mouse: *mouse, QuitOnJump: *quitOnJump}, eng)
 	if err != nil {
 		return err
 	}
@@ -128,11 +132,11 @@ func cmdStatus(e Env, args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	return e.printFrame(*tab, *width, *all)
+	return e.printFrame(e.tuiEngine(), *tab, *width, *all)
 }
 
-func (e Env) printFrame(tab string, width int, all bool) error {
-	frame, err := tui.Frame(context.Background(), e.tuiEngine(), tab, width, all)
+func (e Env) printFrame(eng tui.Engine, tab string, width int, all bool) error {
+	frame, err := tui.Frame(context.Background(), eng, tab, width, all)
 	if err != nil {
 		return err
 	}
