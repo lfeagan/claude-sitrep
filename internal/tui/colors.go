@@ -670,23 +670,48 @@ func (m colorsModel) footer(w int) string {
 	return bar.Render(ansi.Truncate(text, w, ""))
 }
 
-// writeQuestion shows the lines that would change in the file.
+// writeQuestion shows the lines that would change in the file. A long line is wrapped after its commas, so that all of it can be read before
+// the user says yes; when the screen is too short for everything, the last line says so.
 func (m colorsModel) writeQuestion(room, w int) []string {
 	a := m.ask
 	out := []string{" Write to " + safe(m.opts.File.Path()) + ":"}
+	slash := false
 	for i := range conf.Editable {
 		if a.old[i] != a.new[i] {
-			out = append(out, "   was  "+safe(a.old[i]), "   now  "+safe(a.new[i]))
+			out = append(out, wrapAfterCommas("   was  ", safe(a.old[i]), w)...)
+			out = append(out, wrapAfterCommas("   now  ", safe(a.new[i]), w)...)
+			slash = slash || strings.Contains(a.new[i], "/")
 		}
+	}
+	if slash {
+		out = append(out, " In a/b: a is for a light terminal, b for a dark one.")
 	}
 	if a.dropped > 0 {
 		out = append(out, fmt.Sprintf(" %d later line(s) of the same setting are removed: the first one counts", a.dropped))
 	}
 	out = append(out, " Everything else stays as it is. A backup is made first.")
+	if len(out) > room && room > 0 {
+		out = append(out[:room-1], " … make the window taller to see all of it")
+	}
 	for i, l := range out {
 		out[i] = ansi.Truncate(l, w, "…")
 	}
 	return out
+}
+
+// wrapAfterCommas puts prefix before text and breaks the result after a comma where it would pass w, indenting the next lines under the text.
+func wrapAfterCommas(prefix, text string, w int) []string {
+	indent := strings.Repeat(" ", ansi.StringWidth(prefix))
+	var out []string
+	line := prefix
+	for _, part := range strings.SplitAfter(text, ",") {
+		if ansi.StringWidth(line)+ansi.StringWidth(part) > w && strings.TrimSpace(line) != "" && line != prefix {
+			out = append(out, line)
+			line = indent
+		}
+		line += part
+	}
+	return append(out, line)
 }
 
 // colorsOpen opens the colour tool over the dashboard, on the sessions it shows.

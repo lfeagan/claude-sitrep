@@ -689,3 +689,27 @@ func TestColorsGalleryFitsTheSmallestScreen(t *testing.T) {
 	}
 	golden(t, "colors_gallery_100x24", func() string { m.width, m.height = 100, 24; return ansi.Strip(m.body()) }())
 }
+
+func TestColorsWriteQuestionWrapsALongLineInsteadOfCuttingIt(t *testing.T) {
+	long := "accent=#5b3fd1/#62aebf,dim=#8c8c8c/#8b8b96,hot=#1e3b45/#1e3b45,attn=#4a2a3a/#5c1f35,error=#e08a7a/#ff8a80,snoozed=#7fb3a0/#7aa2f7"
+	m, _ := newColors(t, "SITREP_COLORS="+long+"\n")
+	m.width, m.height = 60, 30
+	m = ckey(t, m, "j", "j", "j", "j")
+	m = typeColor(t, m, "#445566")
+	m = ckey(t, m, "w")
+	if m.ask == nil {
+		t.Fatalf("no question: %q", m.msg)
+	}
+	q := ansi.Strip(m.body())
+	for _, entry := range strings.Split(long, ",") {
+		if entry != "attn=#4a2a3a/#5c1f35" && !strings.Contains(q, entry) {
+			t.Errorf("the question cuts off %q:\n%s", entry, q)
+		}
+	}
+	if strings.Contains(strings.SplitN(q, "\n", 2)[1], "…") {
+		t.Errorf("nothing is cut:\n%s", q)
+	}
+	if !strings.Contains(q, "a is for a light terminal") {
+		t.Errorf("the order of a/b is explained:\n%s", q)
+	}
+}
