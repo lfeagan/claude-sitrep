@@ -1,5 +1,7 @@
 # claude-sitrep
 
+[![CI](https://github.com/lfeagan/claude-sitrep/actions/workflows/ci.yml/badge.svg)](https://github.com/lfeagan/claude-sitrep/actions/workflows/ci.yml) [![Go version](https://img.shields.io/github/go-mod/go-version/lfeagan/claude-sitrep)](go.mod) [![License: MIT](https://img.shields.io/github/license/lfeagan/claude-sitrep)](LICENSE)
+
 A to-do list for each of your Claude Code sessions, and a dashboard that shows which one is waiting for you.
 
 ![The sitrep dashboard on the Cards tab: two sessions that need you in pink, one working, one snoozed](docs/img/hero-cards.png)
