@@ -297,12 +297,14 @@ func TestNKeyRefusals(t *testing.T) {
 	if cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "nothing to set") {
 		t.Errorf("empty with no name: %v %q", f.calls, m.statusText())
 	}
-	// a space cannot be in a name
-	m, _ = press(t, m, "n")
-	m = typed(t, m, "two words")
-	m, cmd = press(t, m, "enter")
-	if cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "no spaces") {
-		t.Errorf("spaces: %v %q", f.calls, m.statusText())
+	// a name that the grammar refuses is refused here, with the whole rule, and no command runs
+	for _, bad := range []string{"two words", "Frontend", "bad!", "9lives", "inbox", strings.Repeat("a", 33)} {
+		m, _ = press(t, m, "n")
+		m = typed(t, m, bad)
+		m, cmd = press(t, m, "enter")
+		if cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "lowercase letters, digits and hyphens") {
+			t.Errorf("%q: %v %q", bad, f.calls, m.statusText())
+		}
 	}
 	// esc cancels
 	m, _ = press(t, m, "n")

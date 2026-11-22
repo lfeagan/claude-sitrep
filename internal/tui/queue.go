@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/lfeagan/claude-sitrep/internal/state"
 )
 
 // The queue view shows one queue: the inbox, or the queue of the selected session.
@@ -583,8 +584,8 @@ func (m model) promptSubmit() (tea.Model, tea.Cmd) {
 			return m.refuse("alias", why)
 		}
 		switch {
-		case strings.ContainsAny(text, " \t"):
-			return m.refuse("alias", "a name has no spaces")
+		case text != "" && !state.ValidAlias(text): // the same grammar as the command, said here so that the first try is the last
+			return m.refuse("alias", "a name is lowercase letters, digits and hyphens, starting with a letter (32 at most)")
 		case text == "" && x.Alias == "":
 			return m.refuse("alias", "nothing to set")
 		case text == "":
