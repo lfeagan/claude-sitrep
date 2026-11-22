@@ -853,3 +853,33 @@ func TestCardsUseSpareHeightForLongText(t *testing.T) {
 		t.Errorf("with room to spare nothing is cut:\n%s", out)
 	}
 }
+
+func TestSnoozedMarkHasItsOwnColour(t *testing.T) {
+	s := loadFixture(t)
+	s.Sessions[2].NeedsInput, s.Sessions[2].Snoozed = false, true
+	line := func(th Theme, tab int) string {
+		for _, l := range strings.Split(render(s, tab, "", viewOpts{Width: 100, Theme: th}), "\n") {
+			if strings.Contains(ansi.Strip(l), "○ waiting 3m") {
+				return l
+			}
+		}
+		t.Fatalf("tab %d: the snoozed session is not on screen", tab)
+		return ""
+	}
+	for _, tab := range []int{tabCards, tabTable, tabWall} {
+		def := line(themeFor(true, Settings{}), tab)
+		own := line(themeFor(true, Settings{Colors: "snoozed=#ff0000"}), tab)
+		if !strings.Contains(def, "\x1b[") || (tab != tabWall && strings.Contains(def, "48;")) { // a Wall row holds other tiles too
+			t.Errorf("tab %d: the mark is coloured, and the row is not painted: %q", tab, def)
+		}
+		if !strings.Contains(own, "38;2;255;0;0") || own == def {
+			t.Errorf("tab %d: SITREP_COLORS sets it: %q", tab, own)
+		}
+		if got := line(plainTheme(), tab); strings.Contains(got, "\x1b") {
+			t.Errorf("tab %d: no colour in plain text: %q", tab, got)
+		}
+		if got := line(themeFor(true, Settings{Theme: "mono"}), tab); strings.Contains(got, "\x1b[3") {
+			t.Errorf("tab %d: mono has no colour: %q", tab, got)
+		}
+	}
+}

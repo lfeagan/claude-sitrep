@@ -48,7 +48,7 @@ const Examples = `# Uncomment a line and change it to use it. The environment wi
 # for each role: green accent, blue text, orange for recent activity, yellow for what needs you, red for
 # errors), high-contrast and mono (no colour).
 # A colour is #rrggbb or a terminal colour number from 0 to 255, or light/dark for each kind of terminal.
-# The names are accent, dim, hot (recent activity), attn (needs you) and error.
+# The names are accent, dim, hot (recent activity), attn (needs you), error and snoozed (the ○ mark).
 # SITREP_THEME=default
 # SITREP_COLORS='accent=#d9480f,attn=#c8f0c8/#52b35d,hot=236,dim=244,error=#b3261e'
 #

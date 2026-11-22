@@ -295,6 +295,11 @@ func mark(lines []string, x Session, o viewOpts) []string {
 		return paint(lines, o.Theme.Attn, o.Width)
 	case x.Highlight && x.Running:
 		return paint(lines, o.Theme.Hot, o.Width)
+	case x.Snoozed && x.Running && len(lines) > 0: // only the mark and the state word, in the colour the theme gives them
+		out := append([]string(nil), lines...)
+		st := stateText(x)
+		out[0] = strings.Replace(out[0], st, o.Theme.Snooze.Render(st), 1)
+		return out
 	}
 	return lines
 }

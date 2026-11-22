@@ -12,38 +12,38 @@ import (
 
 // Theme holds every style the views use. The plain theme has none, so tests compare text.
 type Theme struct {
-	Tab, TabActive, Rule, Label, Dim, Err, Status, StatusKey, Hot, Attn, Warn lipgloss.Style
-	Plain                                                                     bool
+	Tab, TabActive, Rule, Label, Dim, Err, Status, StatusKey, Hot, Attn, Warn, Snooze lipgloss.Style
+	Plain                                                                             bool
 }
 
 func plainTheme() Theme {
 	s := lipgloss.NewStyle()
-	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Plain: true}
+	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Snooze: s, Plain: true}
 }
 
 // palette is the colours a theme is made of, each as a light and a dark value: a hex colour or the number of a terminal colour.
-type palette struct{ accent, dim, hot, attn, errc [2]string }
+type palette struct{ accent, dim, hot, attn, errc, snooze [2]string }
 
 var presets = map[string]palette{
 	"default": {
 		accent: [2]string{"#5b3fd1", "#a78bfa"}, dim: [2]string{"#6b6b76", "#8b8b96"}, hot: [2]string{"238", "238"},
 		// a session waiting for the user: a soft pink-red that stands out from the grey of recent activity
-		attn: [2]string{"#ffd9e4", "#5c1f35"}, errc: [2]string{"#b3261e", "#ff8a80"},
+		attn: [2]string{"#ffd9e4", "#5c1f35"}, errc: [2]string{"#b3261e", "#ff8a80"}, snooze: [2]string{"#2f6fed", "#7aa2f7"},
 	},
 	// soft lavender, mint and peach, for a quiet screen: the accent is a periwinkle, recent activity a mint, a session that needs you a peach on
 	// a light terminal and a dusky rose on a dark one, as a dark peach would be brown
 	"pastel": {
 		accent: [2]string{"#7565b8", "#b8a9f0"}, dim: [2]string{"#7a7a8c", "#9a9aae"}, hot: [2]string{"#d8f3e4", "#24433a"},
-		attn: [2]string{"#ffe0c2", "#5b3a58"}, errc: [2]string{"#c2476b", "#ff9eb5"},
+		attn: [2]string{"#ffe0c2", "#5b3a58"}, errc: [2]string{"#c2476b", "#ff9eb5"}, snooze: [2]string{"#4f86b0", "#8fbcdb"},
 	},
 	// one colour of the spectrum for each role: green accent, blue for dim text, orange for recent activity, yellow for what needs you, red for errors
 	"rainbow": {
 		accent: [2]string{"#2e7d32", "#7ddc8a"}, dim: [2]string{"#4a6fa5", "#8fb0e0"}, hot: [2]string{"#ffe0b8", "#ffb870"},
-		attn: [2]string{"#fff2a8", "#ffe566"}, errc: [2]string{"#d32f2f", "#ff6b6b"},
+		attn: [2]string{"#fff2a8", "#ffe566"}, errc: [2]string{"#d32f2f", "#ff6b6b"}, snooze: [2]string{"#1565c0", "#64b5f6"},
 	},
 	"high-contrast": {
 		accent: [2]string{"#0000b3", "#ffd400"}, dim: [2]string{"#3a3a3a", "#c8c8c8"}, hot: [2]string{"#c8c8c8", "#505050"},
-		attn: [2]string{"#ff9a9a", "#a40000"}, errc: [2]string{"#a00000", "#ff7070"},
+		attn: [2]string{"#ff9a9a", "#a40000"}, errc: [2]string{"#a00000", "#ff7070"}, snooze: [2]string{"#0033cc", "#6ea8ff"},
 	},
 }
 
@@ -54,7 +54,7 @@ var solidThemes = map[string]bool{"rainbow": true}
 var ThemeNames = []string{"default", "pastel", "rainbow", "high-contrast", "mono"}
 
 // colorNames are the entries of SITREP_COLORS.
-var colorNames = []string{"accent", "dim", "hot", "attn", "error"}
+var colorNames = []string{"accent", "dim", "hot", "attn", "error", "snoozed"}
 
 // newTheme picks light or dark colours of the default theme. sgr is the highlight setting from sitrep, as terminal SGR codes; one that cannot
 // be read falls back to the theme's own.
@@ -92,6 +92,8 @@ func themeFor(isDark bool, st Settings) Theme {
 			p.attn = v
 		case "error":
 			p.errc = v
+		case "snoozed":
+			p.snooze = v
 		}
 	}
 	ld := lipgloss.LightDark(isDark)
@@ -114,6 +116,7 @@ func themeFor(isDark bool, st Settings) Theme {
 		Hot:       withText(lipgloss.NewStyle().Background(pick(p.hot)), custom["hot"], p.hot[side]),
 		Attn:      withText(lipgloss.NewStyle().Background(pick(p.attn)), custom["attn"], p.attn[side]),
 		Warn:      lipgloss.NewStyle().Bold(true),
+		Snooze:    lipgloss.NewStyle().Foreground(pick(p.snooze)),
 	}
 }
 
