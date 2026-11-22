@@ -136,3 +136,12 @@ func contextFrom(c *snapshot.Context) *Context {
 	}
 	return &Context{UsedPercent: c.UsedPercent, Window: c.Window, Tokens: c.Tokens, At: c.At}
 }
+
+// RunColors shows the colour tool until the user quits.
+func RunColors(opts ColorsOptions) error {
+	if opts.File == nil {
+		return errors.New("the colour tool has no file")
+	}
+	_, err := tea.NewProgram(newColorsModel(opts)).Run()
+	return err
+}

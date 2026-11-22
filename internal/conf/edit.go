@@ -3,6 +3,7 @@ package conf
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -122,3 +123,36 @@ func (c Conf) Backup(body string, now time.Time) (string, error) {
 
 // WriteBody replaces the file with out when it still holds original, as the settings editor does (settings.ErrChanged when it does not).
 func (c Conf) WriteBody(out, original string) error { return c.write(out, []byte(original)) }
+
+// OtherLines is body without the lines Edit may change, to check that a write changed nothing else.
+func OtherLines(body string) string {
+	var keep []string
+	for _, l := range strings.SplitAfter(body, "\n") {
+		own := false
+		for _, n := range Editable {
+			own = own || strings.HasPrefix(l, n+"=")
+		}
+		if !own {
+			keep = append(keep, l)
+		}
+	}
+	return strings.Join(keep, "")
+}
+
+// Line is the first line of body that sets name, as it stands, or "".
+func Line(body, name string) string {
+	for _, l := range strings.Split(body, "\n") {
+		if strings.HasPrefix(l, name+"=") {
+			return strings.TrimRight(l, "\r")
+		}
+	}
+	return ""
+}
+
+// Target is the file a write goes to: sitrep.conf, or what a link at that path leads to.
+func (c Conf) Target() string {
+	if t, err := filepath.EvalSymlinks(c.File); err == nil {
+		return t
+	}
+	return c.File
+}

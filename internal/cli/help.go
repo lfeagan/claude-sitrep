@@ -166,6 +166,24 @@ other key that changes state, and --no-bell (or SITREP_TUI_BELL=0) stops the bel
 when a session starts needing you. --mouse (or SITREP_TUI_MOUSE=1) makes a click select a row and
 a double click jump, as enter does; the terminal then selects text only with shift or option held.
 `,
+	"colors": `usage: sitrep colors [--light|--dark] [--read-only]
+
+A full-screen tool for choosing the dashboard's colours. It draws a preview of every place a colour
+is used (the tabs and status bar, a session that needs you, one that was faded, recent activity,
+a snoozed one, dim text, an error), on made-up sessions, and a list of the settings: the theme and
+the colours accent, dim, hot, attn, error and snoozed. j and k move, enter edits a colour (type
+#rrggbb or a number from 0 to 255, up and down walk the numbers) or, on the theme row, picks the
+next theme, r resets a setting to the theme's own, t switches the preview between a dark and a
+light terminal, and w writes.
+
+w shows the old and new SITREP_THEME and SITREP_COLORS lines of sitrep.conf and asks. On y it
+saves a backup of the file (sitrep.conf.bak.<time>, in the state folder, once per run), then
+changes those two lines and nothing else, through a link when sitrep.conf is one. It stops, changing
+nothing, when the file changed meanwhile. A running sitrep dash shows the change at its next
+refresh. SITREP_THEME and SITREP_COLORS in the environment win over the file, so the tool says so
+when they are set. --read-only (or SITREP_TUI_READONLY) turns off w. --light and --dark fix the
+kind of terminal the preview shows, which is otherwise asked of the terminal.
+`,
 	"status": `usage: sitrep status [--tab cards|table|wall] [--width n] [-a]
 
 Print one frame of the dashboard as plain text: for a script, a pipe or a quick look. -a includes
@@ -238,6 +256,7 @@ const helpAll = `usage: sitrep <command> [args]
   prune                      clear out sessions that are gone
   log                        show the history of changes, when SITREP_LOG is on
   dash                       live full-screen dashboard of the sessions and their queues
+  colors                     choose the dashboard colours, with a preview
   status                     print one frame of the dashboard as text
   setup [--remove]           put sitrep on the status line, or take it off
   migrate [--dry-run]        move state of version 0.4 and before into a folder per session

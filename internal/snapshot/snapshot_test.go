@@ -515,3 +515,16 @@ func TestPinnedIsARegularFileNotALink(t *testing.T) {
 		t.Error("a regular pinned file pins it")
 	}
 }
+
+func TestThemeSettingsAreReadAgainWithEverySnapshot(t *testing.T) {
+	w := newWorld(t)
+	w.session("live0001", "working", time.Minute)
+	w.register("live0001", 1)
+	if got := w.build(Options{Cap: 5}).Settings; got.Theme != "" || got.Colors != "" {
+		t.Fatalf("nothing is set: %+v", got)
+	}
+	os.WriteFile(filepath.Join(w.s.Dir, "sitrep.conf"), []byte("SITREP_THEME=pastel\nSITREP_COLORS='attn=#ff0000'\n"), 0o600)
+	if got := w.build(Options{Cap: 5}).Settings; got.Theme != "pastel" || got.Colors != "attn=#ff0000" {
+		t.Errorf("a running dashboard would not see a saved change: %+v", got)
+	}
+}

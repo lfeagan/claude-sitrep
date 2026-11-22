@@ -1,0 +1,30 @@
+ Colours   theme: default   preview: dark terminal (t switches)
+ 
+ Cards  Table  Wall 
+────────────────────────────────────────────────────────────────────────────────────────────────────
+● 1 need you   2 running: 1 working, 1 waiting, 0 idle?, 0 ended
+  ID    DIRECTORY  STATE      QUEUE  CTX   NOW   sort: activity
+  aaaa  web        ● waiting  0      -     n                                                        
+  bbbb  web        working    0      -     n
+
+
+
+
+
+
+
+
+
+
+
+
+
+ error: a sample error (showing data from 12s ago)   q quit  enter jump  s sort  tab switch  ? help 
+▶ theme    default  
+  accent   #a78bfa   ████     
+  dim      #8b8b96   ████     
+  hot      238       ████     
+  attn     #5c1f35   ████     
+  error    #ff8a80   ████     
+  snoozed  #7aa2f7   ████      *
+ j/k move  h/l theme  r reset  t light/dark  w write  q quit                                        

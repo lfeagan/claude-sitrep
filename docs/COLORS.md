@@ -1,6 +1,6 @@
 # The colour tool
 
-Design note.
+Design note. Built as described, except that the preview is the Table tab.
 
 ## What it is
 
@@ -34,7 +34,7 @@ First version only: the standalone command. A `C` key inside `dash`, over the re
 - Values are shown for the terminal kind on screen. A colour has a light and a dark value. Editing one side writes `light/dark`, with the other side being the value it has now. When the two sides end up equal, one value is written.
 - Under the `mono` theme the colour rows are greyed with the line `mono has no colours; pick another theme`, because `themeFor` ignores `SITREP_COLORS` there. Under `NO_COLOR` the tool starts with `NO_COLOR is set: the preview shows no colour`, and the editing still works.
 - When `SITREP_THEME` or `SITREP_COLORS` is set in the environment, the tool starts with a warning that the environment beats the file (`conf.Get` reads it first), so what it writes will not show until the variable is unset. The tool starts from the values the file holds (`FromFile`), never from the environment's, so it never writes the shell's values into the file.
-- On a short screen the preview gives way first: below 30 rows it draws the Cards tab only, and the list and the footer always stay. Below 14 rows the tool says the screen is too small.
+- On a short screen the preview gives way first: the preview is the Table tab, which shows every kind of row in the fewest lines, and it takes what the list and the footer leave. Below 16 rows the tool says the screen is too small.
 
 ## The editor
 

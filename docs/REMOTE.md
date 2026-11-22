@@ -45,4 +45,4 @@ Keep a connection open with `ControlMaster auto`, `ControlPath` and `ControlPers
 
 ## If this is not enough
 
-A configured list of ssh hosts could feed extra rows into `sitrep dash`, through the same snapshot as `ls --json`, with the keys that change things running `ssh host sitrep ...`. It would be a third network use besides the summarizer and the update check, so invariant 9 would have to change on purpose. We wait to see whether this recipe is enough first.
+A configured list of ssh hosts could feed extra rows into `sitrep dash`, through the same snapshot as `ls --json`, with the keys that change things running `ssh host sitrep ...`. It would be a third network use besides the summarizer and the update check, so invariant 10 would have to change on purpose. We wait to see whether this recipe is enough first.

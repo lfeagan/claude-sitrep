@@ -147,3 +147,14 @@ func TestDashDemoNeedsNoStateAndChangesNothing(t *testing.T) {
 		t.Errorf("the demo leaves nothing behind: %v", entries)
 	}
 }
+
+func TestColorsNeedsATerminal(t *testing.T) {
+	var out, errb bytes.Buffer
+	e := Env{Home: t.TempDir(), Getenv: func(string) string { return "" }, Stdout: &out, Stderr: &errb, Clock: clock.Real{}}
+	if code := Run([]string{"colors"}, e); code != 1 || !strings.Contains(errb.String(), "needs a terminal") {
+		t.Errorf("exit %d: %s", code, errb.String())
+	}
+	if code := Run([]string{"colors", "--light", "--dark"}, e); code == 0 {
+		t.Error("--light and --dark exclude each other")
+	}
+}

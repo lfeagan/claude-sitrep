@@ -29,3 +29,12 @@ Keys:
 The terminal bell rings once when a session starts needing you. It stays quiet on the first load and for a snoozed session. `--no-bell` or `SITREP_TUI_BELL=0` turns it off. `--read-only` or `SITREP_TUI_READONLY` turns off every key that changes state. `--interval` sets the refresh (default 3s), and `--tab table` opens on the Table tab. `--mouse` or `SITREP_TUI_MOUSE=1` makes a click select a row or a tile, a click on the name of a tab open that tab, and a double click jump, as `enter` does; it is off by default, because the terminal then selects text in the dashboard only with Shift (Option in iTerm2 and Terminal.app) held.
 
 The dashboard reads the same snapshot as `sitrep ls --json`, and changes state only by running the same fixed commands you can run yourself (`prune`, `snooze` and the queue edits), in the same process, after a preview or a confirm. If a refresh fails, the last good screen stays and the status bar says why. It strips control and format characters from everything it draws.
+
+## Colours
+
+`sitrep colors` is a full-screen tool for the dashboard's colours. The top of the screen is a preview, drawn by the dashboard's own code on made-up sessions, with a row of each kind: needs you, faded, recent activity, snoozed, working, idle, plus the tabs, the status bar, dim text and an error. Below it is the list of settings: the theme, then `accent`, `dim`, `hot`, `attn`, `error` and `snoozed`.
+
+`j` and `k` move. `enter` on a colour opens a field for `#rrggbb` or a terminal colour number from 0 to 255 (`up` and `down` walk the numbers), and on the theme row it picks the next theme (`h` and `l` do too). `r` puts a setting back to the theme's own, and `t` switches the preview between a dark and a light terminal; a colour has one value for each, and editing one side keeps the other. A `*` marks a colour you have set. `--light` and `--dark` fix the kind of terminal, which is otherwise asked of the terminal.
+
+`w` shows the old and the new `SITREP_THEME` and `SITREP_COLORS` lines and asks. On `y` it saves a copy of `sitrep.conf` as `sitrep.conf.bak.<time>` in the state folder (once per run), then changes those two lines and nothing else. A `sitrep.conf` that is a link is written through, so a dotfiles link stays a link, and when the file changed meanwhile nothing is written. A running `sitrep dash` shows the change at its next refresh. The environment wins over the file, so the tool warns when `SITREP_THEME` or `SITREP_COLORS` is set there. `--read-only` (or `SITREP_TUI_READONLY`) turns `w` off.
+

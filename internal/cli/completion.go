@@ -36,6 +36,7 @@ var specs = map[string]spec{
 	"prune":   {flags: []string{"-y", "--yes", "-k", "--keep", "--dry-run"}},
 	"dash": {flags: []string{"--tab", "--interval", "--once", "--read-only", "--no-bell", "--mouse", "--quit-on-jump", "--width"},
 		values: map[string][]string{"--tab": {"cards", "table", "wall"}, "--interval": nil, "--width": nil}},
+	"colors":     {flags: []string{"--light", "--dark", "--read-only"}},
 	"status":     {flags: []string{"--tab", "--width", "-a", "--all"}, values: map[string][]string{"--tab": {"cards", "table", "wall"}, "--width": nil}},
 	"setup":      {flags: []string{"--remove"}},
 	"completion": {},

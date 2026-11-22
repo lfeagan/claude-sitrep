@@ -39,6 +39,7 @@ var demoSessions = []demoSession{
 	{"e5a8b3c0", "mobile-app", "working", "working", 310, false, false, false, false, "Fix the crash when the camera permission is denied", "Reproduced on Android 14", "Reading CameraScreen.kt", []string{"add a test for the denied case", "update the changelog"}, 12},
 	{"f2c7d91b", "data", "working", "idle? 25m", 1500, false, false, false, false, "Backfill the events table", "First 3 of 8 partitions copied", "Running the partition copy", nil, 29},
 	{"0a9e4d6f", "web", "waiting", "waiting", 3600, true, false, true, false, "Replace the date picker", "Picker swapped; styling is left", "Waiting for you: keep the old keyboard shortcuts?", nil, 80},
+	{"7d3e1a55", "billing", "waiting", "waiting", 1800, true, false, false, false, "Retry failed invoice emails", "The retry job is written", "Waiting for you: resend the ones from last week too?", nil, 45},
 	{"1c6b8e3a", "tools", "ended", "ended 8m", 480, false, false, false, true, "Rename the lint target", "Done and merged", "-", nil, 90},
 }
 
@@ -51,7 +52,7 @@ func demoSnapshot(now int64) snapshot.Snapshot {
 		x := snapshot.Session{
 			ID: demoID(d.id), Short: d.id[:4], Running: !d.ended, State: d.state, StateLabel: d.label,
 			Age: d.age, StateChanged: now - d.age, Idle: len(d.label) > 5 && d.label[:5] == "idle?",
-			NeedsInput: d.needs && !d.snoozed, Snoozed: d.snoozed, Highlight: d.age <= 60 && !d.ended,
+			NeedsInput: d.needs && !d.snoozed, Snoozed: d.snoozed, AttnFaded: d.needs && !d.snoozed && d.age > 600, Highlight: d.age <= 60 && !d.ended,
 			Dir: textsafe.Sane(d.dir, 60), Cwd: textsafe.Sane("/home/you/"+d.dir, 300),
 			Objective: textsafe.Sane(d.objective, 100), Progress: textsafe.Sane(d.progress, 140), Now: textsafe.Sane(d.now, 140),
 			Queue:   demoQueue(d.queue),
