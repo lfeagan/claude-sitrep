@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/colorprofile"
 )
 
 const fetchTimeout = 5 * time.Second
@@ -104,6 +105,7 @@ type model struct {
 	helpAt     int    // the first line of the key list that is shown
 	pending    string // the first key of a two-key command that waits for its second: g (gg, the first row) or d (dd, remove an item)
 	isDark     bool
+	noColour   bool // the terminal shows no colour (NO_COLOR, or a terminal that has none): marks carry what colour would
 	now        func() time.Time
 	wallSize   int // the tile size of the Wall tab, once s has chosen one
 	wallSet    bool
@@ -525,6 +527,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.clampScroll()
 	case tea.BackgroundColorMsg:
 		m.isDark = msg.IsDark()
+	case tea.ColorProfileMsg:
+		m.noColour = msg.Profile <= colorprofile.Ascii
 	case snapMsg:
 		m.fetching = false
 		if m.refetch { // this fetch began before a change finished, so it may show the old queue
@@ -809,7 +813,7 @@ func (m model) View() tea.View {
 		if status == "" && (m.filtering || m.filter != "") {
 			status = m.filterStatus()
 		}
-		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Demo: m.demo, Error: m.statusIsError() && m.prompt == nil && m.ask == nil && !m.filtering, Theme: theme})
+		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Demo: m.demo, NoColour: m.noColour, Error: m.statusIsError() && m.prompt == nil && m.ask == nil && !m.filtering, Theme: theme})
 	}
 	if m.colors != nil {
 		body = m.colors.body()

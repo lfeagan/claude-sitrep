@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,7 +14,10 @@ import (
 // Theme holds every style the views use. The plain theme has none, so tests compare text.
 type Theme struct {
 	Tab, TabActive, Rule, Label, Dim, Err, Status, StatusKey, Hot, Attn, Warn, Snooze lipgloss.Style
+	Dull                                                                              lipgloss.Style // a session that has needed the user for long: the needs-you colour, weakened
+	HasDull                                                                           bool
 	Plain                                                                             bool
+	Mono                                                                              bool // the mono theme: no colours, so marks carry the meaning
 }
 
 func plainTheme() Theme {
@@ -164,9 +168,23 @@ func themeFor(isDark bool, st Settings) Theme {
 		StatusKey: lipgloss.NewStyle().Foreground(on).Background(accent).Bold(true),
 		Hot:       withText(lipgloss.NewStyle().Background(pick(p.hot)), custom["hot"], p.hot[side]),
 		Attn:      withText(lipgloss.NewStyle().Background(pick(p.attn)), custom["attn"], p.attn[side]),
+		Dull:      withText(lipgloss.NewStyle().Background(lipgloss.Color(blendHex(p.attn[side], []string{"#ffffff", "#1e1e1e"}[side], dullShare))), custom["attn"], p.attn[side]),
+		HasDull:   true,
 		Warn:      lipgloss.NewStyle().Bold(true),
 		Snooze:    lipgloss.NewStyle().Foreground(pick(p.snooze)),
 	}
+}
+
+// dullShare is how much of the terminal's own background a needs-you colour is mixed with once its session has waited long: the row stays
+// tinted, so that the session that has waited longest is not the quietest, but it is clearly weaker than a new one.
+const dullShare = 0.55
+
+// blendHex mixes colour a with colour b, share of b, and returns #rrggbb.
+func blendHex(a, b string, share float64) string {
+	ar, ag, ab := rgbOf(a)
+	br, bg, bb := rgbOf(b)
+	mix := func(x, y int) int { return int(math.Round(float64(x)*(1-share) + float64(y)*share)) }
+	return fmt.Sprintf("#%02x%02x%02x", mix(ar, br), mix(ag, bg), mix(ab, bb))
 }
 
 // withText sets the text colour that reads on bg, when the background is one the user chose.
@@ -181,7 +199,8 @@ func withText(st lipgloss.Style, custom bool, bg string) lipgloss.Style {
 func monoTheme() Theme {
 	s := lipgloss.NewStyle()
 	return Theme{
-		Tab: s.Faint(true).Padding(0, 1), TabActive: s.Bold(true).Underline(true).Padding(0, 1), Rule: s, Label: s.Faint(true), Dim: s.Faint(true),
+		Mono: true,
+		Tab:  s.Faint(true).Padding(0, 1), TabActive: s.Bold(true).Underline(true).Padding(0, 1), Rule: s, Label: s.Faint(true), Dim: s.Faint(true),
 		Err: s.Bold(true), Status: s.Reverse(true), StatusKey: s.Reverse(true).Bold(true), Hot: s.Bold(true), Attn: s.Reverse(true), Warn: s.Bold(true),
 	}
 }

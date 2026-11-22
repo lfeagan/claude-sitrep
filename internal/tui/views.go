@@ -41,6 +41,7 @@ type viewOpts struct {
 	Typing        bool        // a filter is being typed, so the footer lists the keys of that
 	Error         bool        // the status text is an error: it is drawn in the error colour
 	Demo          bool        // made-up sessions: the status bar says so
+	NoColour      bool        // the terminal shows no colour: a recent session gets a mark in front of it
 	Hits          *[]string   // when set, filled with the id of the session on each screen row ("" for none), for a mouse click
 	Auto          bool        // no tile size is chosen yet: the Wall picks the one that fits
 	Size          int         // the Wall's tile size (wallStandard, wallRoomy or wallCompact)
@@ -304,13 +305,16 @@ func paint(lines []string, st lipgloss.Style, width int) []string {
 }
 
 // mark colours a session's lines: pink-red when it waits for the user, which beats the
-// grey of recent activity. A session that has waited long (AttnFaded) is not coloured for it.
+// grey of recent activity. A session that has waited long (AttnFaded) keeps a weaker tint, so the one that has waited longest is not the
+// quietest, unless recent activity colours it.
 func mark(lines []string, x Session, o viewOpts) []string {
 	switch {
 	case x.NeedsInput && x.Running && !x.AttnFaded:
 		return paint(lines, o.Theme.Attn, o.Width)
 	case x.Highlight && x.Running:
 		return paint(lines, o.Theme.Hot, o.Width)
+	case x.NeedsInput && x.Running && o.Theme.HasDull:
+		return paint(lines, o.Theme.Dull, o.Width)
 	case x.Snoozed && x.Running && len(lines) > 0: // only the mark and the state word, in the colour the theme gives them
 		out := append([]string(nil), lines...)
 		st := stateText(x)
@@ -318,6 +322,17 @@ func mark(lines []string, x Session, o viewOpts) []string {
 		return out
 	}
 	return lines
+}
+
+// recentMark puts a · in the gutter of a recently active session when there is no colour to show it (the mono theme, NO_COLOR): bold alone
+// is easy to miss. A session that needs you has its own mark, and the selected one its arrow.
+func recentMark(lines []string, x Session, o viewOpts) []string {
+	if !(o.NoColour || o.Theme.Mono) || !x.Highlight || !x.Running || x.NeedsInput || o.Width < 20 || len(lines) == 0 || !strings.HasPrefix(lines[0], "  ") {
+		return lines
+	}
+	out := append([]string(nil), lines...)
+	out[0] = "· " + out[0][2:]
+	return out
 }
 
 // stateText is the state as drawn: a ● leads the state of a session that needs the user,
@@ -444,7 +459,7 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 			block = append(block, field("Now:", x.Now, o.Width, room.field)...)
 			block = append(block, queueLines("Queue:", x.Queue, o.Width, room.item, 4+11, s.Settings.QueueItems)...)
 		}
-		blocks = append(blocks, selectBlock(mark(block, x, o), x, o))
+		blocks = append(blocks, selectBlock(mark(recentMark(block, x, o), x, o), x, o))
 	}
 	if ended > 0 {
 		foot++
@@ -643,7 +658,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 		}
 		prefix := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %-5d  %s", idCell(x.Label(), iw), padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count, ctx)
 		line := prefix + ansi.Truncate(text, max(o.Width-ansi.StringWidth(prefix), 1), "…")
-		blocks = append(blocks, selectBlock(mark([]string{line}, x, o), x, o))
+		blocks = append(blocks, selectBlock(mark(recentMark([]string{line}, x, o), x, o), x, o))
 	}
 	return fitBlocks(head, blocks, ids, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
 }
@@ -712,11 +727,14 @@ func statusBar(s Snapshot, width int, errText string, isErr bool, tab int, typin
 		right, gap = "", width-ansi.StringWidth(left)
 	}
 	line := ansi.Truncate(left+strings.Repeat(" ", max(gap, 0))+right, width, "")
+	// the accent colour carries what needs attention (the count, a demo, an error); the key hints are quiet text, so that the selection
+	// bar is the one other accent on the screen
+	lw := min(ansi.StringWidth(left)+1, width)
+	lead := th.Status
 	if isErr && errText != "" { // the error is a block of its own colour at the left of the bar
-		lw := min(ansi.StringWidth(left)+1, width)
-		return th.Err.Render(ansi.Truncate(line, lw, "")) + th.Status.Width(width-lw).Render(ansi.TruncateLeft(line, lw, ""))
+		lead = th.Err
 	}
-	return th.Status.Width(width).Render(line)
+	return lead.Render(ansi.Truncate(line, lw, "")) + th.Label.Width(width-lw).Render(ansi.TruncateLeft(line, lw, ""))
 }
 
 // fitHints joins the key hints of a footer, most important first, with the last one (the help) always kept: the ones that do not fit in
@@ -822,9 +840,9 @@ func helpLines(width int, readOnly bool) []string {
 		" Colours (default theme)",
 		"",
 		"  ● pink-red   Claude has stopped and the next move is yours, until you reply",
-		"               the colour fades after 10 minutes (SITREP_ATTN_FADE); the ● stays",
+		"               the colour weakens after 10 minutes (SITREP_ATTN_FADE); the ● stays",
 		"  ○            snoozed: waiting, but you said it can wait",
-		"  grey         the session changed in the last minute",
+		"  grey         the session changed in the last minute (a · without colour)",
 		"  idle?        working, but quiet for 10 minutes: it may have been interrupted",
 	}
 	if readOnly { // the keys that change state are off, so they are not listed

@@ -267,7 +267,7 @@ func TestNeedsInputBeatsRecentActivity(t *testing.T) {
 	}
 }
 
-func TestAFadedSessionKeepsItsMarkerButNotItsColour(t *testing.T) {
+func TestAFadedSessionKeepsItsMarkerAndAWeakerColour(t *testing.T) {
 	s := loadFixture(t)
 	s.Sessions[2].AttnFaded = true
 	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
@@ -275,8 +275,8 @@ func TestAFadedSessionKeepsItsMarkerButNotItsColour(t *testing.T) {
 	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
 		if strings.Contains(ansi.Strip(l), "waiting for your call on the branch") || strings.Contains(ansi.Strip(l), "● waiting 3m") {
 			found = true
-			if strings.Contains(l, "48;2;150;52;92") {
-				t.Errorf("a faded session is not painted: %q", l)
+			if strings.Contains(l, "48;2;150;52;92") || !strings.Contains(l, "48;2;84;40;58") {
+				t.Errorf("a faded session has the weaker tint, not the full one: %q", l)
 			}
 		}
 	}
@@ -771,7 +771,7 @@ func TestHelpWrapsInsteadOfCuttingOnANarrowScreen(t *testing.T) {
 			}
 		}
 		flat := strings.Join(strings.Fields(out), " ")
-		for _, want := range []string{"the selected session in full (q closes; e, i: queues)", "snooze it until it changes; z again ends it", "the colour fades after 10 minutes (SITREP_ATTN_FADE); the ● stays", "any key closes"} {
+		for _, want := range []string{"the selected session in full (q closes; e, i: queues)", "snooze it until it changes; z again ends it", "the colour weakens after 10 minutes (SITREP_ATTN_FADE); the ● stays", "any key closes"} {
 			if !strings.Contains(flat, want) {
 				t.Errorf("width %d: the help lost %q", w, want)
 			}
@@ -1034,5 +1034,50 @@ func TestNoMatchLineSitsUnderTheRowsIndent(t *testing.T) {
 		if !found {
 			t.Errorf("tab %d: no message in\n%s", tab, out)
 		}
+	}
+}
+
+func TestRecentSessionGetsADotWhenThereIsNoColour(t *testing.T) {
+	s := loadFixture(t)
+	s.Sessions[0].Highlight = true // working and recent
+	s.Sessions[2].NeedsInput = false
+	mono := viewOpts{Width: 80, Height: 0, Theme: themeFor(true, Settings{Theme: "mono"})}
+	for _, tab := range []int{tabCards, tabTable} {
+		dots := 0
+		for _, l := range strings.Split(ansi.Strip(render(s, tab, "", mono)), "\n") {
+			if strings.HasPrefix(l, "· ") {
+				dots++
+			}
+		}
+		if dots == 0 {
+			t.Errorf("tab %d: a recent session has no dot in the mono theme", tab)
+		}
+	}
+	bare := viewOpts{Width: 80, Height: 0, NoColour: true, Theme: newTheme(true, "48;5;238")}
+	if !strings.Contains(ansi.Strip(render(s, tabTable, "", bare)), "· ") {
+		t.Error("no dot when the terminal shows no colour")
+	}
+	if strings.Contains(ansi.Strip(render(s, tabTable, "", viewOpts{Width: 80, Theme: newTheme(true, "48;5;238")})), "\n· ") {
+		t.Error("a dot where colour does the job")
+	}
+}
+
+func TestStatusBarHintsAreQuietAndTheCountKeepsTheAccent(t *testing.T) {
+	s := loadFixture(t)
+	th := newTheme(true, "48;5;238")
+	bar := statusBar(s, 100, "", false, tabCards, false, false, false, th)
+	const accent = "48;2;167;139;250"
+	i := strings.Index(bar, "q quit")
+	if i < 0 {
+		t.Fatalf("no hints: %q", bar)
+	}
+	if !strings.Contains(bar[:i], accent) || !strings.Contains(bar[:i], "need you") {
+		t.Errorf("the count is on the accent: %q", bar[:i])
+	}
+	if strings.Contains(bar[strings.Index(bar, "tab switch")-40:], accent) {
+		t.Errorf("the key hints carry the accent: %q", bar)
+	}
+	if got := ansi.StringWidth(bar); got != 100 {
+		t.Errorf("the bar is %d columns, want 100", got)
 	}
 }
