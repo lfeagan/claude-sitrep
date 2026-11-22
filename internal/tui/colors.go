@@ -40,6 +40,8 @@ var colorRows = append([]string{"theme"}, colorNames...)
 type colorEdit struct {
 	name string
 	text string
+	lch  oklch  // where the steps have taken the colour, which may be more than the screen can show
+	from string // the text lch was made for: when the text is not this, it was typed, and lch is made again
 }
 
 type colorAsk struct {
@@ -118,10 +120,12 @@ func (m colorsModel) side() int {
 }
 
 // colorsString is SITREP_COLORS as the file would hold it: the colours that are set, one value when both kinds of terminal share it.
-func (m colorsModel) colorsString() string {
+func (m colorsModel) colorsString() string { return colorsOf(m.set) }
+
+func colorsOf(set map[string][2]string) string {
 	var parts []string
 	for _, n := range colorNames {
-		if v, ok := m.set[n]; ok {
+		if v, ok := set[n]; ok {
 			if v[0] == v[1] {
 				parts = append(parts, n+"="+v[0])
 			} else {
@@ -156,8 +160,18 @@ func (m colorsModel) changes() []conf.Change {
 	return out
 }
 
+// previewTheme is the theme as it would be, with the colour being edited at the value in the field.
 func (m colorsModel) previewTheme() Theme {
-	return themeFor(m.dark, Settings{Theme: m.theme, Colors: m.colorsString()})
+	set := m.set
+	if m.edit != nil {
+		if c := normColor(m.edit.text); c != "" {
+			v := m.value(m.edit.name)
+			v[m.side()] = c
+			set = cloneSet(m.set)
+			set[m.edit.name] = v
+		}
+	}
+	return themeFor(m.dark, Settings{Theme: m.theme, Colors: colorsOf(set)})
 }
 
 func (m colorsModel) Init() tea.Cmd { return tea.RequestBackgroundColor }
@@ -279,14 +293,33 @@ func (m colorsModel) editKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.set[e.name] = v
 		m.edit = nil
 		return m, nil
-	case "up", "down": // walk the 256 colours
-		if n, ok := colorNumber(e.text); ok {
+	case "up", "down":
+		if n, ok := colorNumber(e.text); ok { // a terminal colour number: walk the 256
 			d := 1
 			if k == "up" {
 				d = -1
 			}
 			e.text = fmt.Sprint(min(max(n+d, 0), 255))
+		} else {
+			e.step(0, map[string]int{"up": 1, "down": -1}[k], 0)
 		}
+	case "h", "l", "left", "right", "j", "k", "H", "L":
+		hue, light, chroma := 0, 0, 0
+		switch k {
+		case "h", "left":
+			hue = -1
+		case "l", "right":
+			hue = 1
+		case "j":
+			light = -1
+		case "k":
+			light = 1
+		case "H":
+			chroma = -1
+		case "L":
+			chroma = 1
+		}
+		e.step(hue, light, chroma)
 	case "backspace":
 		if r := []rune(e.text); len(r) > 0 {
 			e.text = string(r[:len(r)-1])
@@ -307,6 +340,20 @@ func (m colorsModel) editKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	m.edit = &e
 	return m, nil
+}
+
+// step moves the colour in the field, when the field holds one.
+func (e *colorEdit) step(hue, light, chroma int) {
+	c := normColor(e.text)
+	if c == "" {
+		return
+	}
+	if e.from != e.text {
+		e.lch = hexToOKLCH(c)
+	}
+	e.lch = e.lch.stepped(hue, light, chroma)
+	e.text = e.lch.hex()
+	e.from = e.text
 }
 
 func colorNumber(s string) (int, bool) {
@@ -506,7 +553,7 @@ func (m colorsModel) footer(w int) string {
 	case m.ask != nil:
 		text = " y write these lines  n cancel"
 	case m.edit != nil:
-		text = fmt.Sprintf(" %s (%s terminal): %s▏  enter keeps, esc cancels, up/down walk 0-255", m.edit.name, map[bool]string{true: "dark", false: "light"}[m.dark], m.edit.text)
+		text = fmt.Sprintf(" %s (%s terminal): %s▏  h/l hue  j/k light  H/L chroma  enter keeps  esc cancels", m.edit.name, map[bool]string{true: "dark", false: "light"}[m.dark], m.edit.text)
 	default:
 		text = " j/k move  enter edit  r reset  t light/dark  w write  q quit"
 		if m.sel == 0 {

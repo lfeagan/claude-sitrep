@@ -2,6 +2,7 @@ package tui
 
 import (
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -398,5 +399,68 @@ func TestColorsEditsDoNotChangeAnEarlierModel(t *testing.T) {
 	m = typeColor(t, m, "#445566")
 	if _, ok := before.set["attn"]; ok {
 		t.Error("the model before the edit changed too")
+	}
+}
+
+func TestColorsFieldStepsThroughHueLightnessAndChroma(t *testing.T) {
+	m, _ := newColors(t, "")
+	m = ckey(t, m, "j", "j", "j", "j") // attn
+	m = ckey(t, m, "enter", "ctrl+u", "#", "5", "b", "3", "f", "d", "1")
+	start := m.edit.text
+	for k, name := range map[string]string{"l": "hue", "h": "hue", "k": "light", "j": "light", "L": "chroma", "H": "chroma", "right": "hue", "up": "light"} {
+		after := ckey(t, m, k)
+		if after.edit == nil || after.edit.text == start || normColor(after.edit.text) == "" {
+			t.Errorf("%s (%s) did not move the colour: %q", k, name, after.edit.text)
+		}
+	}
+	if len(m.edit.text) != 7 {
+		t.Fatal("the field is a hex colour")
+	}
+	// the preview shows the candidate before it is accepted
+	before := m.body()
+	m = ckey(t, m, "l", "l", "l")
+	if m.body() == before {
+		t.Error("the preview follows the field")
+	}
+	if _, ok := m.set["attn"]; ok {
+		t.Error("nothing is set until enter")
+	}
+	m = ckey(t, m, "esc")
+	if m.body() != newColorsPreview(t) {
+		t.Error("esc puts the preview back")
+	}
+	// a number is walked with up and down; l turns the hue of that colour as hex
+	m = ckey(t, m, "enter", "ctrl+u", "1", "9", "6")
+	m = ckey(t, m, "down")
+	if m.edit.text != "197" {
+		t.Errorf("numbers walk: %q", m.edit.text)
+	}
+	m = ckey(t, m, "l")
+	if normColor(m.edit.text) == "" || m.edit.text[0] != '#' {
+		t.Errorf("a hue step makes it hex: %q", m.edit.text)
+	}
+}
+
+func newColorsPreview(t *testing.T) string {
+	m, _ := newColors(t, "")
+	m = ckey(t, m, "j", "j", "j", "j")
+	return m.body()
+}
+
+func TestColorsFieldTurnsRoundAndBackToTheSameColour(t *testing.T) {
+	m, _ := newColors(t, "")
+	m = ckey(t, m, "j", "j", "j", "j")
+	m = ckey(t, m, "enter", "ctrl+u", "#", "7", "a", "6", "f", "d", "8")
+	for i := 0; i < 36; i++ {
+		m = ckey(t, m, "l")
+	}
+	if a, d := channels("#7a6fd8"), channels(m.edit.text); a != d && (a[0]-d[0] > 1 || d[0]-a[0] > 1 || a[1]-d[1] > 1 || d[1]-a[1] > 1 || a[2]-d[2] > 1 || d[2]-a[2] > 1) {
+		t.Errorf("a full turn of the hue gave %s", m.edit.text)
+	}
+	// typing a new colour starts from what was typed, not from the earlier steps
+	m = ckey(t, m, "ctrl+u", "#", "0", "0", "f", "f", "0", "0")
+	m = ckey(t, m, "k")
+	if k := hexToOKLCH(m.edit.text); math.Abs(k.h-hexToOKLCH("#00ff00").h) > 3 {
+		t.Errorf("a typed colour is the new start: %s", m.edit.text)
 	}
 }

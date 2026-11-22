@@ -38,11 +38,11 @@ First version only: the standalone command. A `C` key inside `dash`, over the re
 
 ## The editor
 
-`enter` on a colour opens a one-line field under the list. It takes `#rrggbb` or a terminal colour number from 0 to 255 (the two forms `parseColors` reads), with `ctrl+u` and `ctrl+w` as in the other prompts. The candidate shows in the preview while it is typed, and an entry that is not a colour is shown as it is and refused at `enter`. `up` and `down` step the number by one, so a colour can be found by walking. `enter` accepts and `esc` cancels.
+`enter` on a colour opens a one-line field under the list. It takes `#rrggbb` or a terminal colour number from 0 to 255 (the two forms `parseColors` reads), with `ctrl+u` and `ctrl+w` as in the other prompts. The candidate shows in the preview while it is typed, and an entry that is not a colour is shown as it is and refused at `enter`. `up` and `down` step a number by one, so a colour can be found by walking. For a colour in hex, `h`/`l` turn the hue, `j`/`k` change the lightness and `H`/`L` the chroma, in the OKLCH model (`internal/tui/oklch.go`): turning the hue keeps the lightness, which HSL does not. A chroma the screen cannot show is kept in the field's state and cut only when drawn, so turning the hue round and back returns the colour. The candidate shows in the preview while the field is open. `enter` accepts and `esc` cancels.
 
 The theme row cycles the five themes with `h` and `l`. Choosing a theme keeps the user's colours as overrides on top of it.
 
-Not in the first version: a grid of the 256 colours, contrast ratios, a copy between the light and dark side, and a reset-all key.
+Not in the first version: a grid of the 256 colours (stepping in OKLCH took its place), contrast ratios, a copy between the light and dark side, and a reset-all key.
 
 ## What it writes
 
