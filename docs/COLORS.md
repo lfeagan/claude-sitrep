@@ -1,94 +1,92 @@
 # The colour tool
 
-Design note. Not built yet.
+Design note.
 
 ## What it is
 
-`sitrep colors` is a full-screen tool for choosing the dashboard's colours. It draws a preview of every place a colour is used, and a list of the settings with a picker for each. A change shows in the preview at once. `w` writes the result to `sitrep.conf`. The same screen opens from `sitrep dash` with `C`, over the real sessions.
+`sitrep colors` is a full-screen tool for choosing the dashboard's colours. It draws a preview of every place a colour is used, and a list of the settings with an editor for each. A change shows in the preview at once. `w` writes the result to `sitrep.conf`, and a running `sitrep dash` shows it at its next refresh.
 
-It is one Bubble Tea model (`internal/tui/colors.go`) that uses the dashboard's own `themeFor` and `render`, so the preview cannot drift from the dashboard. The preview data is the `--demo` snapshot, or the live snapshot when opened from `dash`.
+It is one Bubble Tea model (`internal/tui/colors.go`). The preview is made by building the `SITREP_COLORS` string the tool would write and passing it, with the theme name, to the dashboard's own `themeFor` and `render`, so there is one path and the preview cannot drift from the dashboard. The preview data is the made-up `--demo` sessions. The command needs no sessions and no install.
+
+First version only: the standalone command. A `C` key inside `dash`, over the real sessions, comes later.
 
 ## The screen
 
 ```
- Colours        theme: rainbow   ▸ dark terminal  (t: light)
-─────────────────────────────────────────────────────────────
- PREVIEW (the dashboard's Cards, Table and Wall, as they draw)
-  ...rows: needs you, faded, recent activity, snoozed, working, ended...
-  ...tab bar, status bar, an error line, dim text...
-─────────────────────────────────────────────────────────────
+ Colours        theme: rainbow   preview: dark terminal  (t: light)
+──────────────────────────────────────────────────────────────────
+ the Cards, Table and Wall as they draw, with a row for each of:
+ needs you, faded, recent activity, snoozed, working, ended; the
+ tab bar, the status bar, an error line, dim text
+──────────────────────────────────────────────────────────────────
  ▶ theme      rainbow
-   accent     #7ddc8a   (light #2e7d32)
-   dim        #8fb0e0   (light #4a6fa5)
-   hot        #ffb870   ...
-   attn       #ffe566   ...
-   error      #ff6b6b   ...
-   snoozed    #64b5f6   ...
- j/k move  enter pick  r reset this one  t light/dark  w write  q quit
+   accent     #7ddc8a
+   dim        #8fb0e0
+   hot        #ffb870   *
+   attn       #ffe566
+   error      #ff6b6b
+   snoozed    #64b5f6
+ j/k move  enter edit  r reset  t light/dark  w write  q quit
 ```
 
-- The preview is drawn for one kind of terminal at a time, `dark` or `light`, and `t` switches. The tool asks the terminal which it is, as the dashboard does, and starts on that.
-- A colour has a light and a dark value. The picker edits the one on screen. `L` copies it to the other side, which is the common case of "one colour for both".
-- Rows that a setting changes are marked in the list with `*` when it differs from the theme's own value.
+- The preview is drawn for one kind of terminal at a time, `dark` or `light`. `t` switches. It starts on what the terminal says it is (the dashboard's `BackgroundColorMsg`), and on `dark` until the terminal answers.
+- A `*` marks a colour the user has set, as the file would hold it. It is explicit state: a colour is set when it is in the file (or edited here), even when its value equals the theme's own. That matters, since any name in `SITREP_COLORS` also switches on the chosen text colour for the `hot` and `attn` backgrounds (`custom[name]` in `themeFor`), so `hot=238` is not the same as no `hot`. `r` clears one setting back to the theme's own, and that is the only way an entry leaves the line.
+- Values are shown for the terminal kind on screen. A colour has a light and a dark value. Editing one side writes `light/dark`, with the other side being the value it has now. When the two sides end up equal, one value is written.
+- Under the `mono` theme the colour rows are greyed with the line `mono has no colours; pick another theme`, because `themeFor` ignores `SITREP_COLORS` there. Under `NO_COLOR` the tool starts with `NO_COLOR is set: the preview shows no colour`, and the editing still works.
+- When `SITREP_THEME` or `SITREP_COLORS` is set in the environment, the tool starts with a warning that the environment beats the file (`conf.Get` reads it first), so what it writes will not show until the variable is unset. The tool starts from the values the file holds (`FromFile`), never from the environment's, so it never writes the shell's values into the file.
+- On a short screen the preview gives way first: below 30 rows it draws the Cards tab only, and the list and the footer always stay. Below 14 rows the tool says the screen is too small.
 
-## The picker
+## The editor
 
-`enter` on a colour opens a picker under the list:
+`enter` on a colour opens a one-line field under the list. It takes `#rrggbb` or a terminal colour number from 0 to 255 (the two forms `parseColors` reads), with `ctrl+u` and `ctrl+w` as in the other prompts. The candidate shows in the preview while it is typed, and an entry that is not a colour is shown as it is and refused at `enter`. `up` and `down` step the number by one, so a colour can be found by walking. `enter` accepts and `esc` cancels.
 
-- a hex field (`#rrggbb`, typed, with `ctrl+u` and `ctrl+w` as in the other prompts);
-- the 256-colour grid, drawn as small blocks, moved with `hjkl` (`H`/`L` move by ten); `tab` switches between the hex field and the grid;
-- `enter` accepts, `esc` cancels and the preview goes back.
+The theme row cycles the five themes with `h` and `l`. Choosing a theme keeps the user's colours as overrides on top of it.
 
-While the picker is open the preview already shows the candidate. For `attn` and `hot`, which are backgrounds, the line also shows the text colour sitrep chooses for it and the contrast ratio (WCAG, as a number and `ok` or `low`, below 4.5). `accent` shows the same for the status bar.
-
-The theme row cycles the five themes with `h`/`l`. Choosing a theme clears nothing the user set: the colours stay as overrides on top of it.
+Not in the first version: a grid of the 256 colours, contrast ratios, a copy between the light and dark side, and a reset-all key.
 
 ## What it writes
 
 Two lines of `sitrep.conf`, and no others:
 
-- `SITREP_THEME=<name>`, written only when the theme is not `default`; removed when it is, or set back to default.
-- `SITREP_COLORS='name=value,...'`, only for colours that differ from the theme's own value. A colour that equals the theme's is not written. When nothing differs the line is removed.
+- `SITREP_THEME=<name>`, written when the theme is not `default`. It is removed when the theme is `default`.
+- `SITREP_COLORS=<value>`, the entries that are set, in the order `accent, dim, hot, attn, error, snoozed`. It is removed when none is set.
 
-Everything else in the file is the user's, and stays as it is, byte for byte: other lines, comments, the examples block, a line's position. A line this tool replaces is replaced in place, so the file does not reorder. When there is no such line, the new one goes just above the examples block, or at the end when there is none. A commented example line (`# SITREP_COLORS=...`) is never touched.
+A line is ours when it starts with `SITREP_THEME=` or `SITREP_COLORS=` at the first column, the same test `FromFile` makes: a line with `export`, a leading space or a `#` is the user's and is left alone. The first such line is replaced where it stands. Any later line of the same name is removed, because the reader takes the first and the later ones are dead, and the tool says so. A name with no line goes just above the examples block, or at the end of the file when there is none. Every other byte stays as it was, and a file that uses `\r\n` gets the new lines with `\r\n`.
 
-### The write, step by step (`w`)
+A value is checked as `Conf.Colors()` and `Conf.Theme()` check it (the allowed characters, at most 300 characters, a theme name of letters and `-`), and the write is refused when it would not pass, since the dashboard would ignore the whole line.
 
-1. Read the colour settings the file holds, and show the old and the new `SITREP_THEME` and `SITREP_COLORS` lines in a question: `write these two lines to ~/.claude/sitrep/sitrep.conf?  y/n`. The question names the file the path resolves to when `sitrep.conf` is a link.
-2. On `y`: resolve the path (`filepath.EvalSymlinks`), so a dotfiles link is written through and stays a link. Refuse a path that is not a regular file after resolving, and a file larger than 64 KB, as `PutExamples` does.
-3. Back the file up once before the first change of the session: `settings.Backup` (owner-only, a new name each time, never over an earlier backup), next to the file it resolved to. The status line says where.
-4. Write by a unique temporary file in the folder of the resolved file, with the mode of the file it replaces (`0600` for a new one), published by rename. If the temporary file cannot be made there (a read-only dotfiles folder), nothing is changed and the message says so.
-5. Read the file back and check that every line but the two is the same as before. If not, restore from the backup and say so. (This is the check `sitrep setup` makes for `settings.json`.)
-6. Say `written; sitrep dash picks it up within a few seconds`.
+### The write (`w`)
 
-A file that holds an environment override is still written, and the tool says that the environment wins: `SITREP_THEME` and `SITREP_COLORS` set in the shell beat `sitrep.conf` (conf.Get reads the environment first), so a preview that does not match the dashboard is explained, not mysterious. The tool starts with a one-line warning when either is set.
+1. A question names the file (the one a link points to, when `sitrep.conf` is a link) and shows the old and the new lines: `write these lines?  y/n`. When nothing differs it says `nothing to write`.
+2. On `y`, the file is read again. When it is not what the screen was drawn from (the user edited it meanwhile), the tool starts again from the new content and asks again.
+3. The bytes just read are saved to `sitrep.conf.bak.<timestamp>` in the state folder (owner-only, never over an earlier backup, `settings.Backup`), once per run of the tool: the first write makes it, later ones in the same run do not. The state folder, not the dotfiles repo, so a repository is not filled with backups.
+4. The new content is written as `settings.Write` writes `settings.json`: the path is resolved through links (a dotfiles link stays a link), a temporary file with a unique name is made in the folder of the resolved file, with the mode of the file it replaces (`0600` for a new one), and it is renamed over the file only when the file still holds the bytes read in step 2 (`ErrChanged` otherwise: nothing is changed and the tool says so). A folder that cannot be written to is an error, and nothing is changed.
+5. The file is read back and its lines other than the two are compared with the ones before. When they differ, the tool says so and names the backup. It does not restore by itself, since that could overwrite an edit the user made in between.
+6. `written; sitrep dash shows it at its next refresh`.
 
-A file with a setting that is a link, a pipe or not regular is refused for writing as the other state files are; reading follows a link, as `sitrep.conf` always has (`state.ReadFileFollow`).
+`PutHUD`, `DropHUD`, `PutExamples` and `DropExamples` use `Store.WriteFile`, which renames over the path and so replaces a linked `sitrep.conf` with a plain file. They move to the same link-following writer, so setup stops breaking a dotfiles link too.
 
-## Live reload in `dash`
+### Read-only
 
-Today the dashboard reads the theme settings with each snapshot (`Settings.Theme`, `Settings.Colors` are in the snapshot), so a written change appears at the next refresh, within the interval (3 s). The tool needs no signal. Nothing to build here, except a test that proves it.
+`SITREP_TUI_READONLY` (and `--read-only`) turn `w` off in the tool as they turn off every key that changes state in `dash`. The tool says so in the footer.
 
 ## Where it lives
 
-- `internal/conf`: `PutSettings(map[string]string, remove []string)` replaces or adds `NAME='value'` lines, with the steps above, returning the backup path. The `Quote` function is used for values. Tests with a link, a read-only folder, a missing file, a file with the example block, CRLF, and a line twice.
-- `internal/tui/colors.go`: the model, the picker and the preview. `internal/tui/colors_test.go` and golden screens.
-- `internal/cli/cli_colors.go`: `sitrep colors [--demo] [--light|--dark]`. The command needs no sessions. `--demo` is the default, and the command always uses made-up sessions (moved from `internal/cli/demo.go` to be shared with `dash --demo`). `dash` gets `C`, which opens the same model over the live snapshot.
+- `internal/conf`: `Put(changes map[string]*string, ...)` replaces, adds or removes named lines by the rules above, and `writeThrough` is the link-following writer that the other four writers use. Tests: a link, a dangling link, a read-only folder, a missing file, the examples block, CRLF, a name twice, a quoted or `export`ed line, a commented example, a value that is too long or has a bad character, a file changed between read and write, a file of 64 KB and more. A test breaks each guard (the changed-file check, the link resolution, the first-line rule) to see it fail.
+- `internal/tui/colors.go`: the model, the editor and the preview, with golden screens at three sizes and tests for the keys.
+- `internal/cli/cli_colors.go`: `sitrep colors [--light|--dark] [--read-only]`. `internal/cli/demo.go`'s snapshot is shared with `dash --demo`.
+- `AGENTS.md`: invariant 2 allows a temporary file next to the resolved file for `sitrep.conf` and `settings.json`. A new invariant says that the colour tool changes two named lines of `sitrep.conf` and nothing else, and recurses over nothing.
 - `docs/SETTINGS.md`, `docs/DASHBOARD.md`, `README.md`, `sitrep help colors`, the completion.
+
+## Live reload
+
+Every snapshot builds a fresh `Conf` and reads `sitrep.conf` again, and the dashboard builds its theme from the latest snapshot on every frame. A written change shows within one refresh. A test proves it. A `dash` started with `SITREP_THEME` or `SITREP_COLORS` in its environment never sees the change, and `dash --demo` reads no file.
 
 ## Keys
 
-`j`/`k` move, `enter` opens the picker, `r` resets this setting to the theme's value, `R` resets all (asks), `t` switches the preview between a dark and a light terminal, `L` copies the value to the other side, `w` writes (asks), `q` quits (asks when there is something unwritten), `?` the list. In the picker, `h`/`l` move by one colour step and `H`/`L` by ten, `tab` switches between the hex field and the grid, `enter` accepts and `esc` cancels.
-
-## Not in this version
-
-- No `hot` SGR editing (`SITREP_HIGHLIGHT_SGR`): it is an older setting that `hot` replaces.
-- No mouse in the first version.
-- No saving of named palettes. The user's dotfiles are the place for that.
-- No change to `~/.claude/settings.json` or the status line colours: this is for the dashboard.
+`j`/`k` move, `enter` edits, `r` resets this one to the theme's own, `t` switches the preview between a dark and a light terminal, `w` writes (asks), `q` quits (asks when something is unwritten), `h`/`l` on the theme row change the theme.
 
 ## Risks
 
-- Writing to a user's dotfile is new. It is guarded by the question, the backup, the write through a link, the read-back check and the restore. The tests prove each of those, and one test breaks each guard to see it fail.
-- A colour the terminal cannot show (a 256-colour number on a 16-colour terminal) is the user's to see in the preview, which is drawn by the same code as the dashboard.
-- The preview is only as truthful as the terminal's own colour support; `NO_COLOR` is honoured and the tool says so rather than drawing nothing.
+- Writing to a user's dotfile is new. The question, the backup, the write through a link, the compare-before-rename and the read-back check guard it.
+- A colour the terminal cannot show is the user's to see in the preview, which is drawn by the dashboard's own code.
