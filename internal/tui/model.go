@@ -408,6 +408,27 @@ func (m model) listPage() int {
 	return max((m.height-5)/6, 1)
 }
 
+// atWallEdge says that nothing is left of the first tile (d is -1) or right of the last one (d is 1), so that the arrow goes on to the
+// next tab: someone who walked into the Wall with the arrow keys can walk out again the same way.
+func (m model) atWallEdge(d int) bool {
+	ids := m.visible()
+	if len(ids) == 0 {
+		return true
+	}
+	if d < 0 {
+		return ids[0] == m.selID
+	}
+	return ids[len(ids)-1] == m.selID
+}
+
+// enterWall, after an arrow key has brought the user to the Wall, selects the tile at the edge they came from (the first when they moved
+// right, the last when they moved left), so that the same arrow key back walks out again at once. Other ways to a tab keep the selection.
+func (m *model) enterWall(i int) {
+	if m.tab == tabWall {
+		m.moveSelTo(i)
+	}
+}
+
 // rowStep is how many sessions j and k move: one, and on the Wall a row of tiles.
 func (m model) rowStep() int {
 	if m.tab == tabWall {
@@ -588,16 +609,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "shift+tab":
 			m.tab = (m.tab + tabCount - 1) % tabCount
 		case "right", "l":
-			if m.tab == tabWall { // the sessions are laid out in two directions there
+			if m.tab == tabWall && !m.atWallEdge(1) { // the sessions are laid out in two directions there
 				m.moveSel(1)
 			} else {
 				m.tab = (m.tab + 1) % tabCount
+				m.enterWall(0)
 			}
 		case "left", "h":
-			if m.tab == tabWall {
+			if m.tab == tabWall && !m.atWallEdge(-1) {
 				m.moveSel(-1)
 			} else {
 				m.tab = (m.tab + tabCount - 1) % tabCount
+				m.enterWall(-1)
 			}
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			return m.takeDigit(int(msg.String()[0] - '0'))

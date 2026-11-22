@@ -623,6 +623,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  v, space                       the selected session in full (q closes; e, i: queues)",
 		"  tab, shift+tab, h, l           switch tab (left and right too)",
 		"  h, l, j, k, arrows             on the Wall: the tile left, right, above, below",
+		"                                 (left of the first and right of the last: the tab)",
 		"  1-9                            take that inbox item into the selected session",
 		"  a                              show or hide ended sessions",
 		"  s                              cycle the Top sort, or the Wall's tile size",

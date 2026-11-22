@@ -26,7 +26,7 @@ A text that does not fit is cut with an ellipsis. Between tile rows there is one
 
 ## Keys
 
-On Wall `h`, `l`, `left` and `right` move between tiles and `j`, `k`, `up` and `down` move between tile rows, since the sessions are laid out in two directions. Switching tab is `tab` and `shift+tab`. `gg`, `G`, `home`, `end`, `ctrl+d`, `ctrl+u`, `pgdn` and `pgup` work as elsewhere (a page is the tile rows that fit). Everything else is as on the other tabs: `enter` jumps, `v` opens the detail view, `z` snoozes, `n` names, `/` filters, `a` shows ended sessions, `1`-`9` take an inbox item, and a click selects a tile and a double click jumps (with `--mouse`). `--tab wall` opens on it, and `sitrep status --tab wall` prints one frame.
+On Wall `h`, `l`, `left` and `right` move between tiles and `j`, `k`, `up` and `down` move between tile rows, since the sessions are laid out in two directions. Switching tab is `tab` and `shift+tab`. So that nobody is stuck on the Wall who walked in with the arrow keys, `left` on the first tile goes to the previous tab and `right` on the last tile to the next, and an arrow key that brings you to the Wall selects the tile at the edge you came from (the first after `right`, the last after `left`), so that the same arrow key back walks out at once. `gg`, `G`, `home`, `end`, `ctrl+d`, `ctrl+u`, `pgdn` and `pgup` work as elsewhere (a page is the tile rows that fit). Everything else is as on the other tabs: `enter` jumps, `v` opens the detail view, `z` snoozes, `n` names, `/` filters, `a` shows ended sessions, `1`-`9` take an inbox item, and a click selects a tile and a double click jumps (with `--mouse`). `--tab wall` opens on it, and `sitrep status --tab wall` prints one frame.
 
 ## What the tab line shows
 

@@ -8,6 +8,8 @@ Keys
                                  queues)
   tab, shift+tab, h, l           switch tab (left and right too)
   h, l, j, k, arrows             on the Wall: the tile left, right, above, below
+                                 (left of the first and right of the last: the
+                                 tab)
   1-9                            take that inbox item into the selected session
   a                              show or hide ended sessions
   s                              cycle the Top sort, or the Wall's tile size
@@ -40,8 +42,6 @@ Colours
   ○            snoozed: waiting, but you said it can wait
   purple       the session changed in the last minute
   idle?        working, but quiet for 10 minutes: it may have been interrupted
-
-
 
 
 

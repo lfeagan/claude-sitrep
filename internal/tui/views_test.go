@@ -750,7 +750,7 @@ func TestBlockedSessionCountsAsWaitingAndShowsWhy(t *testing.T) {
 
 func TestHelpWrapsInsteadOfCuttingOnANarrowScreen(t *testing.T) {
 	for _, w := range []int{50, 60, 70, 80, 100} {
-		out := helpScreen(w, 80, false, plainTheme())
+		out := helpScreen(w, 140, false, plainTheme())
 		for _, l := range strings.Split(out, "\n") {
 			if strings.Contains(l, "…") {
 				t.Errorf("width %d cuts a line: %q", w, l)

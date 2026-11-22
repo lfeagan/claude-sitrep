@@ -191,10 +191,6 @@ func TestWallKeysMoveAcrossAndDownTheGrid(t *testing.T) {
 		}
 	}
 	m, _ = press(t, m, "G")
-	m, _ = press(t, m, "l")
-	if idx() != 6 {
-		t.Errorf("l at the last tile stays: %d", idx())
-	}
 	m, _ = press(t, m, "j")
 	if idx() != 6 {
 		t.Errorf("j at the last row stays: %d", idx())
@@ -205,7 +201,6 @@ func TestWallKeysMoveAcrossAndDownTheGrid(t *testing.T) {
 		t.Errorf("gg: %d", idx())
 	}
 	// a short last row: down from the middle of the row above goes to the last tile there is
-	m, _ = press(t, m, "j")
 	m, _ = press(t, m, "j")
 	m, _ = press(t, m, "l")
 	m, _ = press(t, m, "j")
@@ -286,5 +281,47 @@ func TestWallTabByNameAndHelp(t *testing.T) {
 		if !strings.Contains(h, want) {
 			t.Errorf("the help should say %q", want)
 		}
+	}
+}
+
+func TestArrowsLeaveTheWallAtItsEnds(t *testing.T) {
+	m := wallModel(t, 5)
+	ids := m.visible()
+	// walk in with the right arrow from Watch, and out the same way
+	w := loaded(t, tabWatch)
+	w, _ = press(t, w, "right")
+	w, _ = press(t, w, "right")
+	if w.tab != tabWall {
+		t.Fatalf("two right arrows reach the Wall: %d", w.tab)
+	}
+	for _, key := range []string{"left", "h"} {
+		if x, _ := press(t, w, key); x.tab != tabTop {
+			t.Errorf("%s on the first tile goes back to the tab it came from: %d", key, x.tab)
+		}
+	}
+	// in the middle they move between tiles, and at the last tile they go on to the next tab
+	m, _ = press(t, m, "right")
+	if m.tab != tabWall || m.selID != ids[1] {
+		t.Fatalf("right moves a tile: tab %d sel %q", m.tab, m.selID)
+	}
+	m, _ = press(t, m, "G")
+	if x, _ := press(t, m, "right"); x.tab != tabWatch {
+		t.Errorf("right on the last tile goes to the next tab, which wraps to Watch: %d", x.tab)
+	}
+	// and the same from the other side: left from Watch wraps to the Wall, on its last tile, and right walks out again
+	back, _ := press(t, loaded(t, tabWatch), "left")
+	if back.tab != tabWall || back.selID != back.visible()[len(back.visible())-1] {
+		t.Fatalf("left from Watch lands on the last tile of the Wall: tab %d sel %q", back.tab, back.selID)
+	}
+	if x, _ := press(t, back, "right"); x.tab != tabWatch {
+		t.Errorf("right walks out again: %d", x.tab)
+	}
+	if x, _ := press(t, m, "left"); x.tab != tabWall || x.selID != ids[3] {
+		t.Errorf("left on the last tile moves a tile: tab %d sel %q", x.tab, x.selID)
+	}
+	// an empty Wall has no tile to move to, so the arrows change tab
+	e := newModel("x", 0, tabWall)
+	if x, _ := press(t, e, "right"); x.tab != tabWatch {
+		t.Errorf("an empty Wall: %d", x.tab)
 	}
 }
