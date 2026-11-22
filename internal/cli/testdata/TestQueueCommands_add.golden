@@ -33,7 +33,7 @@ queued on zzzz (now 5)
 == step 8: exit 1
 --- stdout
 --- stderr
-sitrep: id 'abc' matches 2; run 'sitrep ls'
+sitrep: id 'abc' matches 2: abcd1111, abce2222
 == step 9: exit 1
 --- stdout
 --- stderr

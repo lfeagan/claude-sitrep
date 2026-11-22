@@ -102,6 +102,28 @@ func orDash(s string) string {
 	return s
 }
 
+// wallSizeFor is the tile size to draw: the one chosen, or, until a size is chosen (o.Auto), the standard one when every session fits on
+// the screen and the compact one when they do not, which shows the most.
+func wallSizeFor(s Snapshot, o viewOpts) int {
+	if !o.Auto {
+		return o.Size % wallSizes
+	}
+	list, ended := shown(s, o.ShowEnded)
+	n := len(filterSessions(list, o.Filter))
+	foot := 1 // the summary line
+	if ended > 0 {
+		foot++
+	}
+	if s.Hidden.StrandedItems > 0 {
+		foot++
+	}
+	rows := (n + wallCols(o.Width) - 1) / wallCols(o.Width)
+	if o.Height > 0 && rows*(wallRows[wallStandard]+wallGap(wallStandard))-wallGap(wallStandard) > o.Height-foot {
+		return wallCompact
+	}
+	return wallStandard
+}
+
 // wallBody is the tab: a summary line, the tiles in rows, and the footers. It scrolls by tile row so that the selected tile stays on
 // screen, and says how many tiles are above and below. o.Cells, when set, gets the place of every tile that is drawn.
 func wallBody(s Snapshot, o viewOpts) []string {
@@ -111,7 +133,8 @@ func wallBody(s Snapshot, o viewOpts) []string {
 	if s.Inbox.Count > 0 {
 		head += "   inbox " + queueWord(s.Inbox.Count)
 	}
-	head += "   size: " + wallSizeNames[o.Size%wallSizes]
+	size := wallSizeFor(s, o)
+	head += "   size: " + wallSizeNames[size]
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
 		head += "   " + noMatch(s, o)
 	}
@@ -124,7 +147,6 @@ func wallBody(s Snapshot, o viewOpts) []string {
 		foot++
 	}
 
-	size := o.Size % wallSizes
 	rows, gap := wallRows[size], wallGap(size)
 	cols := wallCols(o.Width)
 	tw := max(o.Width/cols, 1) // a tile with its gap

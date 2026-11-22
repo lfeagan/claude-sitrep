@@ -87,7 +87,8 @@ type model struct {
 	pending   string // the first key of a two-key command that waits for its second: g (gg, the first row) or d (dd, remove an item)
 	isDark    bool
 	now       func() time.Time
-	wallSize  int       // the tile size of the Wall tab
+	wallSize  int // the tile size of the Wall tab, once s has chosen one
+	wallSet   bool
 	mouse     bool      // clicks select a row or open a tab, and a double click jumps
 	clickID   string    // the session of the last click, and when it came,
 	clickAt   time.Time // for the double click
@@ -397,6 +398,15 @@ func (m *model) goTop() {
 	}
 }
 
+// wallNow is the tile size the Wall shows now.
+func (m model) wallNow() int {
+	o := viewOpts{Width: m.width, ShowEnded: m.showEnded, Filter: m.filter, Size: m.wallSize, Auto: !m.wallSet}
+	if m.height > 0 {
+		o.Height = max(m.height-len(tabBar(tabWall, m.width, plainTheme()))-1, 1)
+	}
+	return wallSizeFor(m.snap, o)
+}
+
 // listPage is how many sessions ctrl+d and ctrl+u move: about a screen less a line, as the detail view pages. A session takes a few lines
 // on the Cards tab and one on the Table tab.
 func (m model) listPage() int {
@@ -404,7 +414,7 @@ func (m model) listPage() int {
 	case tabTable:
 		return max(m.height-5, 1)
 	case tabWall:
-		return wallPage(m.width, m.height, m.wallSize)
+		return wallPage(m.width, m.height, m.wallNow())
 	}
 	return max((m.height-5)/6, 1)
 }
@@ -679,7 +689,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tabTable: // only the Table view has a sort
 				m.sortBy = (m.sortBy + 1) % sortCount
 			case tabWall:
-				m.wallSize = (m.wallSize + 1) % wallSizes
+				m.wallSize, m.wallSet = (m.wallNow()+1)%wallSizes, true
 			}
 		case "?":
 			m.help = true
@@ -713,7 +723,7 @@ func (m model) click(c tea.Mouse) (tea.Model, tea.Cmd) {
 	}
 	var hits []string
 	var cells []wallCell
-	render(m.snap, m.tab, "", viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Size: m.wallSize, Theme: plainTheme(), Hits: &hits, Cells: &cells})
+	render(m.snap, m.tab, "", viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Size: m.wallSize, Auto: !m.wallSet, Theme: plainTheme(), Hits: &hits, Cells: &cells})
 	id := ""
 	if m.tab == tabWall {
 		for _, cell := range cells {
@@ -771,7 +781,7 @@ func (m model) View() tea.View {
 		if status == "" && (m.filtering || m.filter != "") {
 			status = m.filterStatus()
 		}
-		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Theme: theme})
+		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Theme: theme})
 	}
 	v := tea.NewView(body)
 	v.AltScreen = true

@@ -40,6 +40,7 @@ type viewOpts struct {
 	Theme         Theme
 	Typing        bool        // a filter is being typed, so the footer lists the keys of that
 	Hits          *[]string   // when set, filled with the id of the session on each screen row ("" for none), for a mouse click
+	Auto          bool        // no tile size is chosen yet: the Wall picks the one that fits
 	Size          int         // the Wall's tile size (wallStandard, wallRoomy or wallCompact)
 	Cells         *[]wallCell // when set, filled with the place of each tile of the Wall, for a mouse click
 }

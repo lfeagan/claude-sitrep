@@ -325,3 +325,27 @@ func TestArrowsLeaveTheWallAtItsEnds(t *testing.T) {
 		t.Errorf("an empty Wall: %d", x.tab)
 	}
 }
+
+func TestWallPicksCompactWhenTheTilesDoNotFit(t *testing.T) {
+	size := func(n, h int, set bool, chosen int) int {
+		return wallSizeFor(wallSnap(n), viewOpts{Width: 100, Height: h, Auto: !set, Size: chosen})
+	}
+	if got := size(4, 22, false, 0); got != wallStandard {
+		t.Errorf("a few sessions get the standard tiles: %d", got)
+	}
+	if got := size(15, 22, false, 0); got != wallCompact {
+		t.Errorf("sessions that do not fit get the compact tiles: %d", got)
+	}
+	if got := size(15, 22, true, wallRoomy); got != wallRoomy {
+		t.Errorf("a chosen size is kept: %d", got)
+	}
+	m := loaded(t, tabWall)
+	m.snap = wallSnap(15)
+	m.width, m.height = 100, 26
+	if m.wallNow() != wallCompact {
+		t.Fatalf("the dashboard starts compact: %d", m.wallNow())
+	}
+	if m, _ = press(t, m, "s"); !m.wallSet || m.wallSize != wallStandard {
+		t.Errorf("s moves on from the size shown: set %v size %d", m.wallSet, m.wallSize)
+	}
+}

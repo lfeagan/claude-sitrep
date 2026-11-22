@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -166,7 +167,7 @@ func TestResolve(t *testing.T) {
 		}
 	}
 	for in, msg := range map[string]string{
-		"15f":      "id '15f' matches 2; run 'sitrep ls'",
+		"15f":      "id '15f' matches 2: 15f1aaaa, 15f2bbbb",
 		"nope":     "id 'nope' matches 0; run 'sitrep ls'",
 		"a":        "id 'a' matches 0; run 'sitrep ls'", // a.b is not a valid id
 		"nonotes":  "id 'nonotes' matches 0; run 'sitrep ls'",
@@ -438,5 +439,21 @@ func TestTryLockRefusesLink(t *testing.T) {
 	}
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
 		t.Fatal("made a file through a link")
+	}
+}
+
+func TestResolveListsWhatAnAmbiguousPrefixMatches(t *testing.T) {
+	s := Open(t.TempDir())
+	if err := s.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 7; i++ {
+		id := fmt.Sprintf("host%04d", i)
+		os.MkdirAll(s.Dir+"/sessions/"+id, 0o700)
+		os.WriteFile(s.Path(ID(id), "notes"), []byte("Objective: x\n"), 0o600)
+	}
+	_, err := s.Resolve("host")
+	if err == nil || !strings.Contains(err.Error(), "host0000, host0001") || !strings.Contains(err.Error(), "and 2 more") {
+		t.Errorf("the error names the sessions: %v", err)
 	}
 }

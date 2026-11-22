@@ -256,13 +256,30 @@ func (s Store) Resolve(prefix string) (ID, error) {
 			}
 		}
 		if len(m) > 1 {
-			return "", fmt.Errorf("alias '%s' is held by %d sessions; run 'sitrep ls'", prefix, len(m))
+			return "", fmt.Errorf("alias '%s' is held by %d sessions: %s", prefix, len(m), idList(m))
 		}
+	}
+	if len(m) > 1 {
+		return "", fmt.Errorf("id '%s' matches %d: %s", prefix, len(m), idList(m))
 	}
 	if len(m) != 1 {
 		return "", fmt.Errorf("id '%s' matches %d; run 'sitrep ls'", prefix, len(m))
 	}
 	return m[0], nil
+}
+
+// idList names the first few of several sessions by their whole ids, so that the person can type enough of one.
+func idList(m []ID) string {
+	const most = 5
+	var names []string
+	for _, id := range m[:min(len(m), most)] {
+		names = append(names, string(id))
+	}
+	out := strings.Join(names, ", ")
+	if len(m) > most {
+		out += fmt.Sprintf(" and %d more", len(m)-most)
+	}
+	return out
 }
 
 // ReadFile reads at most max bytes of a regular file, and nothing else: a link, a pipe, a device or a directory is an error, and opening
