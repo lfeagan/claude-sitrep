@@ -71,7 +71,7 @@ func TestCompleteFlagValues(t *testing.T) {
 	e := completionEnv(t)
 	ctx := context.Background()
 	for _, w := range [][]string{{"watch", "--tab", ""}, {"status", "--tab", "t"}} {
-		if got := e.complete(ctx, w); !reflect.DeepEqual(got, []string{"top", "wall", "watch"}) {
+		if got := e.complete(ctx, w); !reflect.DeepEqual(got, []string{"table", "wall", "watch"}) {
 			t.Errorf("%v: %v", w, got)
 		}
 	}
@@ -189,8 +189,8 @@ func TestBashScript(t *testing.T) {
 			`sitrep ls abc`:        "abcd1 abcd2",
 			`sitrep ls z`:          "zzzz",
 			`sitrep wa`:            "watch",
-			`sitrep watch --tab t`: "top",
-			`sitrep status --tab `: "top wall watch",
+			`sitrep watch --tab t`: "table",
+			`sitrep status --tab `: "table wall watch",
 			`sitrep pin i`:         "",
 			`sitrep move abcd1 in`: "inbox",
 			`sitrep prune --d`:     "--dry-run",

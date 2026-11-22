@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // rowOf finds a screen row that belongs to the session, by the same map a click uses.
@@ -38,7 +39,7 @@ func mouseModel(t *testing.T, tab int) (model, *time.Time) {
 }
 
 func TestClickSelectsAndDoubleClickJumps(t *testing.T) {
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		m, clock := mouseModel(t, tab)
 		id := m.snap.Sessions[1].ID
 		y := rowOf(t, m, id, 0)
@@ -166,5 +167,78 @@ func TestHitsFollowTheScroll(t *testing.T) {
 	}
 	if hits[0] != "" || hits[len(hits)-1] != "" {
 		t.Error("the tab bar and the status bar are no session")
+	}
+}
+
+func TestClickOnATabNameOpensTheTab(t *testing.T) {
+	for _, name := range ThemeNames { // the names are drawn with different padding in different themes
+		m, _ := mouseModel(t, tabWatch)
+		m.snap.Settings.Theme = name
+		parts := tabParts(0, themeFor(m.isDark, m.snap.Settings))
+		col := 0
+		for i, p := range parts {
+			w := ansi.StringWidth(p)
+			for _, x := range []int{col, col + w/2, col + w - 1} { // either end and the middle of the name with its space
+				next, cmd := m.Update(tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft})
+				if got := next.(model); got.tab != i || cmd != nil {
+					t.Errorf("a click at column %d opens tab %d, got %d", x, i, got.tab)
+				}
+			}
+			col += w
+		}
+		for _, x := range []int{col, col + 10, -1} {
+			if next, _ := m.Update(tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft}); next.(model).tab != tabWatch {
+				t.Errorf("a click at column %d, beyond the names, opens nothing", x)
+			}
+		}
+	}
+}
+
+func TestClickOnATabNeedsTheMouseAndNoScreenOpen(t *testing.T) {
+	m, _ := mouseModel(t, tabWatch)
+	click := tea.MouseClickMsg{X: 9, Y: 0, Button: tea.MouseLeft} // inside the second name
+	if next, _ := m.Update(click); next.(model).tab != tabTable {
+		t.Fatal("the click opens the Table tab")
+	}
+	off := m
+	off.mouse = false
+	if next, _ := off.Update(click); next.(model).tab != tabWatch {
+		t.Error("with the mouse off a click does nothing")
+	}
+	right := tea.MouseClickMsg{X: 9, Y: 0, Button: tea.MouseRight}
+	if next, _ := m.Update(right); next.(model).tab != tabWatch {
+		t.Error("only the left button")
+	}
+	for name, set := range map[string]func(*model){
+		"help":   func(m *model) { m.help = true },
+		"detail": func(m *model) { m.detail = true },
+		"queue":  func(m *model) { m.queue = true },
+		"filter": func(m *model) { m.filtering = true },
+	} {
+		o := m
+		set(&o)
+		if next, _ := o.Update(click); next.(model).tab != tabWatch {
+			t.Errorf("%s: the tab bar is not on screen, so the click does nothing", name)
+		}
+	}
+	// before the first snapshot there are tabs to click and nothing in them
+	empty := newModel("x", 0, tabWatch)
+	empty.mouse = true
+	if next, _ := empty.Update(click); next.(model).tab != tabTable {
+		t.Error("a tab opens before any data has come")
+	}
+}
+
+func TestClickOnATabKeepsTheSelectionAndStopsADoubleClick(t *testing.T) {
+	m, _ := mouseModel(t, tabWatch)
+	id := m.snap.Sessions[1].ID
+	m, _ = clickAt(m, rowOf(t, m, id, 0)) // the first click of a pair
+	next, _ := m.Update(tea.MouseClickMsg{X: 9, Y: 0, Button: tea.MouseLeft})
+	m = next.(model)
+	if m.selID != id || m.tab != tabTable {
+		t.Errorf("the selection follows the session to the other tab: %q tab %d", m.selID, m.tab)
+	}
+	if m.clickID != "" {
+		t.Error("a click on a tab ends the pair of clicks that a double click is")
 	}
 }

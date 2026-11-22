@@ -227,9 +227,9 @@ func TestSCyclesTheTileSizeOnTheWallOnly(t *testing.T) {
 	if v := m.View().Content; !strings.Contains(v, "size: standard") || !strings.Contains(v, "s size") {
 		t.Errorf("the tab says its size and the key:\n%s", v)
 	}
-	top := loaded(t, tabTop)
+	top := loaded(t, tabTable)
 	if top2, _ := press(t, top, "s"); top2.wallSize != 0 || top2.sortBy == 0 {
-		t.Error("s on Top sorts and leaves the Wall alone")
+		t.Error("s on Table sorts and leaves the Wall alone")
 	}
 }
 
@@ -295,7 +295,7 @@ func TestArrowsLeaveTheWallAtItsEnds(t *testing.T) {
 		t.Fatalf("two right arrows reach the Wall: %d", w.tab)
 	}
 	for _, key := range []string{"left", "h"} {
-		if x, _ := press(t, w, key); x.tab != tabTop {
+		if x, _ := press(t, w, key); x.tab != tabTable {
 			t.Errorf("%s on the first tile goes back to the tab it came from: %d", key, x.tab)
 		}
 	}

@@ -87,7 +87,7 @@ type model struct {
 	isDark    bool
 	now       func() time.Time
 	wallSize  int       // the tile size of the Wall tab
-	mouse     bool      // clicks select a row, and a double click jumps
+	mouse     bool      // clicks select a row or open a tab, and a double click jumps
 	clickID   string    // the session of the last click, and when it came,
 	clickAt   time.Time // for the double click
 }
@@ -397,10 +397,10 @@ func (m *model) goTop() {
 }
 
 // listPage is how many sessions ctrl+d and ctrl+u move: about a screen less a line, as the detail view pages. A session takes a few lines
-// on the Watch tab and one on the Top tab.
+// on the Watch tab and one on the Table tab.
 func (m model) listPage() int {
 	switch m.tab {
-	case tabTop:
+	case tabTable:
 		return max(m.height-5, 1)
 	case tabWall:
 		return wallPage(m.width, m.height, m.wallSize)
@@ -670,7 +670,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.fixSel()
 		case "s":
 			switch m.tab {
-			case tabTop: // only the Top view has a sort
+			case tabTable: // only the Table view has a sort
 				m.sortBy = (m.sortBy + 1) % sortCount
 			case tabWall:
 				m.wallSize = (m.wallSize + 1) % wallSizes
@@ -691,8 +691,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // click handles a click on a row of a tab: the first selects the session, a second on the same one within doubleClick jumps, as enter does.
 // Nothing happens while a screen, a question or a line of typing is open, as no row is then on show.
 func (m model) click(c tea.Mouse) (tea.Model, tea.Cmd) {
-	if !m.mouse || c.Button != tea.MouseLeft || !m.haveSnap || m.filtering || m.prune != pruneNone || m.prompt != nil || m.help || m.ask != nil ||
+	if !m.mouse || c.Button != tea.MouseLeft || m.filtering || m.prune != pruneNone || m.prompt != nil || m.help || m.ask != nil ||
 		m.queue || m.detail || m.mover != nil {
+		return m, nil
+	}
+	if c.Y == 0 { // the tab bar: the name of a tab opens it
+		if i := tabAt(c.X, themeFor(m.isDark, m.snap.Settings)); i >= 0 {
+			m.tab, m.pending, m.clickID = i, "", ""
+			m.fixSel()
+		}
+		return m, nil
+	}
+	if !m.haveSnap {
 		return m, nil
 	}
 	var hits []string

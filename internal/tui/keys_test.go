@@ -106,7 +106,7 @@ func TestGGAndGInTheQueueAndTheDetailView(t *testing.T) {
 func TestHAndLSwitchTabs(t *testing.T) {
 	m := loaded(t, tabWatch)
 	m, _ = press(t, m, "l")
-	if m.tab != tabTop {
+	if m.tab != tabTable {
 		t.Errorf("l: %d", m.tab)
 	}
 	m, _ = press(t, m, "h")
@@ -131,7 +131,7 @@ func TestHAndLSwitchTabs(t *testing.T) {
 }
 
 func TestPagingTheLists(t *testing.T) {
-	m := loaded(t, tabTop)
+	m := loaded(t, tabTable)
 	m.height = 7 // a Top page is height-5 = 2 rows
 	ids := m.visible()
 	if len(ids) < 3 {
@@ -247,7 +247,7 @@ func takeModel(t *testing.T, tab int) (model, *fake) {
 }
 
 func TestANumberAsksToTakeAnInboxItem(t *testing.T) {
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		m, f := takeModel(t, tab)
 		id := m.selID
 		items := m.snap.Inbox.Items

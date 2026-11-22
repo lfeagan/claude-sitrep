@@ -12,7 +12,7 @@ Keys
                                  tab)
   1-9                            take that inbox item into the selected session
   a                              show or hide ended sessions
-  s                              cycle the Top sort, or the Wall's tile size
+  s                              cycle the Table sort, or the Wall's tile size
   /                              filter the sessions; enter keeps it, esc clears
                                  it
   ctrl+u, ctrl+w                 in a line you type: clear it, or its last word
@@ -31,7 +31,7 @@ Keys
 Tabs
 
   Watch   every session as a block: Objective, Progress, Now and the queue
-  Top     a summary line, then one line per session (CTX: context left)
+  Table   a summary line, then one line per session (CTX: context left)
   Wall    the sessions as tiles of one size, many to a screen, those that need
           you first
 

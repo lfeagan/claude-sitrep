@@ -112,7 +112,7 @@ func newModelWith(t *testing.T, th Theme) string {
 	t.Helper()
 	s := loadFixture(t)
 	o := viewOpts{Width: 80, Height: 40, Theme: th, Sel: s.Sessions[0].ID}
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		for _, l := range strings.Split(render(s, tab, "", o), "\n") {
 			if ansi.StringWidth(l) > 80 {
 				t.Errorf("a line wider than the screen: %q", l)

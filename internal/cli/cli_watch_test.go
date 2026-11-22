@@ -30,7 +30,7 @@ func TestStatusPrintsAFrame(t *testing.T) {
 		t.Errorf("%q", out)
 	}
 	out.Reset()
-	if code := Run([]string{"status", "-a", "--tab", "top", "--width", "60"}, e); code != 0 {
+	if code := Run([]string{"status", "-a", "--tab", "table", "--width", "60"}, e); code != 0 {
 		t.Fatalf("exit %d: %s", code, errb)
 	}
 	if !strings.Contains(out.String(), "done") {
@@ -71,7 +71,7 @@ func TestWatchAndStatusFlagErrors(t *testing.T) {
 		t.Errorf("exit %d: %q", code, errb)
 	}
 	errb.Reset()
-	if code := Run([]string{"watch", "--tab", "top", "-h"}, e); code != 0 {
+	if code := Run([]string{"watch", "--tab", "table", "-h"}, e); code != 0 {
 		t.Errorf("-h exits %d", code)
 	}
 }

@@ -346,7 +346,7 @@ func (m model) askKey(key string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// takeDigit is a number on the Watch or Top tab: it asks whether to move that item of the inbox to the end of the selected session's queue.
+// takeDigit is a number on the Watch or Table tab: it asks whether to move that item of the inbox to the end of the selected session's queue.
 // What it asks, and runs, is what t does in the inbox, so the same checks and the same guard apply.
 func (m model) takeDigit(n int) (tea.Model, tea.Cmd) {
 	x := m.selected()

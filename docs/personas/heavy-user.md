@@ -16,7 +16,7 @@ You use the keyboard, you know the basics of vi, and you read `?` only when some
 
 1. See at a glance how many sessions need you, and find the one that has waited the least. Then find the one that has waited the longest.
 2. Move through about twenty sessions on a 24-row screen: first, last, a page down and up, and check that the selected one is always on screen and that the `+N above` and `+N more` lines tell the truth.
-3. Switch to the Top tab and sort by state, directory and queue size (`s`). Is the order what the sort says it is? Is the list of sessions that need you at the top when sorted by state?
+3. Switch to the Table tab and sort by state, directory and queue size (`s`). Is the order what the sort says it is? Is the list of sessions that need you at the top when sorted by state?
 4. Filter to one project (`/` and a word), check the count line, scroll in the filtered list, clear it.
 5. Snooze three sessions that can wait (`z`) and check the count of sessions that need you falls by three. Un-snooze one.
 6. Show and hide ended sessions (`a`).

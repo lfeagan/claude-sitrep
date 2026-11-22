@@ -94,7 +94,7 @@ func cmdWatch(e Env, args []string) error {
 		return err
 	}
 	fs := e.flags("watch")
-	tab := fs.String("tab", "watch", "the tab to start on: watch, top or wall")
+	tab := fs.String("tab", "watch", "the tab to start on: watch, table or wall")
 	interval := fs.Duration("interval", e.conf().TUIInterval(), "how often to refresh (or set SITREP_TUI_INTERVAL)")
 	once := fs.Bool("once", false, "print one frame as plain text and exit")
 	readOnly := fs.Bool("read-only", envOn(e.conf().Get, "SITREP_TUI_READONLY"), "turn off every key that changes state (or set SITREP_TUI_READONLY)")
@@ -121,7 +121,7 @@ func cmdStatus(e Env, args []string) error {
 		return err
 	}
 	fs := e.flags("status")
-	tab := fs.String("tab", "watch", "the tab: watch, top or wall")
+	tab := fs.String("tab", "watch", "the tab: watch, table or wall")
 	width := fs.Int("width", 100, "the frame width")
 	all := fs.Bool("a", false, "include ended sessions")
 	fs.BoolVar(all, "all", false, "include ended sessions")

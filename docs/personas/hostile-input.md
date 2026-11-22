@@ -18,7 +18,7 @@ You do not trust claims. You test them, from the outside.
 
 For each place text can enter, find out whether anything hostile reaches your terminal or misleads you:
 
-1. **Every screen and tab** of the dashboard for the hostile sessions: Watch, Top, the detail view (`v`), the queue view (`e` and `i`), the help, the status bar, and a filter typed or pasted with hostile text.
+1. **Every screen and tab** of the dashboard for the hostile sessions: Watch, Table, Wall, the detail view (`v`), the queue view (`e` and `i`), the help, the status bar, and a filter typed or pasted with hostile text.
 2. **Every command output**, plain and `--json`: no escape or control bytes, no bidi characters, no raw newlines inside a field. Check `--json` is valid JSON.
 3. **The terminal itself:** after viewing everything, did the window title change? Did the screen clear or jump when it should not? Did anything write to the clipboard (OSC 52 is only legitimate when you press `y` or `Y`, and then only for an id or a resume command)?
 4. **Things that must not be followed or read:** the linked `queue` and `cwd` files, the binary `state` file, the folders `bad name` and `..evil`, the 20,000 character field and the 3,000 item queue. Does the program stay fast and responsive (time the commands), refuse politely, and show something that is not misleading?

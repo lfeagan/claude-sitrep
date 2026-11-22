@@ -46,11 +46,11 @@ func TestWatchGolden(t *testing.T) {
 
 func TestTopGolden(t *testing.T) {
 	s := loadFixture(t)
-	golden(t, "top_80x12", render(s, tabTop, "", opts(80, 12)))
-	golden(t, "top_50x12", render(s, tabTop, "", opts(50, 12)))
+	golden(t, "top_80x12", render(s, tabTable, "", opts(80, 12)))
+	golden(t, "top_50x12", render(s, tabTable, "", opts(50, 12)))
 	o := opts(80, 12)
 	o.ShowEnded = true
-	golden(t, "top_80x12_all", render(s, tabTop, "", o))
+	golden(t, "top_80x12_all", render(s, tabTable, "", o))
 }
 
 func TestErrorShowsInStatusBar(t *testing.T) {
@@ -68,7 +68,7 @@ func TestErrorShowsInStatusBar(t *testing.T) {
 // Whatever the size, no line may be wider than the screen, nor the frame taller.
 func TestFramesFit(t *testing.T) {
 	s := loadFixture(t)
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		for _, w := range []int{20, 30, 40, 60, 80, 120} {
 			for _, h := range []int{5, 8, 12, 30} {
 				for _, ended := range []bool{false, true} {
@@ -187,7 +187,7 @@ func TestSummaryCounts(t *testing.T) {
 
 func TestTinyScreensNeverOverflow(t *testing.T) {
 	s := loadFixture(t)
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		for w := 1; w <= 16; w++ {
 			for h := 1; h <= 5; h++ {
 				lines := strings.Split(render(s, tab, "", opts(w, h)), "\n")
@@ -223,9 +223,9 @@ func TestNeedsInputIsMarkedAndColoured(t *testing.T) {
 	if strings.Count(plain, "● waiting 3m") != 1 || strings.Contains(plain, "● working") {
 		t.Errorf("only the waiting session carries the marker:\n%s", plain)
 	}
-	top := render(s, tabTop, "", opts(80, 12))
+	top := render(s, tabTable, "", opts(80, 12))
 	if !strings.Contains(top, "● waiting 3m") {
-		t.Errorf("the Top tab marks it too:\n%s", top)
+		t.Errorf("the Table tab marks it too:\n%s", top)
 	}
 	const attn, hot = "48;2;92;31;53", "48;5;238" // the dark attention colour, and the recent-activity colour
 	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
@@ -338,13 +338,13 @@ func TestTopNamesItsSort(t *testing.T) {
 	for by := 0; by < sortCount; by++ {
 		o := opts(100, 12)
 		o.Sort = by
-		if got := render(s, tabTop, "", o); !strings.Contains(got, "sort: "+sortNames[by]) {
-			t.Errorf("the Top view should say it is sorted by %s:\n%s", sortNames[by], got)
+		if got := render(s, tabTable, "", o); !strings.Contains(got, "sort: "+sortNames[by]) {
+			t.Errorf("the Table view should say it is sorted by %s:\n%s", sortNames[by], got)
 		}
 	}
 	o := opts(80, 12)
 	o.Sort = sortState
-	golden(t, "top_80x12_by_state", render(s, tabTop, "", o))
+	golden(t, "top_80x12_by_state", render(s, tabTable, "", o))
 	if got := render(s, tabWatch, "", opts(100, 40)); strings.Contains(got, "sort:") {
 		t.Errorf("the Watch view has no sort")
 	}
@@ -358,7 +358,7 @@ func TestStatusBarHints(t *testing.T) {
 	if got := last(80); !strings.Contains(got, "enter jump") || !strings.Contains(got, "? help") || !strings.Contains(got, "● 1 need you") || strings.Contains(got, "s sort") {
 		t.Errorf("at 80 columns the Watch bar keeps who needs you and the key hints, and has no sort: %q", got)
 	}
-	top := strings.Split(render(loadFixture(t), tabTop, "", opts(80, 20)), "\n")
+	top := strings.Split(render(loadFixture(t), tabTable, "", opts(80, 20)), "\n")
 	if got := top[len(top)-1]; !strings.Contains(got, "s sort") || !strings.Contains(got, "? help") {
 		t.Errorf("the Top bar has the sort: %q", got)
 	}
@@ -371,7 +371,7 @@ func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
 			t.Errorf("width %d: %q, want %q", w, got, want)
 		}
 	}
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		for w := 1; w <= 120; w++ {
 			last := func(out string) string { l := strings.Split(out, "\n"); return l[len(l)-1] }
 			if got := last(render(loadFixture(t), tab, "", opts(w, 12))); ansi.StringWidth(got) > w {
@@ -383,7 +383,7 @@ func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
 
 func TestHelpScreen(t *testing.T) {
 	out := helpScreen(80, 60, false, plainTheme())
-	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Top sort", "refresh", "quit", "Watch", "Top ", "pink-red", "purple", "any key closes"} {
+	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Table sort", "refresh", "quit", "Watch", "Table ", "pink-red", "purple", "any key closes"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the help should mention %q", want)
 		}
@@ -409,7 +409,7 @@ func TestVisibleIDsFollowTheTab(t *testing.T) {
 	if got := strings.Join(visibleIDs(s, tabWatch, false, sortState, ""), " "); !strings.HasPrefix(got, "15f1") {
 		t.Errorf("Watch ignores the sort and keeps activity order: %s", got)
 	}
-	if got := visibleIDs(s, tabTop, false, sortState, ""); len(got) != 3 || !strings.HasPrefix(got[0], "b1fb") {
+	if got := visibleIDs(s, tabTable, false, sortState, ""); len(got) != 3 || !strings.HasPrefix(got[0], "b1fb") {
 		t.Errorf("Top follows the sort: %v", got)
 	}
 	if got := visibleIDs(s, tabWatch, true, sortActivity, ""); len(got) != 4 {
@@ -421,7 +421,7 @@ func TestSelectionMarker(t *testing.T) {
 	s := loadFixture(t)
 	o := opts(80, 40)
 	o.Sel = s.Sessions[2].ID
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		out := render(s, tab, "", o)
 		if strings.Count(out, "▶ ") != 1 {
 			t.Fatalf("tab %d: exactly one marker:\n%s", tab, out)
@@ -437,18 +437,18 @@ func TestSelectionMarker(t *testing.T) {
 		t.Errorf("no selection, no marker")
 	}
 	o.Sel, o.Width = s.Sessions[2].ID, 19
-	if strings.Contains(render(s, tabTop, "", o), "▶") {
+	if strings.Contains(render(s, tabTable, "", o), "▶") {
 		t.Errorf("a narrow screen has no gutter")
 	}
 	golden(t, "watch_80x40_sel", render(s, tabWatch, "", viewOpts{Width: 80, Height: 40, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
-	golden(t, "top_80x12_sel", render(s, tabTop, "", viewOpts{Width: 80, Height: 12, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
+	golden(t, "top_80x12_sel", render(s, tabTable, "", viewOpts{Width: 80, Height: 12, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
 }
 
 func TestScrollingKeepsTheSelectionOnScreen(t *testing.T) {
 	s := loadFixture(t)
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		minH := 10 // below this the chrome, the footers and one block cannot all fit
-		if tab == tabTop {
+		if tab == tabTable {
 			minH = 7
 		}
 		for _, sess := range s.Sessions[:3] {
@@ -477,7 +477,7 @@ func TestAliasInTheDashboard(t *testing.T) {
 	}
 	s.Sessions[0].Alias = "sitrep"
 	s.Sessions[1].Alias = "a-name-that-is-much-too-long"
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		for _, w := range []int{20, 40, 80, 120} {
 			o := opts(w, 40)
 			o.ShowEnded = true
@@ -496,7 +496,7 @@ func TestAliasInTheDashboard(t *testing.T) {
 	if w := idWidth(s); w != maxLabelWidth {
 		t.Errorf("width %d", w)
 	}
-	only := render(s, tabTop, strings.ToLower(s.Sessions[0].ID[:4]), opts(80, 40))
+	only := render(s, tabTable, strings.ToLower(s.Sessions[0].ID[:4]), opts(80, 40))
 	if !strings.Contains(only, "ID                ") {
 		t.Errorf("the column narrowed with a filter:\n%s", only)
 	}
@@ -567,7 +567,7 @@ func TestContextColumn(t *testing.T) {
 		}
 	}
 	for _, w := range []int{80, 100, 120} {
-		top := render(s, tabTop, "", opts(w, 12))
+		top := render(s, tabTable, "", opts(w, 12))
 		if !strings.Contains(top, "CTX") || !strings.Contains(top, "62%") || !strings.Contains(top, "!6%") {
 			t.Errorf("width %d: the column and its values are drawn:\n%s", w, top)
 		}
@@ -580,7 +580,7 @@ func TestContextColumn(t *testing.T) {
 func TestContextColumnDropsByTheRoomNowHas(t *testing.T) {
 	s := loadFixture(t)
 	for w := 1; w <= 140; w++ {
-		top := render(s, tabTop, "", opts(w, 12))
+		top := render(s, tabTable, "", opts(w, 12))
 		for _, l := range strings.Split(top, "\n") {
 			if ansi.StringWidth(l) > w {
 				t.Fatalf("width %d: a line is %d wide: %q", w, ansi.StringWidth(l), l)
@@ -596,16 +596,16 @@ func TestContextColumnDropsByTheRoomNowHas(t *testing.T) {
 			}
 		}
 	}
-	if top := render(s, tabTop, "", opts(50, 12)); strings.Contains(top, "CTX") {
+	if top := render(s, tabTable, "", opts(50, 12)); strings.Contains(top, "CTX") {
 		t.Errorf("a narrow screen has no CTX column:\n%s", top)
 	}
-	if top := render(s, tabTop, "", opts(80, 12)); !strings.Contains(top, "CTX") {
+	if top := render(s, tabTable, "", opts(80, 12)); !strings.Contains(top, "CTX") {
 		t.Errorf("80 columns has it:\n%s", top)
 	}
 	// the column appears, and disappears, with a change of width: both are exercised
 	seen := map[bool]bool{}
 	for w := 40; w <= 120; w++ {
-		seen[strings.Contains(render(s, tabTop, "", opts(w, 12)), "CTX")] = true
+		seen[strings.Contains(render(s, tabTable, "", opts(w, 12)), "CTX")] = true
 	}
 	if !seen[true] || !seen[false] {
 		t.Errorf("the sweep must cross the threshold: %v", seen)

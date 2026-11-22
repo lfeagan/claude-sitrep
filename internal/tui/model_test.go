@@ -61,7 +61,7 @@ func press(t *testing.T, m model, s string) (model, tea.Cmd) {
 func TestKeysSwitchTabs(t *testing.T) {
 	m := newModel("x", time.Second, tabWatch)
 	m, _ = press(t, m, "tab")
-	if m.tab != tabTop {
+	if m.tab != tabTable {
 		t.Errorf("tab should go to Top, got %d", m.tab)
 	}
 	m, _ = press(t, m, "tab")
@@ -79,7 +79,7 @@ func TestKeysSwitchTabs(t *testing.T) {
 	m, _ = press(t, m, "shift+tab")
 	m, _ = press(t, m, "left")
 	m, _ = press(t, m, "right")
-	if m.tab != tabTop {
+	if m.tab != tabTable {
 		t.Errorf("left then right should come back, got %d", m.tab)
 	}
 }
@@ -248,7 +248,7 @@ func TestZeroSizedWindowMeansOneRow(t *testing.T) {
 }
 
 func TestSKeyCyclesTheTopSort(t *testing.T) {
-	m := newModel("x", time.Second, tabTop)
+	m := newModel("x", time.Second, tabTable)
 	for want := 1; want <= sortCount; want++ {
 		m, _ = press(t, m, "s")
 		if m.sortBy != want%sortCount {
@@ -344,7 +344,7 @@ func TestSelectionKeys(t *testing.T) {
 }
 
 func TestSelectionFollowsTheSessionNotTheRow(t *testing.T) {
-	m := loaded(t, tabTop)
+	m := loaded(t, tabTable)
 	m, _ = press(t, m, "down")
 	want := m.selID
 	m, _ = press(t, m, "s") // a new sort changes the rows, not the selection
@@ -658,7 +658,7 @@ func TestFilterSlashIsIgnoredInDetailAndHelp(t *testing.T) {
 }
 
 func TestFilterViewSaysWhenNothingMatches(t *testing.T) {
-	for _, tab := range []int{tabWatch, tabTop} {
+	for _, tab := range []int{tabWatch, tabTable} {
 		m := loaded(t, tab)
 		m.width, m.height = 80, 20
 		m, _ = press(t, m, "/")

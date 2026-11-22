@@ -4,17 +4,17 @@ Status: built (0.19.0).
 
 ## Claim
 
-Watch gives each session a block of five to eleven rows, so a 24-row pane shows two sessions, and Top gives each one row but shows almost nothing about it. A user who runs twenty sessions (the heavy-user persona, and the user's own idea of a "super-industrial" view) needs a third view that shows many sessions at once, with the state of each, and lets the eye find the ones that need them. A new tab, **Wall**, lays the sessions out as tiles in as many columns as the width allows.
+Watch gives each session a block of five to eleven rows, so a 24-row pane shows two sessions, and Table gives each one row but shows almost nothing about it. A user who runs twenty sessions (the heavy-user persona, and the user's own idea of a "super-industrial" view) needs a third view that shows many sessions at once, with the state of each, and lets the eye find the ones that need them. A new tab, **Wall**, lays the sessions out as tiles in as many columns as the width allows.
 
 ## Rule
 
 1. Every tile has the same height, whether or not its session has a queue. A grid only lines up if its cells are as high as one another, and `j` and `k` mean "the tile above and below" only then. A tile whose content is short leaves rows blank. A tile never changes its height when its session changes, so tiles do not jump on a refresh.
 2. The number of columns is the width divided by 30 (at least one), and the tiles share the width. The tile rows scroll as a whole, with `+N above` and `+N more` lines that count tiles.
-3. The order is the one of the Top tab sorted by state: sessions that need the user first, then the order of the other tabs. Selection moves through the tiles in that order, left to right and then down.
+3. The order is the one of the Table tab sorted by state: sessions that need the user first, then the order of the other tabs. Selection moves through the tiles in that order, left to right and then down.
 
 ## A tile
 
-Three sizes, cycled with `s` (Top's sort key, which Wall does not need). The default is standard.
+Three sizes, cycled with `s` (the Table's sort key, which Wall does not need). The default is standard.
 
 | Size | Rows | Content |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ On Wall `h`, `l`, `left` and `right` move between tiles and `j`, `k`, `up` and `
 
 ## What the tab line shows
 
-One summary line (the counts of Top, and the inbox), then the tiles.
+One summary line (the counts of Table, and the inbox), then the tiles.
 
 ## Not proposed
 

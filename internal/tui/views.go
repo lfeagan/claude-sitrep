@@ -13,14 +13,14 @@ import (
 
 const (
 	tabWatch = iota
-	tabTop
+	tabTable
 	tabWall
 	tabCount
 )
 
-var tabNames = [tabCount]string{"Watch", "Top", "Wall"}
+var tabNames = [tabCount]string{"Watch", "Table", "Wall"}
 
-// The Top view can be sorted four ways. Activity is the order sitrep sends, newest first.
+// The Table view can be sorted four ways. Activity is the order sitrep sends, newest first.
 const (
 	sortActivity = iota
 	sortState
@@ -49,7 +49,7 @@ func visibleIDs(s Snapshot, tab int, showEnded bool, by int, filter string) []st
 	list, _ := shown(s, showEnded)
 	list = filterSessions(list, filter)
 	switch tab {
-	case tabTop:
+	case tabTable:
 		list = sorted(list, by)
 	case tabWall:
 		list = sorted(list, sortState)
@@ -520,7 +520,8 @@ func topBody(s Snapshot, o viewOpts) []string {
 	return fitBlocks(head, blocks, ids, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
 }
 
-func tabBar(active, width int, th Theme) []string {
+// tabParts is the text of each tab's name, as the tab bar draws it.
+func tabParts(active int, th Theme) []string {
 	var parts []string
 	for i, n := range tabNames {
 		switch {
@@ -534,7 +535,24 @@ func tabBar(active, width int, th Theme) []string {
 			parts = append(parts, th.Tab.Render(n))
 		}
 	}
-	return []string{ansi.Truncate(strings.Join(parts, ""), max(width, 1), ""), th.Rule.Render(strings.Repeat("─", max(width, 1)))}
+	return parts
+}
+
+func tabBar(active, width int, th Theme) []string {
+	return []string{ansi.Truncate(strings.Join(tabParts(active, th), ""), max(width, 1), ""), th.Rule.Render(strings.Repeat("─", max(width, 1)))}
+}
+
+// tabAt is the tab whose name is under column x of the tab bar, or -1: the names, with the space around them that the bar draws, so that a
+// click just beside a name is still a click on it.
+func tabAt(x int, th Theme) int {
+	col := 0
+	for i, p := range tabParts(0, th) {
+		col += ansi.StringWidth(p)
+		if x >= 0 && x < col {
+			return i
+		}
+	}
+	return -1
 }
 
 // statusBar shows the counts on the left and the keys on the right. A failed refresh
@@ -546,7 +564,7 @@ func statusBar(s Snapshot, width int, errText string, tab int, typing, filtered 
 	}
 	hints := []string{"q quit", "enter jump", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
 	switch tab {
-	case tabTop: // only the Top view has a sort
+	case tabTable: // only the Table view has a sort
 		hints = []string{"q quit", "enter jump", "s sort", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
 	case tabWall:
 		hints = []string{"q quit", "enter jump", "hjkl move", "s size", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
@@ -626,7 +644,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"                                 (left of the first and right of the last: the tab)",
 		"  1-9                            take that inbox item into the selected session",
 		"  a                              show or hide ended sessions",
-		"  s                              cycle the Top sort, or the Wall's tile size",
+		"  s                              cycle the Table sort, or the Wall's tile size",
 		"  /                              filter the sessions; enter keeps it, esc clears it",
 		"  ctrl+u, ctrl+w                 in a line you type: clear it, or its last word",
 		"  i, e                           the inbox, or the session's queue; in a queue, the other one",
@@ -642,7 +660,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"Tabs",
 		"",
 		"  Watch   every session as a block: Objective, Progress, Now and the queue",
-		"  Top     a summary line, then one line per session (CTX: context left)",
+		"  Table   a summary line, then one line per session (CTX: context left)",
 		"  Wall    the sessions as tiles of one size, many to a screen, those that need you first",
 		"",
 		"Colours",
@@ -693,7 +711,7 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 	}
 	var cells []wallCell
 	switch tab {
-	case tabTop:
+	case tabTable:
 		body = topBody(s, bodyOpts)
 	case tabWall:
 		if o.Cells != nil {

@@ -47,13 +47,16 @@ func TestFromSnapshot(t *testing.T) {
 }
 
 func TestTabByName(t *testing.T) {
-	for name, want := range map[string]int{"": tabWatch, "watch": tabWatch, "top": tabTop} {
+	for name, want := range map[string]int{"": tabWatch, "watch": tabWatch, "table": tabTable, "wall": tabWall} {
 		if got, err := tabByName(name); err != nil || got != want {
 			t.Errorf("%q: %d, %v", name, got, err)
 		}
 	}
 	if _, err := tabByName("nope"); err == nil || !strings.Contains(err.Error(), `unknown tab "nope"`) {
 		t.Errorf("%v", err)
+	}
+	if _, err := tabByName("top"); err == nil || !strings.Contains(err.Error(), "watch, table or wall") {
+		t.Errorf("the old name is gone: %v", err)
 	}
 }
 
@@ -69,7 +72,7 @@ func TestFrame(t *testing.T) {
 	eng.Snapshot = func(context.Context) (snapshot.Snapshot, error) {
 		return snapshot.Snapshot{}, errors.New("no registry")
 	}
-	if _, err := Frame(context.Background(), eng, "top", 100, false); err == nil || err.Error() != "no registry" {
+	if _, err := Frame(context.Background(), eng, "table", 100, false); err == nil || err.Error() != "no registry" {
 		t.Errorf("%v", err)
 	}
 }

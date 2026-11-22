@@ -19,7 +19,7 @@ You need Go 1.26 or newer (`go version`) and the `claude` CLI, because setup bui
 The dashboard lists your sessions, and a session "needs you" when Claude has stopped and the next move is yours, or when it waits at a permission dialog:
 
 ```
- Watch  Top
+ Watch  Table  Wall
 ────────────────────────────────────────────────────────────────────
 Inbox: 3 items
 ▶ 5b7d  web   working <1m   1 item         <- ▶ is the selected row
@@ -97,7 +97,7 @@ The inbox is a queue that belongs to no session, for work you have not yet match
 `sitrep watch` is a full-screen view of all your sessions, with a status bar. Without a terminal it prints one frame and exits, and `sitrep status` always does.
 
 1. **Watch** shows Objective, Progress, Now and the queue of each session.
-2. **Top** is a summary line and one line per session, with its state, queue size, the share of its context window left (CTX) and what it is doing now.
+2. **Table** is a summary line and one line per session, with its state, queue size, the share of its context window left (CTX) and what it is doing now.
 3. **Wall** lays the sessions out as tiles of one size, in as many columns as the width holds, for twenty sessions at once. The sessions that need you come first, `h` `l` `j` `k` move between tiles, and `s` changes the tile size.
 
 A session that needs you, meaning Claude has stopped and the next move is yours, or it waits at a permission dialog, has a `●` before its state and a coloured background, and the status bar leads with `● 2 need you`. The colour fades after ten minutes (`SITREP_ATTN_FADE`, see [docs/SETTINGS.md](docs/SETTINGS.md)) and the `●` stays. The terminal bell rings once when a session starts needing you.
@@ -116,7 +116,7 @@ The keys you need first:
 | `z` | Snooze a session that can wait. |
 | `?` | Every key and colour. `q` goes back or quits. |
 
-`--mouse` makes a click select a row and a double click jump. All keys, how the jump works for each terminal, the queue screens, the options (`--read-only`, `--no-bell`, `--interval`) and the colours are in [docs/DASHBOARD.md](docs/DASHBOARD.md).
+`--mouse` makes a click select a row (or a tile), a click on a tab name open that tab, and a double click jump. All keys, how the jump works for each terminal, the queue screens, the options (`--read-only`, `--no-bell`, `--interval`) and the colours are in [docs/DASHBOARD.md](docs/DASHBOARD.md).
 
 ## Settings
 
