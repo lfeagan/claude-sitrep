@@ -106,7 +106,7 @@ var presets = map[string]palette{
 	},
 	// green, gold and red on warm black: the gold is what needs you on a light terminal, the red on a dark one, where gold would be brown
 	"reggae": {
-		accent: [2]string{"#1e7a2e", "#3fd45a"}, dim: [2]string{"#6f6310", "#c9b858"}, hot: [2]string{"#dcf2d4", "#12351a"},
+		accent: [2]string{"#1e7a2e", "#3fd45a"}, dim: [2]string{"#6f6310", "#c9b858"}, hot: [2]string{"#dcf2d4", "#082010"},
 		attn: [2]string{"#f2c230", "#8a1f1f"}, errc: [2]string{"#b3261e", "#ff7a6a"}, snooze: [2]string{"#a04a00", "#ffa04d"},
 	},
 	// burgundy velvet and gold leaf, for the opera house; ivory on a light terminal
