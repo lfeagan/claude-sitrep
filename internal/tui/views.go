@@ -339,14 +339,45 @@ func needYou(s Snapshot) int {
 	return n
 }
 
+// cardRoom is how many lines a field of a card, and an item of a queue, may take.
+type cardRoom struct{ field, item int }
+
+// cardRooms goes from the roomiest to the tightest: the Cards tab uses the first that shows every session whole, so a screen with
+// few sessions gives each its full text, and one with many cuts each to the short form.
+var cardRooms = []cardRoom{{8, 8}, {5, 4}, {3, 2}}
+
 // cardsBody is today's multi-line view: a block per session.
 func cardsBody(s Snapshot, o viewOpts) []string {
+	if o.Height > 0 {
+		for _, room := range cardRooms[:len(cardRooms)-1] {
+			head, blocks, ids, foot := cardBlocks(s, o, room)
+			total := len(head) + foot
+			for _, b := range blocks {
+				total += len(b)
+			}
+			if total <= o.Height {
+				return layBlocks(s, o, head, blocks, ids)
+			}
+		}
+	}
+	head, blocks, ids, _ := cardBlocks(s, o, cardRooms[len(cardRooms)-1])
+	return layBlocks(s, o, head, blocks, ids)
+}
+
+// layBlocks fits the blocks of the cards to the height.
+func layBlocks(s Snapshot, o viewOpts, head []string, blocks [][]string, ids []string) []string {
+	list, ended := shown(s, o.ShowEnded)
+	list = sorted(filterSessions(list, o.Filter), sortState)
+	return fitBlocks(head, blocks, ids, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
+}
+
+// cardBlocks lays out the header and a block per session within room, and counts the footer lines that follow.
+func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks [][]string, ids []string, foot int) {
 	list, ended := shown(s, o.ShowEnded)
 	list = sorted(filterSessions(list, o.Filter), sortState) // the Wall's order: the sessions that need you first
-	var head []string
 	if s.Inbox.Count > 0 {
 		head = append(head, "Inbox: "+queueWord(s.Inbox.Count))
-		head = append(head, queueLines("", s.Inbox, o.Width, 2, 4, s.Settings.QueueItems)...)
+		head = append(head, queueLines("", s.Inbox, o.Width, room.item, 4, s.Settings.QueueItems)...)
 	}
 	dw, sw, iw := 9, 5, idWidth(s)
 	for _, x := range list {
@@ -355,19 +386,23 @@ func cardsBody(s Snapshot, o viewOpts) []string {
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
 		head = append(head, noMatch(s, o))
 	}
-	var blocks [][]string
-	var ids []string
 	for _, x := range list {
 		ids = append(ids, x.ID)
 		row := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %s", idCell(x.Label(), iw), padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
 		block := []string{ansi.Truncate(row, o.Width, "…")}
-		block = append(block, field("Objective:", x.Objective, o.Width, 3)...)
-		block = append(block, field("Progress:", x.Progress, o.Width, 3)...)
-		block = append(block, field("Now:", x.Now, o.Width, 3)...)
-		block = append(block, queueLines("Queue:", x.Queue, o.Width, 2, 4+11, s.Settings.QueueItems)...)
+		block = append(block, field("Objective:", x.Objective, o.Width, room.field)...)
+		block = append(block, field("Progress:", x.Progress, o.Width, room.field)...)
+		block = append(block, field("Now:", x.Now, o.Width, room.field)...)
+		block = append(block, queueLines("Queue:", x.Queue, o.Width, room.item, 4+11, s.Settings.QueueItems)...)
 		blocks = append(blocks, selectBlock(mark(block, x, o), x, o))
 	}
-	return fitBlocks(head, blocks, ids, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
+	if ended > 0 {
+		foot++
+	}
+	if s.Hidden.StrandedItems > 0 {
+		foot++
+	}
+	return head, blocks, ids, foot
 }
 
 // fitBlocks fits whole sessions to the height and adds the footers. When they do not all

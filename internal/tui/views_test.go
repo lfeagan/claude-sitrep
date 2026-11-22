@@ -834,3 +834,22 @@ func TestHelpScrolls(t *testing.T) {
 		t.Errorf("a list that fits does not scroll:\n%s", tall)
 	}
 }
+
+func TestCardsUseSpareHeightForLongText(t *testing.T) {
+	s := loadFixture(t)
+	long := strings.Repeat("a long sentence that wraps ", 8)
+	s.Sessions = s.Sessions[:1]
+	s.Sessions[0].Objective = long
+	s.Inbox = Queue{Count: 1, Items: []string{long}}
+	count := func(h int) int {
+		return len(strings.Split(render(s, tabCards, "", viewOpts{Width: 60, Height: h, Theme: plainTheme()}), "\n"))
+	}
+	roomy, tight := count(60), count(14)
+	if roomy <= 14 || tight != 14 {
+		t.Errorf("a tall screen shows the text whole, a short one is cut: %d lines at 60, %d at 14", roomy, tight)
+	}
+	out := render(s, tabCards, "", viewOpts{Width: 60, Height: 60, Theme: plainTheme()})
+	if strings.Contains(out, "…") {
+		t.Errorf("with room to spare nothing is cut:\n%s", out)
+	}
+}
