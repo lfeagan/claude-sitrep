@@ -3,7 +3,8 @@
 # terminals and waits on sitrep's own state, never on what the screen shows.
 #
 #   DEMO_API=surface:2 DEMO_WEB=surface:3 DEMO_SHELL=surface:4 ./demo.sh check
-#   ./demo.sh reset | cue | scene1 .. scene6 | all
+#   ./demo.sh reset | cue | cue-api | cue-web | scene1 .. scene6 | all
+#   scene1 starts the dashboard and then runs cue-api and cue-web, so they happen on screen.
 #
 # The three surfaces are required and are never defaulted: cmux would otherwise type into
 # the terminal this script runs in. Start `claude` in the api and web terminals, and export
@@ -47,8 +48,8 @@ require_prompt() {
 # clear_draft SURFACE: a blocked prompt stays in a Claude input box, and the next text would be
 # added to it. Each ctrl+u removes one wrapped line, so it repeats until the prompt line is empty.
 clear_draft() {
-	local i line
-	for i in 1 2 3 4 5; do
+	local line
+	for _ in 1 2 3 4 5; do
 		line=$(cmux read-screen --surface "$1" --lines 14 | grep '^❯' | tail -1 | sed 's/^❯[[:space:]]*//')
 		[ -n "$line" ] || return 0
 		cmux send-key --surface "$1" ctrl+u >/dev/null
@@ -114,21 +115,58 @@ reset() {
 	done
 	rm -f ~/demo-projects/shop-api/test_orders.py
 	for d in shop-api shop-web; do git -C "$root/$d" status --short; done
+	reset_state
 	echo "ok"
 }
 
-cue() {
-	say "cue: api works, web stops to ask"
+# reset_state frees the names api and web, which an earlier take's ended sessions still hold
+# and sitrep refuses to give twice, and empties the demo inbox.
+reset_state() {
+	local name id
+	for name in api web; do
+		id=$(sitrep alias | awk -v n="$name" '$1 == n { print $2 }')
+		[ -z "$id" ] || sitrep alias "$id" --off >/dev/null
+	done
+	for _ in $(seq 1 20); do
+		[ "$(snapshot | jq '.inbox.count')" -gt 0 ] || break
+		sitrep rm inbox 1 >/dev/null
+	done
+}
+
+# cue_api and cue_web are separate so a recording can start the dashboard first and let the
+# audience watch each session change. cue does both, for when nothing is on screen yet.
+cue_api() {
+	say "cue: api works"
 	type_into "$DEMO_API" "$API_CUE"
+	# A session is listed only after its first prompt.
+	wait_for "api to be listed" "$(session_test shop-api '.state != null')"
+}
+
+cue_web() {
+	say "cue: web stops to ask"
 	type_into "$DEMO_WEB" "$WEB_CUE"
 	wait_for "web to stop and wait for the answer" "$(session_test shop-web '.needs_input')"
 	echo "web is waiting"
 }
 
+cue() {
+	cue_api
+	cue_web
+}
+
+# quit_dashboard presses q when a program (the dashboard) holds the shell; the next command
+# typed into the shell waits for the prompt to come back.
+quit_dashboard() {
+	at_prompt || cmux send-key --surface "$DEMO_SHELL" q >/dev/null
+}
+
 scene1() {
 	say "1. the glance"
 	type_into "$DEMO_SHELL" 'sitrep watch'
-	echo "Press enter on the web row to show the jump, then come back and press q."
+	sleep 2
+	cue_api
+	cue_web
+	echo "Press enter on the web row to show the jump, then come back."
 	pause "back from the jump"
 }
 
@@ -142,6 +180,7 @@ scene2() {
 scene3() {
 	say "3. triage"
 	local api web
+	quit_dashboard
 	for t in 'fix the flaky checkout test' 'add pagination to the orders endpoint' 'check the contrast in dark mode'; do
 		type_into "$DEMO_SHELL" "sitrep add inbox '$t'"
 		sleep 1
@@ -184,15 +223,16 @@ case "${1:-}" in
 check) check ;;
 reset) reset ;;
 cue) cue ;;
+cue-api) cue_api ;;
+cue-web) cue_web ;;
 scene[1-6]) "$1" ;;
 all)
 	check
 	reset
-	cue
 	for s in scene1 scene2 scene3 scene4 scene5 scene6; do
 		pause "next: $s"
 		"$s"
 	done
 	;;
-*) echo "usage: demo.sh check | reset | cue | scene1..scene6 | all" >&2; exit 2 ;;
+*) echo "usage: demo.sh check | reset | cue | cue-api | cue-web | scene1..scene6 | all" >&2; exit 2 ;;
 esac
