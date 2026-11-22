@@ -24,7 +24,7 @@ The operations are the ones that change state: `queue.add`, `queue.rm`, `queue.e
 
 ## Format
 
-The entry format is documented in the README, under The History Log, as it is a contract for programs that read `sitrep log --json`. A reader ignores a field it does not know.
+The entry format is documented in [LOG.md](LOG.md), as it is a contract for programs that read `sitrep log --json`. A reader ignores a field it does not know.
 
 ## Entries describe what happened
 
