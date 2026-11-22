@@ -139,6 +139,23 @@ def shrink(path, colours=96):
         + chunk(b"IDAT", zlib.compress(bytes(out), 9)) + chunk(b"IEND", b"")
     open(path, "wb").write(png)
 
+def social(frame, out):
+    """The 1280 by 640 picture for GitHub's social preview: the name and the tagline over the top of the Cards window, which runs off the bottom."""
+    dfg, dbg = (230, 230, 230), (30, 30, 30)
+    page = (34, 36, 46)
+    lines = frame.rstrip("\n").split("\n")[1:]
+    cols = max(sum(c[1] for c in a.parse(l, dfg, dbg)) for l in lines)
+    w = cols * CW + 2 * PAD
+    parts = [f'<text x="640" y="82" text-anchor="middle" font-family="{FONT}" font-size="54" font-weight="bold" fill="#e6e6e6">claude-sitrep</text>',
+             f'<text x="640" y="128" text-anchor="middle" font-family="{FONT}" font-size="22" fill="#a78bfa">A to-do list for each Claude Code session,</text>',
+             f'<text x="640" y="158" text-anchor="middle" font-family="{FONT}" font-size="22" fill="#a78bfa">and a dashboard that shows which one is waiting for you.</text>']
+    window(parts, (1280 - w) // 2, 196, lines, "sitrep dash --demo", dfg, dbg, None, page)
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640"><rect width="100%" height="100%" fill="{a.hexs(page)}"/>' + "".join(parts) + "</svg>"
+    open(out + ".svg", "w").write(svg)
+    subprocess.run(["rsvg-convert", "-o", out, out + ".svg"], check=True)
+    os.remove(out + ".svg")
+    shrink(out)
+
 if __name__ == "__main__":
     src, dst = sys.argv[1], sys.argv[2]
     os.makedirs(dst, exist_ok=True)
@@ -153,3 +170,5 @@ if __name__ == "__main__":
             draw(frames, side, out)
         shrink(out)
         print(os.path.basename(out))
+        if name == "hero-cards":
+            social(frames[0], os.path.join(dst, "social-preview.png")); print("social-preview.png")

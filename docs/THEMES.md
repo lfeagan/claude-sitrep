@@ -18,4 +18,4 @@ Every theme must keep a session that needs you clearly lighter than one with rec
 
 ## Pictures
 
-The pictures here and in the README are made from the program itself on made-up sessions: `make screenshots` redraws them, and `docs/theme-shots/readme_shots.py` draws them in windows and rewrites each as a palette PNG, which is a fraction of the size. Regenerate them only when the look changes, since every new version of a picture stays in the history.
+The pictures here and in the README, and the 1280 by 640 picture for the GitHub social preview (`docs/img/social-preview.png`, uploaded by hand in the repository settings), are made from the program itself on made-up sessions: `make screenshots` redraws them, and `docs/theme-shots/readme_shots.py` draws them in windows and rewrites each as a palette PNG, which is a fraction of the size. Regenerate them only when the look changes, since every new version of a picture stays in the history.
