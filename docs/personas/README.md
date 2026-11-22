@@ -8,8 +8,10 @@ A persona is a short brief for a subagent that plays one kind of user against si
 | --- | --- |
 | `first-timer.md` | Never used sitrep, reads the README and `sitrep help`, and has ten minutes to decide whether it helps. |
 | `keyboard-only.md` | Lives in vi and tmux, uses no mouse, and tests what `docs/KEYS.md` and `?` promise against what the keys do. |
-| `fixture.sh` | Builds a throwaway state folder (four sessions, queues, an inbox) by writing the files of `docs/STATE-LAYOUT.md`. |
-| `drive.sh` | Runs the dashboard on the fixture in a detached tmux session, presses keys and reads the screen. It uses cmux instead when there is no tmux. |
+| `heavy-user.md` | Twenty sessions in a 70 by 24 pane, no patience for scrolling, and a need to see at once what is waiting. |
+| `hostile-input.md` | A security reviewer who tests the claim that text from files, transcripts and models never reaches the terminal as it is. |
+| `fixture.sh` | Builds a throwaway state folder (four sessions, queues, an inbox) by writing the files of `docs/STATE-LAYOUT.md`. `--sessions N` adds more of every state and age, and `--hostile` adds files with escape sequences, bidi overrides, huge fields, links and junk. |
+| `drive.sh` | Runs the dashboard on the fixture in a detached tmux session, presses keys and reads the screen (`start --sessions N --hostile --size WxH`; `raw` and `title` show the colour codes and the window title). It uses cmux instead when there is no tmux. |
 
 ## Run one
 
@@ -21,7 +23,7 @@ A persona is a short brief for a subagent that plays one kind of user against si
    The persona runs `drive.sh start` first and `drive.sh stop` last, even when something fails.
 3. Read the report. A finding is a lead: reproduce it before you act on it.
 
-A run starts a tmux server of its own (socket `sitrep-persona`, 110 by 34), so your tmux is not touched, and ends it when it stops. It needs `tmux` or `cmux`, `perl` and `bash`. `DRIVE_BACKEND=cmux` forces cmux, which opens a workspace named `sitrep-persona` without taking focus.
+A run starts a tmux server of its own (socket `sitrep-persona-NAME`, 110 by 34 unless `--size` says otherwise), and `DRIVE_NAME` gives each run a name so that several can go at once, so your tmux is not touched, and ends it when it stops. It needs `tmux` or `cmux`, `perl` and `bash`. `DRIVE_BACKEND=cmux` forces cmux, which opens a workspace named `sitrep-persona` without taking focus.
 
 ## Rules every persona follows
 
@@ -37,4 +39,4 @@ Each persona ends with a list of findings, each with: a one-line title, severity
 
 ## Adding a persona
 
-Copy a file, change who they are, their goal, their tolerance and what they may read, and keep the rules and the report format. The next ones worth writing are a heavy user (fifteen sessions, a narrow terminal), a no-colour or colour-blind user, a remote user over ssh, and a hostile-input reviewer.
+Copy a file, change who they are, their goal, their tolerance and what they may read, and keep the rules and the report format. The next ones worth writing are a no-colour or colour-blind user (the capture shows the marks, not the colours), and a remote user over ssh.

@@ -1,23 +1,30 @@
 #!/usr/bin/env bash
 # Runs the dashboard on the fixture state, in a terminal that a persona can type into and read, in tmux (or in cmux when there is no tmux).
 #
-#   drive.sh start      builds the fixture and starts `sitrep watch` in it, 110 columns by 34 rows
+#   drive.sh start [--sessions N] [--hostile] [--size WxH]
+#                       builds the fixture (see fixture.sh) and starts `sitrep watch` in it, 110 columns by 34 rows unless --size says
+#                       otherwise (tmux only)
 #   drive.sh env        prints the exports that point `sitrep` at the fixture, for the persona's own shell commands
 #   drive.sh screen     prints what the dashboard shows now
+#   drive.sh raw        like screen, but keeps the colour codes the program drew (tmux only)
+#   drive.sh title      prints the title of the terminal window, which a hostile title sequence would change (tmux only)
 #   drive.sh keys K...  presses keys: single characters (j, ?, /) and names (enter esc tab shift+tab up down left right
 #                       home end pgup pgdn space backspace ctrl+c ctrl+d ctrl+u); one argument is one key press
 #   drive.sh type TEXT  types the text as it is (for a filter or a name), without enter
 #   drive.sh stop       ends the run and deletes the fixture
 #
 # It uses the real `sitrep` on PATH (SITREP_BIN overrides it), only the fixture's state, and never anything under ~/.claude. tmux runs on
-# a server of its own (socket sitrep-persona), so the user's tmux is not touched. DRIVE_BACKEND=cmux or tmux forces a backend.
+# a server of its own (socket sitrep-persona-NAME), so the user's tmux is not touched. DRIVE_NAME (default main) names a run, so that several
+# can go at once. DRIVE_BACKEND=cmux or tmux forces a backend.
 set -euo pipefail
 export CMUX_QUIET=1
 
 here=$(cd "$(dirname "$0")" && pwd)
-cur=${TMPDIR:-/tmp}/sitrep-persona.cur
+name=${DRIVE_NAME:-main}
+case $name in '' | *[!A-Za-z0-9_-]*) echo "drive.sh: DRIVE_NAME is letters, digits, - and _" >&2; exit 2 ;; esac
+cur=${TMPDIR:-/tmp}/sitrep-persona.$name.cur
 bin=${SITREP_BIN:-sitrep}
-sock=sitrep-persona
+sock=sitrep-persona-$name
 
 tm() { env -u TMUX tmux -L "$sock" "$@"; }
 
@@ -48,11 +55,22 @@ start)
 	[ -n "$backend" ] || { echo "drive.sh: tmux or cmux is needed" >&2; exit 1; }
 	root=$(mktemp -d "${TMPDIR:-/tmp}/sitrep-persona.XXXXXX")
 	root=$(cd "$root" && pwd -P)
-	"$here/fixture.sh" "$root" >/dev/null
+	shift
+	size=110x34 fixopts=()
+	while [ $# -gt 0 ]; do
+		case $1 in
+		--size) size=${2:?--size needs WxH}; shift 2 ;;
+		--sessions) fixopts+=(--sessions "${2:?--sessions needs a number}"); shift 2 ;;
+		--hostile) fixopts+=(--hostile); shift ;;
+		*) echo "drive.sh: unknown option $1" >&2; exit 2 ;;
+		esac
+	done
+	case $size in [0-9]*x[0-9]*) ;; *) echo "drive.sh: --size is WxH" >&2; exit 2 ;; esac
+	"$here/fixture.sh" "$root" "${fixopts[@]+"${fixopts[@]}"}" >/dev/null
 	run="env SITREP_STATE_DIR='$root/state' CLAUDE_CONFIG_DIR='$root/claude' '$bin' watch"
 	ws="" surface=""
 	if [ "$backend" = tmux ]; then
-		tm new-session -d -s persona -x 110 -y 34 "$run"
+		tm new-session -d -s persona -x "${size%x*}" -y "${size#*x}" "$run"
 	else
 		out=$(cmux workspace create --name sitrep-persona --focus false --command "$run")
 		ws=$(printf '%s\n' "$out" | grep -o 'workspace:[0-9A-Za-z-]*' | head -1)
@@ -70,6 +88,16 @@ env)
 screen)
 	load
 	if [ "$backend" = tmux ]; then tm capture-pane -p -t persona; else cmux read-screen --surface "$surface" --lines 60; fi
+	;;
+raw)
+	load
+	[ "$backend" = tmux ] || { echo "drive.sh: raw needs tmux" >&2; exit 1; }
+	tm capture-pane -p -e -t persona
+	;;
+title)
+	load
+	[ "$backend" = tmux ] || { echo "drive.sh: title needs tmux" >&2; exit 1; }
+	tm display-message -p -t persona '#{pane_title}'
 	;;
 keys)
 	load
@@ -102,7 +130,7 @@ stop)
 	echo "stopped"
 	;;
 *)
-	sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' >&2
+	sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' >&2
 	exit 2
 	;;
 esac
