@@ -21,6 +21,7 @@ const (
 func queueModel(t *testing.T, kind int) (model, *fake) {
 	t.Helper()
 	m := loaded(t, tabCards)
+	m.selID = m.snap.Sessions[0].ID // the session with the long queue; Cards starts with the one that needs you
 	m.bin = "/x/sitrep"
 	f := &fake{answer: map[string]string{"/x/sitrep": "done\n"}}
 	m.run = f.run
@@ -503,10 +504,10 @@ func TestQueueScreens(t *testing.T) {
 }
 
 func TestHelpHidesEditKeysWhenReadOnly(t *testing.T) {
-	if h := helpScreen(100, 40, false, plainTheme()); !strings.Contains(h, "add, edit, remove") || !strings.Contains(h, "take an inbox item") {
+	if h := helpScreen(100, 40, false, 0, plainTheme()); !strings.Contains(h, "add, edit, remove") || !strings.Contains(h, "take an inbox item") {
 		t.Error("the key list names the edit keys")
 	}
-	if h := helpScreen(100, 40, true, plainTheme()); strings.Contains(h, "add, edit, remove") || strings.Contains(h, "take an inbox item") || !strings.Contains(h, "the inbox, or") {
+	if h := helpScreen(100, 40, true, 0, plainTheme()); strings.Contains(h, "add, edit, remove") || strings.Contains(h, "take an inbox item") || !strings.Contains(h, "the inbox, or") {
 		t.Error("read-only hides the edit keys but keeps i and e")
 	}
 }
@@ -572,5 +573,14 @@ func TestEKeyRefusals(t *testing.T) {
 	me, cmd = press(t, me, "E")
 	if me.prompt != nil || cmd != nil || len(fe.calls) != 0 || !strings.Contains(me.statusText(), "empty") {
 		t.Errorf("an empty queue: %+v %q", me.prompt, me.statusText())
+	}
+}
+
+func TestQueueStatusSitsBesideTheHints(t *testing.T) {
+	v := queueView{Name: "s1", Items: []string{"a"}, Status: "moved to s004"}
+	out := queueScreen(v, 100, 6, plainTheme())
+	last := out[strings.LastIndex(out, "\n")+1:]
+	if !strings.Contains(last, "moved to s004") || !strings.Contains(last, "? help") {
+		t.Errorf("the message and the keys share the bar: %q", last)
 	}
 }

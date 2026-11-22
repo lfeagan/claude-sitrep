@@ -87,8 +87,7 @@ The default for -n is 5, or SITREP_QUEUE_ITEMS from the environment or sitrep.co
 `,
 	"snooze": `usage: sitrep snooze [--off] <id>
 
-Mute the "waiting for you" state of one session, so that a program such as the dashboard stops
-drawing it as needing you. The mute ends by itself when the session changes: the next
+Say that a session which is waiting for you can wait: the dashboard stops drawing it as needing you, and shows a ○ in place of the ●. This is the command behind the z key. The mute ends by itself when the session changes: the next
 prompt, or the end of the next turn (for a session at a permission dialog, until the dialog is over). A session that does not need you has nothing to snooze, and the command says so. ` + "`" + `--off` + "`" + ` (before or after the id) ends it at once. Only the JSON changes: the
 ` + "`" + `needs_input` + "`" + ` field turns false and ` + "`" + `snoozed` + "`" + ` turns true.
 `,

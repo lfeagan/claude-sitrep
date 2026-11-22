@@ -276,7 +276,7 @@ func TestWallTabByNameAndHelp(t *testing.T) {
 	if _, err := tabByName("bogus"); err == nil || !strings.Contains(err.Error(), "wall") {
 		t.Errorf("the error names the tabs: %v", err)
 	}
-	h := helpScreen(100, 60, false, plainTheme())
+	h := helpScreen(100, 60, false, 0, plainTheme())
 	for _, want := range []string{"Wall", "h, l, j, k"} {
 		if !strings.Contains(h, want) {
 			t.Errorf("the help should say %q", want)

@@ -60,7 +60,7 @@ func TestErrorShowsInStatusBar(t *testing.T) {
 	if last := lines[len(lines)-1]; !strings.Contains(last, "showing data from 12s ago") {
 		t.Errorf("the status bar should carry the error, got %q", last)
 	}
-	if !strings.Contains(out, "claude-sitrep") {
+	if !strings.Contains(out, "timescaledb") {
 		t.Errorf("the last good data must stay on screen")
 	}
 }
@@ -382,7 +382,7 @@ func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
 }
 
 func TestHelpScreen(t *testing.T) {
-	out := helpScreen(80, 60, false, plainTheme())
+	out := helpScreen(80, 60, false, 0, plainTheme())
 	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Table sort", "refresh", "quit", "Cards", "Table ", "pink-red", "purple", "any key closes"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the help should mention %q", want)
@@ -391,7 +391,7 @@ func TestHelpScreen(t *testing.T) {
 	golden(t, "help_80x60", out)
 	for w := 1; w <= 100; w += 7 {
 		for h := 1; h <= 40; h += 3 {
-			lines := strings.Split(helpScreen(w, h, false, plainTheme()), "\n")
+			lines := strings.Split(helpScreen(w, h, false, 0, plainTheme()), "\n")
 			if len(lines) > h {
 				t.Errorf("help %dx%d has %d lines", w, h, len(lines))
 			}
@@ -406,8 +406,8 @@ func TestHelpScreen(t *testing.T) {
 
 func TestVisibleIDsFollowTheTab(t *testing.T) {
 	s := loadFixture(t)
-	if got := strings.Join(visibleIDs(s, tabCards, false, sortState, ""), " "); !strings.HasPrefix(got, "15f1") {
-		t.Errorf("Cards ignores the sort and keeps activity order: %s", got)
+	if got := strings.Join(visibleIDs(s, tabCards, false, sortState, ""), " "); !strings.HasPrefix(got, "b1fb") {
+		t.Errorf("Cards ignores the sort and uses the Wall's order, needs you first: %s", got)
 	}
 	if got := visibleIDs(s, tabTable, false, sortState, ""); len(got) != 3 || !strings.HasPrefix(got[0], "b1fb") {
 		t.Errorf("Table follows the sort: %v", got)
@@ -462,7 +462,7 @@ func TestScrollingKeepsTheSelectionOnScreen(t *testing.T) {
 		}
 	}
 	// the last session, in a short Cards frame: blocks above are scrolled off and counted
-	o := viewOpts{Width: 80, Height: 15, Sel: s.Sessions[2].ID, Theme: plainTheme()}
+	o := viewOpts{Width: 80, Height: 15, Sel: s.Sessions[1].ID, Theme: plainTheme()}
 	out := render(s, tabCards, "", o)
 	if !strings.Contains(out, "+2 above") && !strings.Contains(out, "+1 above") {
 		t.Errorf("scrolled-off blocks are counted:\n%s", out)
@@ -750,7 +750,7 @@ func TestBlockedSessionCountsAsWaitingAndShowsWhy(t *testing.T) {
 
 func TestHelpWrapsInsteadOfCuttingOnANarrowScreen(t *testing.T) {
 	for _, w := range []int{50, 60, 70, 80, 100} {
-		out := helpScreen(w, 140, false, plainTheme())
+		out := helpScreen(w, 140, false, 0, plainTheme())
 		for _, l := range strings.Split(out, "\n") {
 			if strings.Contains(l, "…") {
 				t.Errorf("width %d cuts a line: %q", w, l)
@@ -767,7 +767,7 @@ func TestHelpWrapsInsteadOfCuttingOnANarrowScreen(t *testing.T) {
 		}
 	}
 	// a screen too narrow for a description column still draws, cut
-	if out := helpScreen(20, 30, false, plainTheme()); !strings.Contains(out, "…") {
+	if out := helpScreen(20, 30, false, 0, plainTheme()); !strings.Contains(out, "…") {
 		t.Error("a very narrow screen cuts")
 	}
 }
@@ -785,5 +785,52 @@ func TestAKeptFilterSaysHowToClearIt(t *testing.T) {
 	o.Filter, o.Typing = "", false
 	if got := render(s, tabCards, "", o); strings.Contains(got, "esc clear filter") {
 		t.Error("no filter, no hint")
+	}
+}
+
+func TestNoMatchSaysWhenEndedSessionsMatch(t *testing.T) {
+	s := loadFixture(t)
+	o := viewOpts{Width: 100, Height: 20, Filter: "ended", Theme: plainTheme()}
+	var gone Session
+	for _, x := range s.Sessions {
+		if !x.Running {
+			gone = x
+		}
+	}
+	o.Filter = gone.Short
+	if out := render(s, tabCards, "", o); !strings.Contains(out, "ended hidden, press a") {
+		t.Errorf("a filter that matches only ended sessions says so:\n%s", out)
+	}
+	o.ShowEnded = true
+	if out := render(s, tabCards, "", o); strings.Contains(out, "hidden") {
+		t.Errorf("with ended sessions shown there is nothing hidden:\n%s", out)
+	}
+	o.ShowEnded, o.Filter = false, "zzzz-nothing"
+	if out := render(s, tabCards, "", o); !strings.Contains(out, "no session matches the filter") || strings.Contains(out, "hidden") {
+		t.Errorf("no match at all:\n%s", out)
+	}
+}
+
+func TestTableColumnsDoNotChangeWithTheFilter(t *testing.T) {
+	s := loadFixture(t)
+	head := func(filter string) string {
+		return strings.Split(render(s, tabTable, "", viewOpts{Width: 100, Height: 20, Filter: filter, Theme: plainTheme()}), "\n")[2]
+	}
+	if all, one := head(""), head("timescaledb"); all != one {
+		t.Errorf("the header moves with the filter:\n%q\n%q", all, one)
+	}
+}
+
+func TestHelpScrolls(t *testing.T) {
+	long := helpScreen(60, 10, false, 0, plainTheme())
+	if !strings.Contains(long, "j/k scroll") {
+		t.Errorf("a cut list says it scrolls:\n%s", long)
+	}
+	end := helpScreen(60, 10, false, 1<<20, plainTheme())
+	if !strings.Contains(end, "snoozed") || end == long {
+		t.Errorf("scrolled to the end the colours show:\n%s", end)
+	}
+	if tall := helpScreen(60, 80, false, 5, plainTheme()); !strings.Contains(tall, "any key closes") {
+		t.Errorf("a list that fits does not scroll:\n%s", tall)
 	}
 }

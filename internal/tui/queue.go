@@ -533,6 +533,11 @@ func (m model) aliasStatus() string {
 	label := m.prompt.qid
 	if x := m.session(m.prompt.qid); x != nil {
 		label = x.Label()
+		if x.Alias != "" && x.Short != "" {
+			label += " (" + x.Short + ")"
+		} else if x.Alias == "" {
+			label = x.Short
+		}
 	}
 	return fmt.Sprintf("name for %s: %s▏  enter sets, empty clears, esc cancels", label, m.prompt.text)
 }
@@ -772,7 +777,12 @@ func queueScreen(v queueView, width, height int, th Theme) string {
 	case v.Ask != "":
 		hint = " y/n  " + v.Ask + " "
 	case v.Status != "":
-		hint = " " + v.Status + " "
+		msg := " " + v.Status + " "
+		rest := fitHints(hints, width-ansi.StringWidth(msg)-1)
+		hint = msg
+		if rest != "" {
+			hint = msg + strings.Repeat(" ", width-ansi.StringWidth(msg)-ansi.StringWidth(rest)) + rest
+		}
 	}
 	count := queueWord(len(v.Items))
 	if v.Total > len(v.Items) {

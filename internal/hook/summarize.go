@@ -117,7 +117,7 @@ func (z Summarizer) Do(ctx context.Context, id state.ID, tp string, o Opts) {
 		return
 	}
 	o3 := textsafe.Sane(o2, 100).String()
-	if _, err := os.Stat(z.Store.Path(id, "pinned")); err == nil || o3 == "" {
+	if state.IsRegular(z.Store.Path(id, "pinned")) || o3 == "" {
 		o3 = n.notes().Get(id, "Objective")
 	}
 	_ = n.write(o3, textsafe.Sane(p, 140).String(), textsafe.Sane(untag(nw), 140).String())

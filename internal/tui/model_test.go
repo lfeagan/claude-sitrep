@@ -305,14 +305,15 @@ func loaded(t *testing.T, tab int) model {
 
 func TestSelectionStartsOnTheFirstSession(t *testing.T) {
 	m := loaded(t, tabCards)
-	if m.selID != m.snap.Sessions[0].ID {
-		t.Errorf("the first session is selected: %q", m.selID)
+	if ids := visibleIDs(m.snap, tabCards, false, 0, ""); m.selID != ids[0] {
+		t.Errorf("the first session shown is selected: %q", m.selID)
 	}
 }
 
 func TestSelectionKeys(t *testing.T) {
 	m := loaded(t, tabCards)
-	first, second, third := m.snap.Sessions[0].ID, m.snap.Sessions[1].ID, m.snap.Sessions[2].ID
+	ids := visibleIDs(m.snap, tabCards, false, 0, "") // the order shown: needs you, working, idle
+	first, second, third := ids[0], ids[1], ids[2]
 	for _, k := range []string{"down", "j"} {
 		m = loaded(t, tabCards)
 		m, _ = press(t, m, k)
@@ -385,16 +386,17 @@ func TestEndedToggleKeepsOrMovesTheSelection(t *testing.T) {
 		t.Fatalf("the ended session is selectable once shown: %q", m.selID)
 	}
 	m, _ = press(t, m, "a") // hidden again: the selection cannot stay on it
-	if m.selID != m.snap.Sessions[0].ID {
+	if first := visibleIDs(m.snap, tabCards, false, 0, "")[0]; m.selID != first {
 		t.Errorf("hiding the selected session selects the first: %q", m.selID)
 	}
 }
 
 func TestSelectionKeysIgnoredInTheKeyList(t *testing.T) {
 	m := loaded(t, tabCards)
+	was := m.selID
 	m, _ = press(t, m, "?")
-	m, _ = press(t, m, "j")
-	if m.help || m.selID != m.snap.Sessions[0].ID {
+	m, _ = press(t, m, "q")
+	if m.help || m.selID != was {
 		t.Errorf("a key that closes the list must not also move the selection")
 	}
 }
@@ -448,6 +450,7 @@ func TestDetailScrolls(t *testing.T) {
 	next, _ := m.Update(snapMsg{snap: snap})
 	next, _ = next.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
 	m = next.(model)
+	m.selID = m.snap.Sessions[0].ID // the session with the long queue
 	m, _ = press(t, m, "v")
 	maxScroll := detailMax(*m.selected(), 80, 20)
 	if maxScroll < 20 {
@@ -481,7 +484,9 @@ func TestDetailScrolls(t *testing.T) {
 }
 
 func TestDetailQuitAndRefresh(t *testing.T) {
-	m, _ := press(t, loaded(t, tabCards), "v")
+	m := loaded(t, tabCards)
+	m.selID = m.snap.Sessions[0].ID // the one the test removes below
+	m, _ = press(t, m, "v")
 	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
 		t.Errorf("ctrl+c quits from the detail pane")
 	}
@@ -501,7 +506,9 @@ func TestDetailQuitAndRefresh(t *testing.T) {
 }
 
 func TestDetailView(t *testing.T) {
-	m, _ := press(t, loaded(t, tabCards), "v")
+	m := loaded(t, tabCards)
+	m.selID = m.snap.Sessions[0].ID // the working session, which has a pid
+	m, _ = press(t, m, "v")
 	v := m.View()
 	if !v.AltScreen {
 		t.Errorf("alternate screen")
@@ -618,7 +625,8 @@ func TestFilterBackspaceAndSelectionKeys(t *testing.T) {
 	if m.filter != "" {
 		t.Errorf("backspace on an empty filter does nothing: %q", m.filter)
 	}
-	first, second := m.snap.Sessions[0].ID, m.snap.Sessions[1].ID
+	ids := visibleIDs(m.snap, tabCards, false, 0, "")
+	first, second := ids[0], ids[1]
 	m, _ = press(t, m, "down")
 	if m.selID != second || !m.filtering {
 		t.Errorf("down moves the selection while typing: %q", m.selID)
@@ -669,5 +677,24 @@ func TestFilterViewSaysWhenNothingMatches(t *testing.T) {
 		if !strings.Contains(out, "no session matches the filter") || !strings.Contains(out, "/zzzz▏  (0 of 3)") {
 			t.Errorf("tab %d: no match is said, and the status bar shows the filter:\n%s", tab, out)
 		}
+	}
+}
+
+func TestHelpKeysScrollAndOthersClose(t *testing.T) {
+	m := loaded(t, tabCards)
+	m.width, m.height = 60, 10
+	m, _ = press(t, m, "?")
+	m, _ = press(t, m, "j")
+	if !m.help || m.helpAt != 1 {
+		t.Fatalf("j scrolls the list: help %v at %d", m.help, m.helpAt)
+	}
+	m, _ = press(t, m, "G")
+	m, _ = press(t, m, "j")
+	if at := m.helpAt; at != len(helpLines(60, false))-9 {
+		t.Errorf("scrolling stops at the end: %d", at)
+	}
+	m, _ = press(t, m, "x")
+	if m.help || m.helpAt != 0 {
+		t.Errorf("another key closes it and the next opening starts at the top")
 	}
 }

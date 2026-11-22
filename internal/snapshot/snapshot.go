@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -196,8 +195,7 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 		if !labelOK(s.StateLabel) {
 			s.StateLabel = "-"
 		}
-		_, err := os.Stat(b.Store.Path(id, "pinned"))
-		s.Pinned = err == nil
+		s.Pinned = state.IsRegular(b.Store.Path(id, "pinned"))
 
 		notes := readText(b.Store.Path(id, "notes"))
 		s.Objective, s.Progress, s.Now = field(notes, "Objective"), field(notes, "Progress"), field(notes, "Now")

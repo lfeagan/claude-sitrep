@@ -303,7 +303,7 @@ func TestANumberRefusals(t *testing.T) {
 		"the dashboard is read-only": func(m *model) { m.readOnly = true },
 		"busy":                       func(m *model) { m.acting = true },
 		"refreshing":                 func(m *model) { m.settling = true },
-		"has ended":                  func(m *model) { m.snap.Sessions[0].Running = false },
+		"has ended":                  func(m *model) { m.snap.Sessions[2].Running = false },
 		"no session is selected":     func(m *model) { m.selID = "" },
 	}
 	for want, set := range cases {

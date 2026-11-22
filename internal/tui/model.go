@@ -83,6 +83,7 @@ type model struct {
 	scroll    int          // the top line of the detail pane
 	sortBy    int
 	help      bool
+	helpAt    int    // the first line of the key list that is shown
 	pending   string // the first key of a two-key command that waits for its second: g (gg, the first row) or d (dd, remove an item)
 	isDark    bool
 	now       func() time.Time
@@ -567,7 +568,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.String() == "ctrl+c" {
 				return m, tea.Quit
 			}
-			m.help = false
+			if d, ok := helpStep(msg.String(), m.height); ok {
+				room := max(m.height-1, 1)
+				m.helpAt = max(0, min(m.helpAt+d, max(len(helpLines(m.width, m.readOnly))-room, 0)))
+				return m, nil
+			}
+			m.help, m.helpAt = false, 0
 			return m, nil
 		}
 		if m.ask != nil && !m.queue { // the question a number on a tab asked
@@ -749,7 +755,7 @@ func (m model) View() tea.View {
 	case m.prune != pruneNone:
 		body = pruneScreen(m.pruneText, m.prune, m.width, m.height, theme)
 	case m.help:
-		body = helpScreen(m.width, m.height, m.readOnly, theme)
+		body = helpScreen(m.width, m.height, m.readOnly, m.helpAt, theme)
 	case m.queue:
 		body = queueScreen(m.queueView(), m.width, m.height, theme)
 	case m.detail && m.selected() != nil:

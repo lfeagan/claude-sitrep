@@ -44,7 +44,7 @@ func TestCopyWorksInTheDetailPane(t *testing.T) {
 
 func TestCopyRefusesAnUnusualId(t *testing.T) {
 	snap := loadFixture(t)
-	snap.Sessions[0].ID = "abc; rm -rf /"
+	snap.Sessions[2].ID = "abc; rm -rf /"
 	m := newModel("x", time.Second, tabCards)
 	next, _ := m.Update(snapMsg{snap: snap})
 	m = next.(model)
@@ -137,7 +137,7 @@ func snoozeModel(t *testing.T, tab int) (model, *fake) {
 	m.bin = "/x/sitrep"
 	f := &fake{answer: map[string]string{"/x/sitrep snooze": "snoozed 15f1 until it changes\n"}}
 	m.run = f.run
-	m.snap.Sessions[0].NeedsInput = true // z snoozes a session that needs you; the selected one is the first
+	m.snap.Sessions[2].NeedsInput = true // z snoozes a session that needs you; the selected one is the first
 	return m, f
 }
 
@@ -157,7 +157,7 @@ func TestZSnoozesAndUnsnoozes(t *testing.T) {
 	}
 	// the refresh says it is snoozed: z now ends the snooze
 	snap := loadFixture(t)
-	snap.Sessions[0].Snoozed = true
+	snap.Sessions[2].Snoozed = true
 	next, _ := m.Update(snapMsg{snap: snap})
 	m = next.(model)
 	m, cmd = press(t, m, "z")
@@ -179,7 +179,7 @@ func TestZGuards(t *testing.T) {
 		t.Errorf("a second z while one runs does nothing")
 	}
 	snap := loadFixture(t)
-	snap.Sessions[0].ID = "a b; c"
+	snap.Sessions[2].ID = "a b; c"
 	next, _ := newModel("x", time.Second, tabCards).Update(snapMsg{snap: snap})
 	if after, cmd := press(t, next.(model), "z"); cmd != nil || !strings.Contains(after.statusText(), "unusual") {
 		t.Errorf("an unusual id is left alone")
@@ -213,7 +213,7 @@ func TestSnoozedIsDrawnHollowAndWithoutPink(t *testing.T) {
 	if got := strings.Join(detailLines(s.Sessions[2], 80), "\n"); !strings.Contains(got, "snoozed until it changes") {
 		t.Errorf("the detail says so:\n%s", got)
 	}
-	if ro := helpScreen(80, 30, true, plainTheme()); strings.Contains(ro, "snooze the pink") {
+	if ro := helpScreen(80, 30, true, 0, plainTheme()); strings.Contains(ro, "snooze the pink") {
 		t.Errorf("read-only hides z from the key list")
 	}
 }
@@ -274,7 +274,7 @@ func TestNKeyNamesTheSelectedSession(t *testing.T) {
 func TestNKeyEditsAndClearsAnExistingName(t *testing.T) {
 	m, f := aliasModel(t)
 	snap := loadFixture(t)
-	snap.Sessions[0].Alias = "old"
+	snap.Sessions[2].Alias = "old"
 	next, _ := m.Update(snapMsg{snap: snap})
 	m = next.(model)
 	m, _ = press(t, m, "n")
@@ -286,7 +286,7 @@ func TestNKeyEditsAndClearsAnExistingName(t *testing.T) {
 	}
 	m, cmd := press(t, m, "enter")
 	m = feed(t, m, cmd)
-	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep alias "+snap.Sessions[0].ID+" --off" {
+	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep alias "+snap.Sessions[2].ID+" --off" {
 		t.Errorf("an empty name clears it: %v", f.calls)
 	}
 }
@@ -349,7 +349,7 @@ func TestNKeyWorksOnAnEndedSession(t *testing.T) {
 
 func TestZOnASessionThatDoesNotNeedYouSaysSoAndRunsNothing(t *testing.T) {
 	m, f := snoozeModel(t, tabCards)
-	m.snap.Sessions[0].NeedsInput = false // a working session: a snooze would mute nothing
+	m.snap.Sessions[2].NeedsInput = false // a working session: a snooze would mute nothing
 	m, cmd := press(t, m, "z")
 	if cmd != nil || m.acting || len(f.calls) != 0 {
 		t.Fatalf("z does not run a command for it: %v", f.calls)
@@ -357,7 +357,7 @@ func TestZOnASessionThatDoesNotNeedYouSaysSoAndRunsNothing(t *testing.T) {
 	if got := m.statusText(); !strings.Contains(got, "does not need you") || !strings.Contains(got, "nothing to snooze") {
 		t.Errorf("the status says why: %q", got)
 	}
-	m.snap.Sessions[0].Snoozed = true // a snoozed one can still be un-snoozed
+	m.snap.Sessions[2].Snoozed = true // a snoozed one can still be un-snoozed
 	if _, cmd := press(t, m, "z"); cmd == nil {
 		t.Error("z on a snoozed session ends the snooze")
 	}

@@ -113,7 +113,7 @@ func wallBody(s Snapshot, o viewOpts) []string {
 	}
 	head += "   size: " + wallSizeNames[o.Size%wallSizes]
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
-		head += "   no session matches the filter"
+		head += "   " + noMatch(s, o)
 	}
 	out := []string{head}
 	foot := 0

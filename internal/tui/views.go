@@ -51,7 +51,7 @@ func visibleIDs(s Snapshot, tab int, showEnded bool, by int, filter string) []st
 	switch tab {
 	case tabTable:
 		list = sorted(list, by)
-	case tabWall:
+	default: // Cards and the Wall: the sessions that need you first
 		list = sorted(list, sortState)
 	}
 	ids := make([]string, len(list))
@@ -204,6 +204,24 @@ func shown(s Snapshot, showEnded bool) (list []Session, ended int) {
 	return list, ended + s.Hidden.Ended
 }
 
+// noMatch is the line for a filter that lists nothing; it says so when finished sessions, hidden now, do match.
+func noMatch(s Snapshot, o viewOpts) string {
+	msg := "no session matches the filter"
+	if o.ShowEnded {
+		return msg
+	}
+	var gone []Session
+	for _, x := range s.Sessions {
+		if !x.Running {
+			gone = append(gone, x)
+		}
+	}
+	if n := len(filterSessions(gone, o.Filter)); n > 0 {
+		msg += fmt.Sprintf(" (%d ended hidden, press a)", n)
+	}
+	return msg
+}
+
 func queueWord(n int) string {
 	switch n {
 	case 0:
@@ -324,7 +342,7 @@ func needYou(s Snapshot) int {
 // cardsBody is today's multi-line view: a block per session.
 func cardsBody(s Snapshot, o viewOpts) []string {
 	list, ended := shown(s, o.ShowEnded)
-	list = filterSessions(list, o.Filter)
+	list = sorted(filterSessions(list, o.Filter), sortState) // the Wall's order: the sessions that need you first
 	var head []string
 	if s.Inbox.Count > 0 {
 		head = append(head, "Inbox: "+queueWord(s.Inbox.Count))
@@ -335,7 +353,7 @@ func cardsBody(s Snapshot, o viewOpts) []string {
 		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
-		head = append(head, "no session matches the filter")
+		head = append(head, noMatch(s, o))
 	}
 	var blocks [][]string
 	var ids []string
@@ -475,6 +493,7 @@ func shortSummary(s Snapshot) string {
 // topBody is the one-line-per-session view.
 func topBody(s Snapshot, o viewOpts) []string {
 	list, ended := shown(s, o.ShowEnded)
+	every := list // column widths follow every listed session, so the layout does not change with the filter
 	list = sorted(filterSessions(list, o.Filter), o.Sort)
 	head := []string{summary(s)}
 	if s.Inbox.Count > 0 {
@@ -482,7 +501,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 	}
 
 	dw, sw := 9, 5
-	for _, x := range list {
+	for _, x := range every {
 		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
 	iw := idWidth(s)
@@ -499,7 +518,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 	}
 	head = append(head, o.Theme.Label.Render(gutter("", o)+fmt.Sprintf("%s  %s  %s  %-5s  %s%s", idCell("ID", iw), padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", ctxHead, "NOW   sort: "+sortNames[o.Sort])))
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
-		head = append(head, "no session matches the filter")
+		head = append(head, noMatch(s, o))
 	}
 	var blocks [][]string
 	var ids []string
@@ -562,12 +581,12 @@ func statusBar(s Snapshot, width int, errText string, tab int, typing, filtered 
 	if errText != "" {
 		left = " " + errText
 	}
-	hints := []string{"q quit", "enter jump", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
+	hints := []string{"q quit", "enter jump", "tab switch", "/ filter", "n name", "1-9 take", "a ended", "? help"}
 	switch tab {
 	case tabTable: // only the Table view has a sort
-		hints = []string{"q quit", "enter jump", "s sort", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
+		hints = []string{"q quit", "enter jump", "s sort", "tab switch", "/ filter", "n name", "1-9 take", "a ended", "? help"}
 	case tabWall:
-		hints = []string{"q quit", "enter jump", "hjkl move", "s size", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
+		hints = []string{"q quit", "enter jump", "tab switch", "hjkl move", "s size", "/ filter", "n name", "1-9 take", "a ended", "? help"}
 	}
 	if filtered && !typing { // a filter is on: say how to end it, ahead of the keys a narrow screen drops
 		hints = append([]string{hints[0], "esc clear filter"}, hints[1:]...)
@@ -629,8 +648,28 @@ func helpWrap(lines []string, width int) []string {
 	return out
 }
 
-// helpScreen is the key list: the keys, what the tabs show, and what the colours mean.
-func helpScreen(width, height int, readOnly bool, th Theme) string {
+// helpStep is how far a key scrolls the key list, in lines.
+func helpStep(key string, height int) (int, bool) {
+	page := max(height-2, 1)
+	switch key {
+	case "j", "down":
+		return 1, true
+	case "k", "up":
+		return -1, true
+	case "pgdown", "space", "ctrl+f", "ctrl+d":
+		return page, true
+	case "pgup", "ctrl+b", "ctrl+u":
+		return -page, true
+	case "g", "home":
+		return -1 << 20, true
+	case "G", "end":
+		return 1 << 20, true
+	}
+	return 0, false
+}
+
+// helpLines is the key list: the keys, what the tabs show, and what the colours mean, wrapped and cut to the width.
+func helpLines(width int, readOnly bool) []string {
 	lines := []string{
 		"Keys",
 		"",
@@ -684,13 +723,27 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 	for i, l := range lines {
 		lines[i] = ansi.Truncate(l, max(width, 1), "…")
 	}
+	return lines
+}
+
+// helpScreen shows the key list from line scroll on, in the room the screen has.
+func helpScreen(width, height int, readOnly bool, scroll int, th Theme) string {
+	lines := helpLines(width, readOnly)
+	hint := " keys   any key closes this list"
 	if height > 0 {
-		lines = lines[:min(len(lines), max(height-1, 0))]
-		for len(lines) < height-1 {
+		room := max(height-1, 0)
+		if len(lines) > room {
+			scroll = max(0, min(scroll, len(lines)-room))
+			hint = fmt.Sprintf(" keys   j/k scroll (%d-%d of %d)   any other key closes", scroll+1, scroll+room, len(lines))
+		} else {
+			scroll = 0
+		}
+		lines = lines[scroll:min(len(lines), scroll+room)]
+		for len(lines) < room {
 			lines = append(lines, "")
 		}
 	}
-	bar := th.Status.Width(max(width, 1)).Render(ansi.Truncate(" keys   any key closes this list", max(width, 1), ""))
+	bar := th.Status.Width(max(width, 1)).Render(ansi.Truncate(hint, max(width, 1), ""))
 	if height == 1 {
 		return bar
 	}

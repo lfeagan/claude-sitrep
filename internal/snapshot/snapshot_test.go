@@ -496,3 +496,22 @@ func TestLinkedStateFilesAreNotFollowed(t *testing.T) {
 		t.Error("the session is still listed, and still waits")
 	}
 }
+
+func TestPinnedIsARegularFileNotALink(t *testing.T) {
+	w := newWorld(t)
+	w.session("pin00001", "working", time.Minute)
+	w.register("pin00001", 1)
+	target := filepath.Join(t.TempDir(), "elsewhere")
+	os.WriteFile(target, []byte("x"), 0o600)
+	if err := os.Symlink(target, w.s.Path("pin00001", "pinned")); err != nil {
+		t.Fatal(err)
+	}
+	if byID(w.build(Options{Cap: 5}), "pin00001").Pinned {
+		t.Error("a link named pinned must not pin the session")
+	}
+	os.Remove(w.s.Path("pin00001", "pinned"))
+	os.WriteFile(w.s.Path("pin00001", "pinned"), []byte("x"), 0o600)
+	if !byID(w.build(Options{Cap: 5}), "pin00001").Pinned {
+		t.Error("a regular pinned file pins it")
+	}
+}
