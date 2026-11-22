@@ -37,6 +37,7 @@ type viewOpts struct {
 	Sel           string // the id of the selected session, "" for none
 	Filter        string // only sessions that contain this text are listed
 	Theme         Theme
+	Typing        bool      // a filter is being typed, so the footer lists the keys of that
 	Hits          *[]string // when set, filled with the id of the session on each screen row ("" for none), for a mouse click
 }
 
@@ -532,7 +533,7 @@ func tabBar(active, width int, th Theme) []string {
 
 // statusBar shows the counts on the left and the keys on the right. A failed refresh
 // replaces the counts with the error, so the last good data stays on screen.
-func statusBar(s Snapshot, width int, errText string, tab int, th Theme) string {
+func statusBar(s Snapshot, width int, errText string, tab int, typing bool, th Theme) string {
 	left := " " + shortSummary(s)
 	if errText != "" {
 		left = " " + errText
@@ -540,6 +541,9 @@ func statusBar(s Snapshot, width int, errText string, tab int, th Theme) string 
 	hints := []string{"q quit", "enter jump", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
 	if tab == tabTop { // only the Top view has a sort
 		hints = []string{"q quit", "enter jump", "s sort", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
+	}
+	if typing { // the other keys are text now
+		hints = []string{"enter keep", "up/down move", "ctrl+u clear", "esc cancel"}
 	}
 	right := fitHints(hints, width-ansi.StringWidth(left)-1)
 	gap := width - ansi.StringWidth(left) - ansi.StringWidth(right)
@@ -579,7 +583,8 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  a                              show or hide ended sessions",
 		"  s                              cycle the Top sort: activity, state, dir, queue",
 		"  /                              filter the sessions; enter keeps it, esc clears it",
-		"  i, e                           the inbox, or the selected session's queue",
+		"  ctrl+u, ctrl+w                 in a line you type: clear it, or its last word",
+		"  i, e                           the inbox, or the session's queue; in a queue, the other one",
 		"  o, enter, dd, K J T            add, edit, remove (asks), move up, down, top",
 		"  t, P, U, m                     take an inbox item; pin, unpin; m sends it on",
 		"  n                              name the selected session (an alias); empty clears it",
@@ -650,7 +655,7 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 	for len(body) < bodyOpts.Height { // pad, so the status bar sits on the last row
 		body = append(body, "")
 	}
-	lines := append(append(bar, body...), statusBar(s, o.Width, errText, tab, o.Theme))
+	lines := append(append(bar, body...), statusBar(s, o.Width, errText, tab, o.Typing, o.Theme))
 	if o.Hits != nil {
 		h := append(make([]string, len(bar)), hits...)
 		for len(h) < len(bar)+len(body) { // the body was padded

@@ -68,8 +68,11 @@ func TestQueueOpensAndCloses(t *testing.T) {
 		}
 	}
 	if m2, _ := queueModel(t, qSession); true {
-		if m2, _ = press(t, m2, "i"); !m2.queue || m2.qKind != qSession {
-			t.Error("i inside a session queue does nothing")
+		if m2, _ = press(t, m2, "i"); !m2.queue || m2.qKind != qInbox {
+			t.Error("i inside a session queue switches to the inbox")
+		}
+		if m2, _ = press(t, m2, "e"); !m2.queue || m2.qKind != qSession {
+			t.Error("e inside the inbox switches to the session's queue")
 		}
 	}
 	if back, cmd := press(t, m, "q"); cmd != nil || back.queue {

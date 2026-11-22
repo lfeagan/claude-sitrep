@@ -222,10 +222,18 @@ func (m model) queueKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch key {
 	case "q", "esc", "backspace": // q goes back; only ctrl+c quits from here
 		m.queue = false
-	case "i":
-		m.queue = m.qKind != qInbox
+	case "i": // the key of the queue on screen closes it, and the other one switches to its queue
+		if m.qKind == qInbox {
+			m.queue = false
+		} else {
+			return m.queueOpen(qInbox)
+		}
 	case "e":
-		m.queue = m.qKind != qSession
+		if m.qKind == qSession {
+			m.queue = false
+		} else {
+			return m.queueOpen(qSession)
+		}
 	case "up", "k":
 		m.selectQueue(i - 1)
 	case "down", "j":
@@ -525,6 +533,15 @@ func (m model) aliasStatus() string {
 	return fmt.Sprintf("name for %s: %s▏  enter sets, empty clears, esc cancels", label, m.prompt.text)
 }
 
+// dropWord is the text without its last word and the spaces before it, as ctrl+w does in a shell.
+func dropWord(s string) string {
+	s = strings.TrimRight(s, " ")
+	if i := strings.LastIndex(s, " "); i >= 0 {
+		return s[:i+1]
+	}
+	return ""
+}
+
 // promptKey handles keys while text is being typed. Printable keys are text, even the ones that
 // are commands otherwise.
 func (m model) promptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -541,6 +558,10 @@ func (m model) promptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if r := []rune(p.text); len(r) > 0 {
 			p.text = string(r[:len(r)-1])
 		}
+	case "ctrl+u":
+		p.text = ""
+	case "ctrl+w":
+		p.text = dropWord(p.text)
 	case "space":
 		p.text = addText(p.text, " ", maxPrompt)
 	default:
@@ -722,11 +743,11 @@ func queueScreen(v queueView, width, height int, th Theme) string {
 	case v.ReadOnly:
 		hints = []string{"q back", "j/k move", "(read-only)", "? help"}
 	case v.Inbox && v.Target != "":
-		hints = []string{"q back", "t take into " + v.Target, "o add", "enter edit", "dd remove", "m send", "K J T move", "? help"}
+		hints = []string{"q back", "t take into " + v.Target, "o add", "enter edit", "dd remove", "m send", "K J T move", "e session queue", "? help"}
 	case v.Inbox:
 		hints = []string{"q back", "o add", "enter edit", "dd remove", "m send", "K J T move", "(no session to take into)", "? help"}
 	default:
-		hints = []string{"q back", "o add", "enter edit", "dd remove", "m send", "K J T move", "P pin", "U unpin", "? help"}
+		hints = []string{"q back", "o add", "enter edit", "dd remove", "m send", "K J T move", "P pin", "U unpin", "i inbox", "? help"}
 	}
 	hint := fitHints(hints, width)
 	switch {

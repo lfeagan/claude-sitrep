@@ -281,6 +281,12 @@ func (m model) filterKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.filter = string(r[:len(r)-1])
 			m.fixSel()
 		}
+	case "ctrl+u":
+		m.filter = ""
+		m.fixSel()
+	case "ctrl+w":
+		m.filter = dropWord(m.filter)
+		m.fixSel()
 	case "up":
 		m.moveSel(-1)
 	case "down":
@@ -673,7 +679,7 @@ func (m model) View() tea.View {
 	case m.queue:
 		body = queueScreen(m.queueView(), m.width, m.height, theme)
 	case m.detail && m.selected() != nil:
-		body = detailScreenKeys(*m.selected(), m.width, m.height, m.scroll, m.pending == "g", theme)
+		body = detailScreenKeys(*m.selected(), m.width, m.height, m.scroll, m.pending == "g", m.readOnly, theme)
 	case m.haveSnap || m.err != nil:
 		status := m.statusText()
 		if m.prompt != nil && m.prompt.verb == "alias" {
@@ -685,7 +691,7 @@ func (m model) View() tea.View {
 		if status == "" && (m.filtering || m.filter != "") {
 			status = m.filterStatus()
 		}
-		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Theme: theme})
+		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Theme: theme})
 	}
 	v := tea.NewView(body)
 	v.AltScreen = true

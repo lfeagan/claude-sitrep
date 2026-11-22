@@ -10,7 +10,8 @@ Keys
   a                              show or hide ended sessions
   s                              cycle the Top sort: activity, state, dir, queue
   /                              filter the sessions; enter keeps it, esc clear…
-  i, e                           the inbox, or the selected session's queue
+  ctrl+u, ctrl+w                 in a line you type: clear it, or its last word
+  i, e                           the inbox, or the session's queue; in a queue,…
   o, enter, dd, K J T            add, edit, remove (asks), move up, down, top
   t, P, U, m                     take an inbox item; pin, unpin; m sends it on
   n                              name the selected session (an alias); empty cl…
@@ -32,4 +33,8 @@ Colours
   purple       the session changed in the last minute
 
 Any key closes this list.
+
+
+
+
  keys                                                                           

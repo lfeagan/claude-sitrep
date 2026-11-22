@@ -1,6 +1,6 @@
-# Dashboard keys, version 0.7.0
+# Dashboard keys
 
-Status: first round built (0.7.0), later rounds not. Reviewed once. `q` going back from a sub-screen is already done (0.6.0). Changes from the review: `ctrl+f` and `ctrl+b` are dropped (tmux takes `ctrl+b`), `O`, `dd` and `yy` wait, `ctrl+d` keeps the page size it has, per-screen help is a later round, and the first round is the items under First Round.
+Status: the first round is built (0.7.0), and later changes are listed under First Round and Later (the table of keys below is as of 0.16.1). Reviewed once. `q` going back from a sub-screen is already done (0.6.0). Changes from the review: `ctrl+f` and `ctrl+b` are dropped (tmux takes `ctrl+b`), `O` and `yy` wait, `ctrl+d` keeps the page size it has, per-screen help is a later round.
 
 ## Purpose
 
@@ -18,12 +18,13 @@ The dashboard's keys grew one feature at a time, and the same letter now means d
 
 | Screen | Keys |
 |---|---|
-| Watch and Top | `q` quit, `tab` `shift+tab` `←` `→` `1` `2` tab, `j k ↑ ↓ home end` move, `enter` jump, `y` copy id, `Y` copy resume command, `z` snooze, `/` filter, `n` name, `i` inbox, `e` queue, `p` prune, `d` `space` detail, `a` ended, `s` sort (Top), `r` refresh, `?` help, `esc` clear filter |
-| Detail | `q` `esc` `d` `backspace` back, `enter` `y` `Y` `z`, `j k ↑ ↓` previous or next session, `space` `pgdn` `ctrl+d` and `pgup` `b` `ctrl+u` scroll, `home` `end` |
-| Queue | `q` `esc` `backspace` back, `i` `e` the other queue, `j k ↑ ↓ home end` move, `a` add, `E` edit, `x` remove (asks), `K` `J` move, `T` to the top, `t` take (inbox), `P` pin, `U` unpin |
-| Line, question, filter | `enter` `esc` `backspace`, `y` `n` `q` on a question |
+| Watch and Top | `q` quit, `tab` `shift+tab` `h` `l` `←` `→` switch tab, `j` `k` `↑` `↓` `home` `end` `gg` `G` `ctrl+d` `ctrl+u` `pgdn` `pgup` move, `enter` jump, `y` copy the id, `Y` copy the resume command, `z` snooze, `/` filter, `n` name, `i` inbox, `e` queue, `1`-`9` take an inbox item (asks), `p` prune, `v` `space` detail, `a` ended, `s` sort (Top), `r` refresh, `?` help, `esc` clear the filter |
+| Detail | `q` `esc` `backspace` back, `enter` `y` `Y` `z`, `j` `k` `↑` `↓` previous or next session, `space` `pgdn` `ctrl+d` and `pgup` `b` `ctrl+u` scroll, `gg` `G` `home` `end`, `e` `i` the queues |
+| Queue | `q` `esc` `backspace` back, `i` `e` the other queue (the key of the open queue closes it), `j` `k` `↑` `↓` `gg` `G` move, `o` `a` add, `enter` `E` edit, `dd` `x` remove (asks), `K` `J` `T` move, `m` send, `t` take (inbox), `P` pin, `U` unpin |
+| Line, question, filter | `enter` `esc` `backspace`, `ctrl+u` clear the line, `ctrl+w` its last word, `y` `n` `q` on a question; the footer of a filter lists these and not the keys of the tab |
+| Mouse (`--mouse`) | a click selects a row, and a double click jumps |
 
-## What Is Wrong With Them
+## What Was Wrong With Them In 0.7.0
 
 1. `a` adds an item in a queue and shows ended sessions on the tabs.
 2. `t` takes an inbox item and `T` moves an item to the top, one shift apart, and only `t` asks.
@@ -43,6 +44,9 @@ The review cut the first round to what can be built without a new help state or 
 5. A number from `1` to `9` on a tab asks whether to move that inbox item into the selected session, and `y` does it. It takes the place of `1` and `2` as tab keys; `tab` `shift+tab` `h` `l` and the arrows still switch. Added after the review, at the user's request.
 6. `m` in a queue opens a short list of the places to send the selected item: the inbox (unless the item is in it) and the running sessions other than the one it is in. `j` `k` `gg` `G` choose, `enter` sends it to the end of that queue (`sitrep move`, guarded by the item's text), and `esc` or `q` cancels. It is for the rare move between queues, so it takes two steps and has no key for each place. Added after the review, at the user's request.
 7. `?` opens the help from every screen. The help state is checked first, and any key closes it, so a queue or a detail view that was open is open again after it.
+
+8. `i` and `e` inside a queue switch to the other queue, and the key of the open queue closes it (0.16.1). Before, the other key did nothing, which the help and this document did not say.
+9. `ctrl+u` and `ctrl+w` edit a line of typing, in the filter and in the name and queue prompts (0.16.1). The footer of the filter lists the keys that work while typing, and the detail footer lists `enter`, `z` and `y` (0.16.1).
 
 ## Later
 
