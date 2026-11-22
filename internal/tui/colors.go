@@ -67,7 +67,8 @@ type colorsModel struct {
 	lastBackup    string
 	savedTheme    string
 	savedColors   string
-	embedded      bool // opened from the dashboard: q returns to it instead of quitting
+	saved         map[string][2]string // the colours the file holds, as of the last write
+	embedded      bool                 // opened from the dashboard: q returns to it instead of quitting
 	done          bool
 }
 
@@ -86,7 +87,7 @@ func newColorsModelOn(opts ColorsOptions, snap Snapshot) colorsModel {
 	if opts.Dark != nil {
 		m.dark = *opts.Dark
 	}
-	m.savedTheme, m.savedColors = m.theme, m.colorsString()
+	m.savedTheme, m.savedColors, m.saved = m.theme, m.colorsString(), cloneSet(m.set)
 	m.msg = strings.Join(opts.Notes, "  ")
 	return m
 }
@@ -492,7 +493,7 @@ func (m colorsModel) write() (tea.Model, tea.Cmd) {
 	default:
 		m.msg = "written; sitrep dash shows it at its next refresh (backup: " + backup + ")"
 	}
-	m.savedTheme, m.savedColors = m.theme, m.colorsString()
+	m.savedTheme, m.savedColors, m.saved = m.theme, m.colorsString(), cloneSet(m.set)
 	return m, nil
 }
 
@@ -541,12 +542,13 @@ func (m colorsModel) list(w int) []string {
 			cur = "▶ "
 		}
 		val, star, swatch := m.theme, "", ""
+		if i == 0 && m.theme != m.savedTheme {
+			star = " *"
+		}
 		if i > 0 {
 			c := m.value(name)[m.side()]
 			val = c
-			if _, ok := m.set[name]; ok {
-				star = " *"
-			}
+			star = m.mark(name)
 			if !mono {
 				swatch = " " + lipgloss.NewStyle().Foreground(lipgloss.Color(c)).Render("████") + " " + lipgloss.NewStyle().Background(lipgloss.Color(c)).Render("    ")
 			}
@@ -558,6 +560,19 @@ func (m colorsModel) list(w int) []string {
 		out = append(out, ansi.Truncate(line, w, "…"))
 	}
 	return out
+}
+
+// mark says how a colour stands against the file: * for a change not written yet, "set" for a colour the file holds, nothing for the theme's own.
+func (m colorsModel) mark(name string) string {
+	v, set := m.set[name]
+	was, saved := m.saved[name]
+	switch {
+	case set != saved || v != was:
+		return " *"
+	case set:
+		return " set"
+	}
+	return ""
 }
 
 func (m colorsModel) footer(w int) string {

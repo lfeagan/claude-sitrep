@@ -535,3 +535,42 @@ func TestCKeyIsTextInAPrompt(t *testing.T) {
 		t.Errorf("a typed C is part of the filter: %q", m.filter)
 	}
 }
+
+func TestColorsMarksAreAboutTheFile(t *testing.T) {
+	m, _ := newColors(t, "SITREP_COLORS=dim=7\n")
+	row := func(m colorsModel, name string) string {
+		for _, l := range strings.Split(ansi.Strip(m.body()), "\n") {
+			if strings.Contains(l, " "+name+" ") && strings.Contains(l, "████") {
+				return l
+			}
+		}
+		t.Fatalf("no row for %s", name)
+		return ""
+	}
+	if got := row(m, "dim"); !strings.HasSuffix(strings.TrimRight(got, " "), "set") {
+		t.Errorf("a colour the file holds is marked set: %q", got)
+	}
+	if got := row(m, "hot"); strings.Contains(got, "*") || strings.Contains(got, "set") {
+		t.Errorf("the theme's own colour has no mark: %q", got)
+	}
+	m = ckey(t, m, "j", "j", "j") // hot
+	m = typeColor(t, m, "#445566")
+	if got := row(m, "hot"); !strings.HasSuffix(strings.TrimRight(got, " "), "*") {
+		t.Errorf("a change not written is marked *: %q", got)
+	}
+	m = ckey(t, m, "k", "r") // dim: reset, which is a change too
+	if got := row(m, "dim"); !strings.HasSuffix(strings.TrimRight(got, " "), "*") {
+		t.Errorf("a reset not written is marked *: %q", got)
+	}
+	m = ckey(t, m, "w", "y")
+	if got := row(m, "hot"); !strings.HasSuffix(strings.TrimRight(got, " "), "set") {
+		t.Errorf("after the write it is saved, so set: %q", got)
+	}
+	if got := row(m, "dim"); strings.Contains(got, "*") || strings.Contains(got, "set") {
+		t.Errorf("a written reset is the theme's own again: %q", got)
+	}
+	m = ckey(t, m, "g", "l")
+	if got := ansi.Strip(m.body()); !strings.Contains(got, "pastel  ") || !strings.Contains(got, "*") {
+		t.Errorf("a theme not written is marked: %q", got)
+	}
+}
