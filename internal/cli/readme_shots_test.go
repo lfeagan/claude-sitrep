@@ -41,7 +41,7 @@ func TestWriteReadmeShots(t *testing.T) {
 	write("hero-cards", "dark", "# sitrep dash --demo\n"+frame("cards", 100, 30, "", true, sel, true))
 	snap = full
 	write("table", "dark", "# sitrep dash --demo\n"+frame("table", 100, 14, "", true, sel, true))
-	write("wall", "dark", "# sitrep dash --demo\n"+frame("wall", 100, 12, "", true, "", true))
+	write("wall", "dark", "# sitrep dash --demo\n"+frame("wall", 66, 12, "", true, "", true))
 	// a theme is shown on four sessions, one of each look: needs you, recent activity, plain and snoozed
 	snap.Sessions = []snapshot.Session{full.Sessions[0], full.Sessions[2], full.Sessions[3], full.Sessions[6]}
 	theme := func(side string, dark bool, names ...string) {

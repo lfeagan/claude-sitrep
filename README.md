@@ -1,18 +1,16 @@
 # claude-sitrep
 
-Write down what comes next for each of your Claude Code sessions, and see where each one stands.
+A to-do list for each of your Claude Code sessions, and a dashboard that shows which one is waiting for you.
 
 ![The sitrep dashboard on the Cards tab: two sessions that need you in pink, one working, one snoozed](docs/img/hero-cards.png)
 
-*`sitrep dash --demo`, on made-up sessions. The Inbox and the Queue lines are your own lists. A row with `●` needs you; `○` is a snoozed session; `▶` marks the selected row; the grey row is working.*
+*`sitrep dash --demo`, on made-up sessions.*
+
+- `●` the session needs you, `○` it is snoozed, and `▶` marks the selected row.
+- Objective, Progress and Now say what a session is for, how far it has got and what it is doing right now.
+- Queue is your list of what comes next for that session. Inbox is your list for work that has no session yet.
 
 When you run several Claude Code sessions, you think of the next thing to ask one of them while it is still busy, or of something for another session. Where does that go? Into your head, a scratch file, or a prompt you have to remember to send. And you lose track of which session is waiting for you.
-
-## Contents
-
-[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Quick Start](#quick-start) · [What You See](#what-you-see) · [Install](#install) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [How It Works](#how-it-works) · [Privacy And Safety](#privacy-and-safety) · [Development](#development) · [Status](#status) · [License](#license)
-
-More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [the themes](docs/THEMES.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md) and [remote machines](docs/REMOTE.md).
 
 ## Why sitrep
 
@@ -27,11 +25,17 @@ Other tools, including Claude Code's own Agent View, show which sessions are wor
 
 Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts. [docs/COMPARISON.md](docs/COMPARISON.md) compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
-To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Quick Start](#quick-start)). To look around first, clone the repository, run `make build`, then `./sitrep dash --demo`.
+To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Quick Start](#quick-start)). To look around first, with nothing installed, run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@main dash --demo` (it needs Go 1.26 or newer, and shows made-up sessions).
+
+## Contents
+
+[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Quick Start](#quick-start) · [The Queue](#the-queue) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
+
+More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [the themes](docs/THEMES.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md) and [remote machines](docs/REMOTE.md).
 
 ## What It Looks Like
 
-The dashboard has three tabs, and `tab` switches between them. Cards shows the detail of a few sessions, as above. Table is a quick scan of many. `CTX` is the share of the context window left, and `idle?` marks a working session that has been quiet for a while:
+The dashboard has three tabs, and `tab` switches between them. Cards shows the detail of a few sessions, as above. Table is a quick scan of many. `CTX` is the share of the context window left, so a low number is a warning, and it is bold when it is low. `idle?` marks a working session that has been quiet for a while:
 
 ![The Table tab: one line per session, with state, queue, context left and what it is doing now](docs/img/table.png)
 
