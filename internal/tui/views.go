@@ -14,10 +14,11 @@ import (
 const (
 	tabWatch = iota
 	tabTop
+	tabWall
 	tabCount
 )
 
-var tabNames = [tabCount]string{"Watch", "Top"}
+var tabNames = [tabCount]string{"Watch", "Top", "Wall"}
 
 // The Top view can be sorted four ways. Activity is the order sitrep sends, newest first.
 const (
@@ -37,16 +38,21 @@ type viewOpts struct {
 	Sel           string // the id of the selected session, "" for none
 	Filter        string // only sessions that contain this text are listed
 	Theme         Theme
-	Typing        bool      // a filter is being typed, so the footer lists the keys of that
-	Hits          *[]string // when set, filled with the id of the session on each screen row ("" for none), for a mouse click
+	Typing        bool        // a filter is being typed, so the footer lists the keys of that
+	Hits          *[]string   // when set, filled with the id of the session on each screen row ("" for none), for a mouse click
+	Size          int         // the Wall's tile size (wallStandard, wallRoomy or wallCompact)
+	Cells         *[]wallCell // when set, filled with the place of each tile of the Wall, for a mouse click
 }
 
 // visibleIDs lists the ids in the order a tab draws them, so selection moves the way the eye does.
 func visibleIDs(s Snapshot, tab int, showEnded bool, by int, filter string) []string {
 	list, _ := shown(s, showEnded)
 	list = filterSessions(list, filter)
-	if tab == tabTop {
+	switch tab {
+	case tabTop:
 		list = sorted(list, by)
+	case tabWall:
+		list = sorted(list, sortState)
 	}
 	ids := make([]string, len(list))
 	for i, x := range list {
@@ -539,8 +545,11 @@ func statusBar(s Snapshot, width int, errText string, tab int, typing, filtered 
 		left = " " + errText
 	}
 	hints := []string{"q quit", "enter jump", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
-	if tab == tabTop { // only the Top view has a sort
+	switch tab {
+	case tabTop: // only the Top view has a sort
 		hints = []string{"q quit", "enter jump", "s sort", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
+	case tabWall:
+		hints = []string{"q quit", "enter jump", "hjkl move", "s size", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
 	}
 	if filtered && !typing { // a filter is on: say how to end it, ahead of the keys a narrow screen drops
 		hints = append([]string{hints[0], "esc clear filter"}, hints[1:]...)
@@ -613,9 +622,10 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  y, Y                           copy the id, or its claude --resume command",
 		"  v, space                       the selected session in full (q closes; e, i: queues)",
 		"  tab, shift+tab, h, l           switch tab (left and right too)",
+		"  h, l, j, k, arrows             on the Wall: the tile left, right, above, below",
 		"  1-9                            take that inbox item into the selected session",
 		"  a                              show or hide ended sessions",
-		"  s                              cycle the Top sort: activity, state, dir, queue",
+		"  s                              cycle the Top sort, or the Wall's tile size",
 		"  /                              filter the sessions; enter keeps it, esc clears it",
 		"  ctrl+u, ctrl+w                 in a line you type: clear it, or its last word",
 		"  i, e                           the inbox, or the session's queue; in a queue, the other one",
@@ -632,6 +642,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"",
 		"  Watch   every session as a block: Objective, Progress, Now and the queue",
 		"  Top     a summary line, then one line per session (CTX: context left)",
+		"  Wall    the sessions as tiles of one size, many to a screen, those that need you first",
 		"",
 		"Colours",
 		"",
@@ -679,10 +690,24 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 	if o.Hits != nil {
 		bodyOpts.Hits = &hits
 	}
-	if tab == tabTop {
+	var cells []wallCell
+	switch tab {
+	case tabTop:
 		body = topBody(s, bodyOpts)
-	} else {
+	case tabWall:
+		if o.Cells != nil {
+			bodyOpts.Cells = &cells
+		}
+		body = wallBody(s, bodyOpts)
+	default:
 		body = watchBody(s, bodyOpts)
+	}
+	if o.Cells != nil {
+		*o.Cells = (*o.Cells)[:0]
+		for _, c := range cells {
+			c.Y0, c.Y1 = c.Y0+len(bar), c.Y1+len(bar)
+			*o.Cells = append(*o.Cells, c)
+		}
 	}
 	for i, l := range body { // a last guard: nothing may be wider than the screen
 		body[i] = ansi.Truncate(l, max(o.Width, 1), "…")

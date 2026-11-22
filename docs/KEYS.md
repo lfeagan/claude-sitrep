@@ -18,7 +18,7 @@ The dashboard's keys grew one feature at a time, and the same letter now means d
 
 | Screen | Keys |
 |---|---|
-| Watch and Top | `q` quit, `tab` `shift+tab` `h` `l` `←` `→` switch tab, `j` `k` `↑` `↓` `home` `end` `gg` `G` `ctrl+d` `ctrl+u` `pgdn` `pgup` move, `enter` jump, `y` copy the id, `Y` copy the resume command, `z` snooze, `/` filter, `n` name, `i` inbox, `e` queue, `1`-`9` take an inbox item (asks), `p` prune, `v` `space` detail, `a` ended, `s` sort (Top), `r` refresh, `?` help, `esc` clear the filter |
+| Watch, Top and Wall | `q` quit, `tab` `shift+tab` `h` `l` `←` `→` switch tab, `j` `k` `↑` `↓` `home` `end` `gg` `G` `ctrl+d` `ctrl+u` `pgdn` `pgup` move, `enter` jump, `y` copy the id, `Y` copy the resume command, `z` snooze, `/` filter, `n` name, `i` inbox, `e` queue, `1`-`9` take an inbox item (asks), `p` prune, `v` `space` detail, `a` ended, `s` sort (Top) or tile size (Wall), `h` `l` `j` `k` the tile left, right, above and below (Wall), `r` refresh, `?` help, `esc` clear the filter |
 | Detail | `q` `esc` `backspace` back, `enter` `y` `Y` `z`, `j` `k` `↑` `↓` previous or next session, `space` `pgdn` `ctrl+d` and `pgup` `b` `ctrl+u` scroll, `gg` `G` `home` `end`, `e` `i` the queues |
 | Queue | `q` `esc` `backspace` back, `i` `e` the other queue (the key of the open queue closes it), `j` `k` `↑` `↓` `gg` `G` move, `o` `a` add, `enter` `E` edit, `dd` `x` remove (asks), `K` `J` `T` move, `m` send, `t` take (inbox), `P` pin, `U` unpin |
 | Line, question, filter | `enter` `esc` `backspace`, `ctrl+u` clear the line, `ctrl+w` its last word, `y` `n` `q` on a question; the footer of a filter lists these and not the keys of the tab |

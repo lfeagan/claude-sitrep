@@ -114,8 +114,8 @@ func TestHAndLSwitchTabs(t *testing.T) {
 		t.Errorf("h: %d", m.tab)
 	}
 	m, _ = press(t, m, "h")
-	if m.tab != tabTop {
-		t.Errorf("h wraps: %d", m.tab)
+	if m.tab != tabWall {
+		t.Errorf("h wraps to the last tab: %d", m.tab)
 	}
 	// they are text in the filter, and do nothing in the queue
 	f, _ := press(t, loaded(t, tabWatch), "/")

@@ -65,13 +65,18 @@ func TestKeysSwitchTabs(t *testing.T) {
 		t.Errorf("tab should go to Top, got %d", m.tab)
 	}
 	m, _ = press(t, m, "tab")
+	if m.tab != tabWall {
+		t.Errorf("tab should go to Wall, got %d", m.tab)
+	}
+	m, _ = press(t, m, "tab")
 	if m.tab != tabWatch {
 		t.Errorf("tab should wrap to Watch, got %d", m.tab)
 	}
 	m, _ = press(t, m, "shift+tab")
-	if m.tab != tabTop {
-		t.Errorf("shift+tab should wrap back to Top, got %d", m.tab)
+	if m.tab != tabWall {
+		t.Errorf("shift+tab should wrap back to Wall, got %d", m.tab)
 	}
+	m, _ = press(t, m, "shift+tab")
 	m, _ = press(t, m, "left")
 	m, _ = press(t, m, "right")
 	if m.tab != tabTop {

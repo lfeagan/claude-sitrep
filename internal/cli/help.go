@@ -134,10 +134,11 @@ The three options exclude one another.
 It reads Claude Code's live-session registry and changes nothing if it cannot. It never
 touches a running session or one under two minutes old, and never deletes a queue.
 `,
-	"watch": `usage: sitrep watch [--tab watch|top] [--interval 3s] [--once] [--width n] [--quit-on-jump]
+	"watch": `usage: sitrep watch [--tab watch|top|wall] [--interval 3s] [--once] [--width n] [--quit-on-jump]
                     [--read-only] [--no-bell]
 
-A live full-screen dashboard of the sessions, with a Watch tab and a Top tab and a status bar.
+A live full-screen dashboard of the sessions, with a Watch tab, a Top tab and a Wall tab (the
+sessions as tiles, for many at once) and a status bar.
 It reads the sessions itself and changes nothing except through the same fixed commands this
 program has (prune, snooze and the queue edits), after a preview or a question. Without a
 terminal it prints one frame, as ` + "`sitrep status`" + ` does.
@@ -163,7 +164,7 @@ other key that changes state, and --no-bell (or SITREP_TUI_BELL=0) stops the bel
 when a session starts needing you. --mouse (or SITREP_TUI_MOUSE=1) makes a click select a row and
 a double click jump, as enter does; the terminal then selects text only with shift or option held.
 `,
-	"status": `usage: sitrep status [--tab watch|top] [--width n] [-a]
+	"status": `usage: sitrep status [--tab watch|top|wall] [--width n] [-a]
 
 Print one frame of the dashboard as plain text: for a script, a pipe or a quick look. -a includes
 ended sessions.

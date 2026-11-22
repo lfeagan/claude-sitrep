@@ -1,6 +1,6 @@
 # The Wall tab: many sessions at once
 
-Status: design, then built in the same change (0.19.0).
+Status: built (0.19.0).
 
 ## Claim
 

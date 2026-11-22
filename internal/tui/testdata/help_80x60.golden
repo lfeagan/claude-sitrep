@@ -7,9 +7,10 @@ Keys
   v, space                       the selected session in full (q closes; e, i:
                                  queues)
   tab, shift+tab, h, l           switch tab (left and right too)
+  h, l, j, k, arrows             on the Wall: the tile left, right, above, below
   1-9                            take that inbox item into the selected session
   a                              show or hide ended sessions
-  s                              cycle the Top sort: activity, state, dir, queue
+  s                              cycle the Top sort, or the Wall's tile size
   /                              filter the sessions; enter keeps it, esc clears
                                  it
   ctrl+u, ctrl+w                 in a line you type: clear it, or its last word
@@ -29,6 +30,8 @@ Tabs
 
   Watch   every session as a block: Objective, Progress, Now and the queue
   Top     a summary line, then one line per session (CTX: context left)
+  Wall    the sessions as tiles of one size, many to a screen, those that need
+          you first
 
 Colours
 
@@ -37,9 +40,6 @@ Colours
   ○            snoozed: waiting, but you said it can wait
   purple       the session changed in the last minute
   idle?        working, but quiet for 10 minutes: it may have been interrupted
-
-
-
 
 
 

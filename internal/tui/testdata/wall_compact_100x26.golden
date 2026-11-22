@@ -1,0 +1,26 @@
+ Watch   Top  [Wall] 
+────────────────────────────────────────────────────────────────────────────────────────────────────
+● 6 need you   11 running: 3 working, 8 waiting, 0 idle?, 0 ended   inbox 2 items   size: compact
+  s000  ● waiting 3m               s002  ● waiting 40m  +3          s004  ● waiting 3m  +5        
+  now 0 日本語のテキスト           now 2 日本語のテキスト           now 4 日本語のテキスト        
+  s006  ● waiting 40m            ▶ s008  ● waiting 3m  +4           s010  ● waiting 40m  +1       
+  now 6 日本語のテキスト         │ now 8 日本語のテキスト           now 10 日本語のテキスト       
+  s001  working 20s  +2            s005  working 20s  +1            s009  working 20s             
+  now 1 日本語のテキスト           Objective 5: a goal that is r…   now 9 日本語のテキスト        
+  s003  ○ waiting 1h               s007  ○ waiting 1h  +3                                         
+  now 3 日本語のテキスト           now 7 日本語のテキスト                                         
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ● 6 need you   11 running, 0 ended         q quit  enter jump  hjkl move  s size  / filter  ? help 

@@ -86,6 +86,7 @@ type model struct {
 	pending   string // the first key of a two-key command that waits for its second: g (gg, the first row) or d (dd, remove an item)
 	isDark    bool
 	now       func() time.Time
+	wallSize  int       // the tile size of the Wall tab
 	mouse     bool      // clicks select a row, and a double click jumps
 	clickID   string    // the session of the last click, and when it came,
 	clickAt   time.Time // for the double click
@@ -398,10 +399,21 @@ func (m *model) goTop() {
 // listPage is how many sessions ctrl+d and ctrl+u move: about a screen less a line, as the detail view pages. A session takes a few lines
 // on the Watch tab and one on the Top tab.
 func (m model) listPage() int {
-	if m.tab == tabTop {
+	switch m.tab {
+	case tabTop:
 		return max(m.height-5, 1)
+	case tabWall:
+		return wallPage(m.width, m.height, m.wallSize)
 	}
 	return max((m.height-5)/6, 1)
+}
+
+// rowStep is how many sessions j and k move: one, and on the Wall a row of tiles.
+func (m model) rowStep() int {
+	if m.tab == tabWall {
+		return wallCols(m.width)
+	}
+	return 1
 }
 
 // visible is the ids on the current tab, in drawing order.
@@ -571,16 +583,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
-		case "tab", "right", "l":
+		case "tab":
 			m.tab = (m.tab + 1) % tabCount
-		case "shift+tab", "left", "h":
+		case "shift+tab":
 			m.tab = (m.tab + tabCount - 1) % tabCount
+		case "right", "l":
+			if m.tab == tabWall { // the sessions are laid out in two directions there
+				m.moveSel(1)
+			} else {
+				m.tab = (m.tab + 1) % tabCount
+			}
+		case "left", "h":
+			if m.tab == tabWall {
+				m.moveSel(-1)
+			} else {
+				m.tab = (m.tab + tabCount - 1) % tabCount
+			}
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			return m.takeDigit(int(msg.String()[0] - '0'))
 		case "up", "k":
-			m.moveSel(-1)
+			m.moveSel(-m.rowStep())
 		case "down", "j":
-			m.moveSel(1)
+			m.moveSel(m.rowStep())
 		case "home":
 			m.moveSelTo(0)
 		case "end", "G":
@@ -622,8 +646,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showEnded = !m.showEnded
 			m.fixSel()
 		case "s":
-			if m.tab == tabTop { // only the Top view has a sort
+			switch m.tab {
+			case tabTop: // only the Top view has a sort
 				m.sortBy = (m.sortBy + 1) % sortCount
+			case tabWall:
+				m.wallSize = (m.wallSize + 1) % wallSizes
 			}
 		case "?":
 			m.help = true
@@ -646,11 +673,22 @@ func (m model) click(c tea.Mouse) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	var hits []string
-	render(m.snap, m.tab, "", viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Theme: plainTheme(), Hits: &hits})
-	if c.Y < 0 || c.Y >= len(hits) || hits[c.Y] == "" {
+	var cells []wallCell
+	render(m.snap, m.tab, "", viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Size: m.wallSize, Theme: plainTheme(), Hits: &hits, Cells: &cells})
+	id := ""
+	if m.tab == tabWall {
+		for _, cell := range cells {
+			if c.X >= cell.X0 && c.X <= cell.X1 && c.Y >= cell.Y0 && c.Y <= cell.Y1 {
+				id = cell.ID
+			}
+		}
+	} else if c.Y >= 0 && c.Y < len(hits) {
+		id = hits[c.Y]
+	}
+	if id == "" {
 		return m, nil
 	}
-	id, now := hits[c.Y], m.now()
+	now := m.now()
 	m.selID, m.pending = id, ""
 	if id == m.clickID && now.Sub(m.clickAt) <= doubleClick {
 		m.clickID = ""
@@ -694,7 +732,7 @@ func (m model) View() tea.View {
 		if status == "" && (m.filtering || m.filter != "") {
 			status = m.filterStatus()
 		}
-		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Theme: theme})
+		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Theme: theme})
 	}
 	v := tea.NewView(body)
 	v.AltScreen = true

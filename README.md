@@ -98,6 +98,7 @@ The inbox is a queue that belongs to no session, for work you have not yet match
 
 1. **Watch** shows Objective, Progress, Now and the queue of each session.
 2. **Top** is a summary line and one line per session, with its state, queue size, the share of its context window left (CTX) and what it is doing now.
+3. **Wall** lays the sessions out as tiles of one size, in as many columns as the width holds, for twenty sessions at once. The sessions that need you come first, `h` `l` `j` `k` move between tiles, and `s` changes the tile size.
 
 A session that needs you, meaning Claude has stopped and the next move is yours, or it waits at a permission dialog, has a `●` before its state and a coloured background, and the status bar leads with `● 2 need you`. The colour fades after ten minutes (`SITREP_ATTN_FADE`, see [docs/SETTINGS.md](docs/SETTINGS.md)) and the `●` stays. The terminal bell rings once when a session starts needing you.
 

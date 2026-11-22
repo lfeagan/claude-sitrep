@@ -42,8 +42,10 @@ func tabByName(name string) (int, error) {
 		return tabWatch, nil
 	case "top":
 		return tabTop, nil
+	case "wall":
+		return tabWall, nil
 	}
-	return 0, fmt.Errorf("unknown tab %q (watch or top)", name)
+	return 0, fmt.Errorf("unknown tab %q (watch, top or wall)", name)
 }
 
 // FromSnapshot makes the dashboard's own copy of a snapshot, cleaned again as everything it shows is.
