@@ -262,10 +262,10 @@ func paint(lines []string, st lipgloss.Style, width int) []string {
 }
 
 // mark colours a session's lines: pink-red when it waits for the user, which beats the
-// purple of recent activity.
+// purple of recent activity. A session that has waited long (AttnFaded) is not coloured for it.
 func mark(lines []string, x Session, o viewOpts) []string {
 	switch {
-	case x.NeedsInput && x.Running:
+	case x.NeedsInput && x.Running && !x.AttnFaded:
 		return paint(lines, o.Theme.Attn, o.Width)
 	case x.Highlight && x.Running:
 		return paint(lines, o.Theme.Hot, o.Width)
@@ -701,7 +701,7 @@ func ctxCell(x Session, o viewOpts) string {
 		text = "!" + text
 	}
 	cell := padRight(text, ctxWidth)
-	if left <= 20 && !(x.Running && (x.NeedsInput || x.Highlight)) {
+	if left <= 20 && !(x.Running && ((x.NeedsInput && !x.AttnFaded) || x.Highlight)) {
 		cell = o.Theme.Warn.Render(cell)
 	}
 	return cell

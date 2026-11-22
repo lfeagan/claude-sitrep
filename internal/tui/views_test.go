@@ -256,6 +256,30 @@ func TestNeedsInputBeatsRecentActivity(t *testing.T) {
 	}
 }
 
+func TestAFadedSessionKeepsItsMarkerButNotItsColour(t *testing.T) {
+	s := loadFixture(t)
+	s.Sessions[2].AttnFaded = true
+	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
+	found := false
+	for _, l := range strings.Split(render(s, tabWatch, "", styled), "\n") {
+		if strings.Contains(ansi.Strip(l), "waiting for your call on the branch") || strings.Contains(ansi.Strip(l), "● waiting 3m") {
+			found = true
+			if strings.Contains(l, "48;2;92;31;53") {
+				t.Errorf("a faded session is not painted: %q", l)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("the session is not on screen")
+	}
+	if got := render(s, tabWatch, "", opts(80, 40)); strings.Count(got, "● waiting 3m") != 1 {
+		t.Errorf("the marker stays:\n%s", got)
+	}
+	if needYou(s) != 1 {
+		t.Errorf("it still counts as needing you: %d", needYou(s))
+	}
+}
+
 func TestEndedSessionsNeverNeedYou(t *testing.T) {
 	s := loadFixture(t)
 	s.Sessions[3].NeedsInput = true // an ended session, which the shell would never flag

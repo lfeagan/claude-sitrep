@@ -381,3 +381,11 @@ func TestLogSettings(t *testing.T) {
 		}
 	}
 }
+
+func TestAttnFade(t *testing.T) {
+	for in, want := range map[string]int{"": 600, "SITREP_ATTN_FADE=0\n": 0, "SITREP_ATTN_FADE=90\n": 90, "SITREP_ATTN_FADE=x\n": 600, "SITREP_ATTN_FADE=-1\n": 600} {
+		if got := conf(t, in, nil).AttnFade(); got != want {
+			t.Errorf("%q: got %d, want %d", in, got, want)
+		}
+	}
+}

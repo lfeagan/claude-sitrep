@@ -78,6 +78,7 @@ type Session struct {
 	PID          *int          `json:"pid"`
 	Pinned       bool          `json:"pinned"`
 	Highlight    bool          `json:"highlight"`
+	AttnFaded    bool          `json:"attn_faded,omitempty"`
 	Dir          textsafe.Text `json:"dir"`
 	Cwd          textsafe.Text `json:"cwd"`
 	Objective    textsafe.Text `json:"objective"`
@@ -186,6 +187,8 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 				if snoozedAt(b.Store, id) == strconv.FormatInt(since, 10) {
 					s.NeedsInput, s.Snoozed = false, true
 				}
+				fade := int64(b.Conf.AttnFade())
+				s.AttnFaded = s.NeedsInput && fade > 0 && now-since > fade
 			}
 			s.Highlight = hlsec > 0 && age <= int64(hlsec)
 		}

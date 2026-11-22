@@ -396,3 +396,79 @@ func TestBlockedIsLeftOutOfTheJSONWhenEmpty(t *testing.T) {
 		t.Errorf("the field is missing: %s", buf.String())
 	}
 }
+
+func (w *world) buildEnv(env map[string]string) Snapshot {
+	w.t.Helper()
+	b := Builder{
+		Store: w.s, ConfigDir: w.cfg, Clock: clock.Fixed(now),
+		Conf: conf.Conf{File: filepath.Join(w.s.Dir, "sitrep.conf"), Getenv: func(n string) string { return env[n] }},
+		Reg:  live.Registry{Dir: filepath.Join(w.cfg, "sessions"), Run: &runner.Fake{}, Alive: func(int) bool { return true }},
+	}
+	return b.Build(context.Background(), Options{Cap: 5})
+}
+
+func TestNeedsInputFadesAfterTheSetTime(t *testing.T) {
+	w := newWorld(t)
+	for id, age := range map[string]time.Duration{"new00001": 9 * time.Minute, "edge0001": 10 * time.Minute, "old00001": 10*time.Minute + time.Second} {
+		w.session(id, "waiting", age)
+		w.register(id, 1)
+	}
+	w.session("work0001", "working", 3*time.Hour)
+	w.register("work0001", 1)
+	snap := w.buildEnv(nil)
+	for id, want := range map[string]bool{"new00001": false, "edge0001": false, "old00001": true, "work0001": false} {
+		if got := byID(snap, id).AttnFaded; got != want {
+			t.Errorf("%s faded = %v, want %v", id, got, want)
+		}
+	}
+	if s := byID(snap, "old00001"); !s.NeedsInput {
+		t.Error("a faded session still needs input")
+	}
+	if s := byID(w.buildEnv(map[string]string{"SITREP_ATTN_FADE": "0"}), "old00001"); s.AttnFaded {
+		t.Error("0 never fades")
+	}
+	if s := byID(w.buildEnv(map[string]string{"SITREP_ATTN_FADE": "5"}), "new00001"); !s.AttnFaded {
+		t.Error("a shorter time fades sooner")
+	}
+	if s := byID(w.buildEnv(map[string]string{"SITREP_ATTN_FADE": "soon"}), "old00001"); !s.AttnFaded {
+		t.Error("a bad value is the default")
+	}
+}
+
+func TestASnoozedOrAnsweredSessionIsNotFaded(t *testing.T) {
+	w := newWorld(t)
+	w.session("snz00001", "waiting", time.Hour)
+	w.register("snz00001", 1)
+	w.file(".snz00001.snooze", strconv.FormatInt(now.Add(-time.Hour).Unix(), 10)+"\n", 0)
+	if s := byID(w.buildEnv(nil), "snz00001"); !s.Snoozed || s.AttnFaded {
+		t.Errorf("a snoozed session does not need input, so nothing fades: %+v", s)
+	}
+}
+
+func TestABlockFadesFromWhenTheDialogOpened(t *testing.T) {
+	w := newWorld(t)
+	w.session("blk00001", "working", 2*time.Hour) // started working long ago, blocked just now
+	w.register("blk00001", 1)
+	w.block("blk00001", 30*time.Second, 29*time.Second)
+	if s := byID(w.buildEnv(nil), "blk00001"); !s.NeedsInput || s.AttnFaded {
+		t.Errorf("a new block is not faded: %+v", s)
+	}
+	w.block("blk00001", 11*time.Minute, 0)
+	os.RemoveAll(filepath.Join(w.cfg, "projects"))
+	if s := byID(w.buildEnv(nil), "blk00001"); !s.NeedsInput || !s.AttnFaded {
+		t.Errorf("an old block fades: %+v", s)
+	}
+}
+
+func TestAttnFadedIsLeftOutOfTheJSONUnlessSet(t *testing.T) {
+	w := newWorld(t)
+	w.session("wait0001", "waiting", time.Minute)
+	w.register("wait0001", 1)
+	var buf strings.Builder
+	if err := Encode(&buf, w.build(Options{Cap: 5})); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "attn_faded") {
+		t.Errorf("the field must be absent unless set: %s", buf.String())
+	}
+}

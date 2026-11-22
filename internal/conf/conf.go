@@ -64,6 +64,12 @@ func (c Conf) HighlightSeconds() int {
 	return c.number("SITREP_HIGHLIGHT_SECONDS", DefaultHighlightSeconds)
 }
 
+// DefaultAttnFade is how many seconds a session that needs the user keeps the needs-you colour.
+const DefaultAttnFade = 600
+
+// AttnFade is how long a session that needs the user keeps the needs-you colour (SITREP_ATTN_FADE), in seconds; 0 never fades.
+func (c Conf) AttnFade() int { return c.number("SITREP_ATTN_FADE", DefaultAttnFade) }
+
 // HighlightSGR is the terminal style of the highlight. Only digits and semicolons are accepted, because the value reaches the terminal.
 func (c Conf) HighlightSGR() string {
 	v := c.Get("SITREP_HIGHLIGHT_SGR")

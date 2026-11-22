@@ -16,12 +16,15 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/difftest"
 )
 
+var attnFaded = regexp.MustCompile(`"attn_faded":\s*true,\s*`)
+
 var emptyAlias = regexp.MustCompile(`"alias":\s*"",\s*|,\s*"theme":\s*"",\s*"colors":\s*""|,\s*"context":\s*null`)
 
 // jsonNorm blanks what changes between two runs a second apart (the time, ages, quiet times), and appends the order of every key, so a
 // change of the document's field order is a difference too.
 func jsonNorm(r difftest.Result) difftest.Result {
 	r.Stdout = emptyAlias.ReplaceAllString(r.Stdout, "") // a field the bash version never had; no scenario sets an alias
+	r.Stdout = attnFaded.ReplaceAllString(r.Stdout, "")  // also new: the scenarios leave sessions waiting for hours
 	if !strings.HasPrefix(strings.TrimSpace(r.Stdout), "{") {
 		return r
 	}

@@ -77,6 +77,7 @@ type Session struct {
 	PID          *int64   `json:"pid"`
 	Pinned       bool     `json:"pinned"`
 	Highlight    bool     `json:"highlight"`
+	AttnFaded    bool     `json:"attn_faded"` // needs the user, but for so long that the row is no longer coloured
 	Objective    string   `json:"objective"`
 	Progress     string   `json:"progress"`
 	Now          string   `json:"now"`

@@ -27,6 +27,10 @@ const Examples = `# Uncomment a line and change it to use it. The environment wi
 # The inbox count is part of the queue line. A value with no known name shows all four.
 # SITREP_STATUS_LINES=objective,progress,now,queue
 #
+# Seconds a session that needs you keeps its needs-you colour, counted from when it began to wait. After that it is
+# drawn plain, though it still counts as needing you (the dot, the count and the bell are the same). 0 never fades.
+# SITREP_ATTN_FADE=600
+#
 # Seconds a session counts as recently active (the dashboard colours it). 0 turns it off.
 # SITREP_HIGHLIGHT_SECONDS=60
 #
