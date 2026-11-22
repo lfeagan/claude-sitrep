@@ -22,7 +22,9 @@ You use the keyboard, you know the basics of vi, and you read `?` only when some
 6. Show and hide ended sessions (`a`).
 7. Open the detail view of a session with a long Objective, scroll it, and move to the next session from inside it.
 8. Open `?` on this small screen. Can you read all of it and find how to close it?
-9. Resize your expectations: sessions that have waited for hours should not look as urgent as one that stopped a minute ago. Do they?
+9. Switch to the Wall tab (`tab` twice). With twenty sessions, is it the view you wanted? Find the sessions that need you, move between tiles (`h` `l` `j` `k`), change the tile size (`s`: standard, roomy, compact) and see how many sessions each size shows, and check that the tiles stay in line whether or not a session has a queue. Walk out of it with the arrow keys alone.
+10. Start again with `drive.sh start --sessions 15 --size 70x24 --mouse` and use the mouse (`drive.sh click COL ROW [double]`, with columns and rows counted from 1): click a row, a tile and a tab name, and double-click a row. Does each do what a user expects, on every tab? (A double click answers that sitrep does not know the session's process, here.)
+11. Resize your expectations: sessions that have waited for hours should not look as urgent as one that stopped a minute ago. Do they?
 
 ## How you work
 

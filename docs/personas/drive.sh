@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the dashboard on the fixture state, in a terminal that a persona can type into and read, in tmux (or in cmux when there is no tmux).
 #
-#   drive.sh start [--sessions N] [--hostile] [--size WxH]
+#   drive.sh start [--sessions N] [--hostile] [--mouse] [--size WxH]
 #                       builds the fixture (see fixture.sh) and starts `sitrep dash` in it, 110 columns by 34 rows unless --size says
 #                       otherwise (tmux only)
 #   drive.sh env        prints the exports that point `sitrep` at the fixture, for the persona's own shell commands
@@ -10,6 +10,9 @@
 #   drive.sh title      prints the title of the terminal window, which a hostile title sequence would change (tmux only)
 #   drive.sh keys K...  presses keys: single characters (j, ?, /) and names (enter esc tab shift+tab up down left right
 #                       home end pgup pgdn space backspace ctrl+c ctrl+d ctrl+u); one argument is one key press
+#   drive.sh click COL ROW [double]
+#                       clicks with the mouse at a column and row (counted from 1, as terminals do), twice for a double click; the
+#                       dashboard must have been started with --mouse (tmux only)
 #   drive.sh type TEXT  types the text as it is (for a filter or a name), without enter
 #   drive.sh stop       ends the run and deletes the fixture
 #
@@ -56,18 +59,19 @@ start)
 	root=$(mktemp -d "${TMPDIR:-/tmp}/sitrep-persona.XXXXXX")
 	root=$(cd "$root" && pwd -P)
 	shift
-	size=110x34 fixopts=()
+	size=110x34 fixopts=() mouse=""
 	while [ $# -gt 0 ]; do
 		case $1 in
 		--size) size=${2:?--size needs WxH}; shift 2 ;;
 		--sessions) fixopts+=(--sessions "${2:?--sessions needs a number}"); shift 2 ;;
 		--hostile) fixopts+=(--hostile); shift ;;
+		--mouse) mouse=1; shift ;;
 		*) echo "drive.sh: unknown option $1" >&2; exit 2 ;;
 		esac
 	done
 	case $size in [0-9]*x[0-9]*) ;; *) echo "drive.sh: --size is WxH" >&2; exit 2 ;; esac
 	"$here/fixture.sh" "$root" "${fixopts[@]+"${fixopts[@]}"}" >/dev/null
-	run="env SITREP_STATE_DIR='$root/state' CLAUDE_CONFIG_DIR='$root/claude' '$bin' dash"
+	run="env SITREP_STATE_DIR='$root/state' CLAUDE_CONFIG_DIR='$root/claude' ${mouse:+SITREP_TUI_MOUSE=1} '$bin' dash"
 	ws="" surface=""
 	if [ "$backend" = tmux ]; then
 		tm new-session -d -s persona -x "${size%x*}" -y "${size#*x}" "$run"
@@ -98,6 +102,15 @@ title)
 	load
 	[ "$backend" = tmux ] || { echo "drive.sh: title needs tmux" >&2; exit 1; }
 	tm display-message -p -t persona '#{pane_title}'
+	;;
+click)
+	load
+	[ "$backend" = tmux ] || { echo "drive.sh: click needs tmux" >&2; exit 1; }
+	case ${2:-}${3:-} in '' | *[!0-9]*) echo "usage: drive.sh click COL ROW [double]" >&2; exit 2 ;; esac
+	press=$(printf '\033[<0;%s;%sM\033[<0;%s;%sm' "$2" "$3" "$2" "$3")
+	tm send-keys -t persona -l "$press"
+	if [ "${4:-}" = double ]; then sleep 0.1; tm send-keys -t persona -l "$press"; fi
+	sleep 0.4
 	;;
 keys)
 	load
@@ -130,7 +143,7 @@ stop)
 	echo "stopped"
 	;;
 *)
-	sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' >&2
+	sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' >&2
 	exit 2
 	;;
 esac

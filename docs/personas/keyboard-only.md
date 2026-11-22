@@ -17,7 +17,7 @@ You are fast and impatient, and you do not read help until a key misbehaves.
 Do each of these with the keyboard alone, and note how many keys it took and whether a vi user would have guessed them:
 
 1. Move through the sessions: one down, one up, first, last, half a page down and up, a full page.
-2. Switch tabs without the mouse, both ways.
+2. Switch between the three tabs (Cards, Table, Wall) without the mouse, both ways, with every key you would try: `tab`, `shift+tab`, `h`, `l` and the arrows. On the Wall those keys move between tiles: can you always get out again, and what do `j` and `k` do there? Change the Wall's tile size (`s`).
 3. Filter to one session by text, check that the list shrank, and clear the filter.
 4. Open the detail view of a session, scroll it, go to the next session in it, and leave.
 5. In a queue (open one with `e`, the inbox with `i`): add an item, edit it, move it up and down, delete it, and undo what a vi user would undo. Take an inbox item into the session queue.
