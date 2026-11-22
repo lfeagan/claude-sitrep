@@ -62,6 +62,9 @@ type promptState struct {
 	text string
 	n    int    // the item, 1-based
 	old  string // its text when the edit began
+	// fresh is true while the text is the one the prompt opened with (the current name), which the first typed character replaces. A
+	// key that edits it, backspace or ctrl+u or ctrl+w, makes it the user's own.
+	fresh bool
 }
 
 // addText adds typed or pasted text to cur: line breaks and tabs become spaces, control and
@@ -504,7 +507,7 @@ func (m model) aliasOpen() (tea.Model, tea.Cmd) {
 		return m.refuse("alias", why)
 	}
 	m.msg = ""
-	m.prompt = &promptState{verb: "alias", qid: x.ID, text: x.Alias}
+	m.prompt = &promptState{verb: "alias", qid: x.ID, text: x.Alias, fresh: x.Alias != ""}
 	return m, nil
 }
 
@@ -534,6 +537,14 @@ func (m model) aliasStatus() string {
 	return fmt.Sprintf("name for %s: %s▏  enter sets, empty clears, esc cancels", label, m.prompt.text)
 }
 
+// freshText is the text to add to: none while the text is still the one the prompt opened with.
+func (p promptState) freshText() string {
+	if p.fresh {
+		return ""
+	}
+	return p.text
+}
+
 // dropWord is the text without its last word and the spaces before it, as ctrl+w does in a shell.
 func dropWord(s string) string {
 	s = strings.TrimRight(s, " ")
@@ -559,15 +570,16 @@ func (m model) promptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if r := []rune(p.text); len(r) > 0 {
 			p.text = string(r[:len(r)-1])
 		}
+		p.fresh = false
 	case "ctrl+u":
-		p.text = ""
+		p.text, p.fresh = "", false
 	case "ctrl+w":
-		p.text = dropWord(p.text)
+		p.text, p.fresh = dropWord(p.text), false
 	case "space":
-		p.text = addText(p.text, " ", maxPrompt)
+		p.text, p.fresh = addText(p.freshText(), " ", maxPrompt), false
 	default:
 		if msg.Text != "" && !strings.HasPrefix(key, "ctrl+") && !strings.HasPrefix(key, "alt+") {
-			p.text = addText(p.text, msg.Text, maxPrompt)
+			p.text, p.fresh = addText(p.freshText(), msg.Text, maxPrompt), false
 		}
 	}
 	m.prompt = &p

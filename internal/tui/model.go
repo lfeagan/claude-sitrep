@@ -512,7 +512,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.typeFilter(msg.Content)
 		case m.prompt != nil:
 			p := *m.prompt
-			p.text = addText(p.text, msg.Content, maxPrompt)
+			p.text, p.fresh = addText(p.freshText(), msg.Content, maxPrompt), false
 			m.prompt = &p
 		}
 	case tea.MouseClickMsg:

@@ -2,6 +2,28 @@
 
 A situation report for each Claude Code session, plus a small per-session work queue. When several sessions run at once in separate terminals, the status line under each prompt says what the session is for, how far along it is, what it is doing right now and what is queued next.
 
+## Quick Start
+
+1. In Claude Code, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep`, then `/sitrep:setup`. It builds the program, so it needs Go 1.26 or newer and the `claude` CLI (see Install).
+2. Restart your Claude Code sessions. The status block shows under the prompt after your next prompt.
+3. In any terminal, run `sitrep watch`. Press `?` for the keys and `q` to quit.
+
+The dashboard lists your sessions, and a session "needs you" when Claude has stopped and the next move is yours, or when it waits at a permission dialog:
+
+```
+ Watch  Top
+────────────────────────────────────────────────────────────────────
+Inbox: 3 items
+▶ 5b7d  web   working <1m   1 item         <- ▶ is the selected row
+    Objective: Dark mode for the settings page
+  api   api   ● waiting 3m  2 items        <- ● means it needs you
+    Objective: Add pagination to list_orders
+    Now:       Waiting for you: should offset be zero-based?
+ ● 1 need you   2 running   q quit  enter jump  / filter  ? help
+```
+
+`enter` jumps to the terminal that shows the selected session, `z` snoozes one that can wait, and `n` gives a session a name. The colour of a row that needs you fades after ten minutes, and the `●` stays.
+
 ## What You See
 
 ```

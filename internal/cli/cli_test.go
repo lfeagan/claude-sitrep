@@ -82,6 +82,13 @@ func TestSnoozeInProcess(t *testing.T) {
 	if _, err := os.Stat(statetest.Path(st, ".abcd1111.snooze")); !os.IsNotExist(err) {
 		t.Error("the snooze file is still there")
 	}
+	run(t, home, "snooze", "abcd")
+	if code, out, _ := run(t, home, "snooze", "abcd", "--off"); code != 0 || out != "abcd is no longer snoozed\n" {
+		t.Errorf("--off after the id: %d %q", code, out)
+	}
+	if code, _, errs := run(t, home, "snooze", "--off", "abcd", "--off"); code != 1 || !strings.Contains(errs, "usage: sitrep snooze") {
+		t.Errorf("a second --off is a usage error: %d %q", code, errs)
+	}
 	if code, _, errs := run(t, home, "snooze", "inbox"); code != 1 || errs != "sitrep: the inbox is not a session\n" {
 		t.Errorf("snooze inbox: %d %q", code, errs)
 	}

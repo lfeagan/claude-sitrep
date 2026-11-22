@@ -47,6 +47,7 @@ The review cut the first round to what can be built without a new help state or 
 
 8. `i` and `e` inside a queue switch to the other queue, and the key of the open queue closes it (0.16.1). Before, the other key did nothing, which the help and this document did not say.
 9. `ctrl+u` and `ctrl+w` edit a line of typing, in the filter and in the name and queue prompts (0.16.1). The footer of the filter lists the keys that work while typing, and the detail footer lists `enter`, `z` and `y` (0.16.1).
+10. In the name prompt, the first character typed replaces the current name, and backspace, `ctrl+u` and `ctrl+w` edit it (0.16.3). The help says that `1-9` takes an inbox item, as the footer does, and explains the fade of the `●` colour and `idle?`.
 
 ## Later
 

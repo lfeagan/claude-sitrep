@@ -108,8 +108,11 @@ loop:
 func cmdSnooze(e Env, args []string) error {
 	const usage = "usage: sitrep snooze [--off] <id>"
 	off := false
-	if len(args) > 0 && args[0] == "--off" {
-		off, args = true, args[1:]
+	for i, a := range args { // --off may come before or after the id
+		if a == "--off" {
+			off, args = true, append(append([]string{}, args[:i]...), args[i+1:]...)
+			break
+		}
 	}
 	if len(args) != 1 {
 		return usageError(usage)

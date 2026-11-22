@@ -3,6 +3,8 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestDropWord(t *testing.T) {
@@ -105,5 +107,67 @@ func TestSwitchingQueuesKeepsTheDetailViewUnderneath(t *testing.T) {
 	m, _ = press(t, m, "e")
 	if m.queue || !m.detail {
 		t.Error("the key of the open queue closes it, back to the detail view")
+	}
+}
+
+func namedModel(t *testing.T, name string) model {
+	m, _ := aliasModel(t)
+	for i := range m.snap.Sessions {
+		if m.snap.Sessions[i].ID == m.selID {
+			m.snap.Sessions[i].Alias = name
+		}
+	}
+	m, _ = press(t, m, "n")
+	if m.prompt == nil || m.prompt.text != name {
+		t.Fatalf("the prompt opens with the current name %q: %+v", name, m.prompt)
+	}
+	return m
+}
+
+func TestTypingReplacesTheCurrentNameInThePrompt(t *testing.T) {
+	m := typed(t, namedModel(t, "api"), "web")
+	if m.prompt.text != "web" {
+		t.Errorf("the first typed character replaces the name: %q", m.prompt.text)
+	}
+	m = typed(t, m, "2")
+	if m.prompt.text != "web2" {
+		t.Errorf("after that, typing appends: %q", m.prompt.text)
+	}
+}
+
+func TestSpaceAndPasteReplaceTheCurrentNameToo(t *testing.T) {
+	m, _ := press(t, namedModel(t, "api"), "space")
+	if m.prompt.text != " " {
+		t.Errorf("space replaces it: %q", m.prompt.text)
+	}
+	next, _ := namedModel(t, "api").Update(tea.PasteMsg{Content: "pasted"})
+	if got := next.(model).prompt.text; got != "pasted" {
+		t.Errorf("a paste replaces it: %q", got)
+	}
+}
+
+func TestEditingKeysKeepTheCurrentNameToEdit(t *testing.T) {
+	m, _ := press(t, namedModel(t, "api"), "backspace")
+	m = typed(t, m, "x")
+	if m.prompt.text != "apx" {
+		t.Errorf("backspace edits the name, and what is typed after it is added: %q", m.prompt.text)
+	}
+	m, _ = press(t, namedModel(t, "api"), "ctrl+w")
+	m = typed(t, m, "z")
+	if m.prompt.text != "z" {
+		t.Errorf("ctrl+w drops the word: %q", m.prompt.text)
+	}
+	m, _ = press(t, namedModel(t, "api"), "enter")
+	if m.prompt != nil {
+		t.Error("enter alone keeps the name and closes the prompt")
+	}
+}
+
+func TestNoCurrentNameMeansTypingAppends(t *testing.T) {
+	m, _ := aliasModel(t)
+	m, _ = press(t, m, "n")
+	m = typed(t, m, "ab")
+	if m.prompt.text != "ab" {
+		t.Errorf("%q", m.prompt.text)
 	}
 }
