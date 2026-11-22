@@ -21,7 +21,7 @@ Other tools, including Claude Code's own Agent View, show which sessions are wor
 3. **A report for each session.** The Objective, the Progress and what it is doing Now show under each prompt. A short Haiku call rewrites them after each turn (see Privacy And Safety for the cost cap and what is sent).
 4. **A dashboard that puts the sessions that need you first.** A session that has stopped and waits for you has a `●`, and the terminal bell rings when one newly does.
 5. **Nothing to run.** It is one Go program with plain files, so the status line renders at once and there is no server.
-6. **A full command-line tool, and yours to script.** Every action is a command (`sitrep add`, `rm`, `move`, `top`, `snooze`, `pin` and more), each with `--help`, and bash completion fills in commands, flags and session ids. `sitrep ls --json` is a stable JSON format for your own tools.
+6. **A full command-line tool, and yours to script.** Every action is a command (`sitrep add`, `rm`, `move`, `top`, `snooze`, `pin` and more), each with `--help`, and completion fills in commands, flags and session ids (`eval "$(sitrep completion bash)"`). If you use the Modular Bash Environment, [its sitrep module](https://github.com/lfeagan/MBE/blob/master/modules/sitrep/sitrep) puts sitrep on your `PATH`, turns the completion on and adds `sr` as a short form. `sitrep ls --json` is a stable JSON format for your own tools.
 
 Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts. [docs/COMPARISON.md](docs/COMPARISON.md) compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
