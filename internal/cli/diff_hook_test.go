@@ -251,7 +251,7 @@ func TestDiffHookSummarizer(t *testing.T) {
 			dots := filepath.Join(w.home, ".claude", "projects", "-proj", "..", "-proj", "sess0037.jsonl")
 			w.fire(ev("sess0038", "UserPromptSubmit", "prompt", "via dots", "transcript_path", dots))
 			w.fire(ev("sess0038", "Stop", "transcript_path", dots))
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(3 * time.Second) // the Go summarizer lets the transcript settle for a moment before it runs
 			w.results = append(w.results, difftest.Result{Stdout: fmt.Sprintf("calls=%d", w.calls())})
 		},
 	} {

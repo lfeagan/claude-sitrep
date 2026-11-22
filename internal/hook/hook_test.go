@@ -739,3 +739,52 @@ func TestAnotherPermissionRequestRenewsTheBlock(t *testing.T) {
 		t.Errorf("record %q", got)
 	}
 }
+
+func TestSummarizerWaitsForTheTranscriptToSettle(t *testing.T) {
+	_, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	var slept []time.Duration
+	z.Sleep = func(_ context.Context, d time.Duration) {
+		slept = append(slept, d)
+		if len(slept) == 1 { // the last message lands while it waits
+			f, err := os.OpenFile(tp, os.O_APPEND|os.O_WRONLY, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.WriteString(`{"type":"assistant","message":{"content":[{"type":"text","text":"late answer"}]}}` + "\n")
+			f.Close()
+			future := time.Now().Add(time.Hour)
+			os.Chtimes(tp, future, future)
+		}
+	}
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+	if len(slept) != 2 || slept[0] != settleGap {
+		t.Errorf("slept %v: a change makes it wait once more, and a quiet gap ends it", slept)
+	}
+	if len(rr.in) != 1 || !strings.Contains(rr.in[0], "late answer") {
+		t.Errorf("the summary missed the late message: %q", rr.in)
+	}
+}
+
+func TestSummarizerStopsWaitingForABusyTranscript(t *testing.T) {
+	_, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	n := 0
+	z.Sleep = func(context.Context, time.Duration) {
+		n++
+		when := time.Now().Add(time.Duration(n) * time.Hour)
+		os.Chtimes(tp, when, when)
+	}
+	z.Do(context.Background(), "sess8", tp, Opts{Since: "3"})
+	if n != settleTries || len(rr.got) != 1 {
+		t.Errorf("%d waits, %d runs: it waits at most %d times and then summarizes", n, len(rr.got), settleTries)
+	}
+}
+
+func TestASignalWhileSettlingChangesNothing(t *testing.T) {
+	_, z, rr, tp := newSummary(t, "Objective: o\nProgress: p2\nNow: n2\n")
+	ctx, cancel := context.WithCancel(context.Background())
+	z.Sleep = func(context.Context, time.Duration) { cancel() }
+	z.Do(ctx, "sess8", tp, Opts{Since: "3"})
+	if len(rr.got) != 0 {
+		t.Error("a cancelled run still summarized")
+	}
+}

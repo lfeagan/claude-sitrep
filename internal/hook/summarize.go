@@ -20,6 +20,13 @@ const Deadline = 60 * time.Second
 var claudeArgs = []string{"-p", "--model", "haiku", "--no-session-persistence", "--disable-slash-commands", "--tools", "",
 	"--strict-mcp-config", "--mcp-config", `{"mcpServers":{}}`, "--setting-sources", "", "--max-budget-usd", "0.05"}
 
+// settleGap is how long the transcript must stay unchanged before the summarizer reads it, and settleTries the most gaps it waits. Stop
+// fires as Claude Code writes the last message, so a read at once can miss it.
+const (
+	settleGap   = 1500 * time.Millisecond
+	settleTries = 4
+)
+
 // Summarizer runs the Haiku summarizer for one session. It is the detached child of the hook.
 type Summarizer struct {
 	Hook
@@ -74,6 +81,12 @@ func (z Summarizer) Do(ctx context.Context, id state.ID, tp string, o Opts) {
 	if o.Wait == 0 && placeholder(obj) { // the deferred run passes the Objective as it is
 		obj = ""
 	}
+	if o.Wait == 0 { // the deferred run has waited already
+		z.settle(ctx, tp)
+		if ctx.Err() != nil {
+			return
+		}
+	}
 	recent, ok := transcript.Recent(tp)
 	if !ok {
 		return // the transcript went away: nothing to summarize, and nothing to invent a summary from
@@ -108,6 +121,22 @@ func (z Summarizer) Do(ctx context.Context, id state.ID, tp string, o Opts) {
 		o3 = n.notes().Get(id, "Objective")
 	}
 	_ = n.write(o3, textsafe.Sane(p, 140).String(), textsafe.Sane(untag(nw), 140).String())
+}
+
+// settle waits until the transcript's modification time is the same after a gap, or the tries are used.
+func (z Summarizer) settle(ctx context.Context, tp string) {
+	var last time.Time
+	for i := 0; i < settleTries; i++ {
+		fi, err := os.Stat(tp)
+		if err != nil || (i > 0 && fi.ModTime().Equal(last)) {
+			return
+		}
+		last = fi.ModTime()
+		z.Sleep(ctx, settleGap)
+		if ctx.Err() != nil {
+			return
+		}
+	}
 }
 
 // field is the text after the first line that starts with "<key>:" and the spaces after it.
