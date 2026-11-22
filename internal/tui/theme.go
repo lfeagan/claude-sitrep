@@ -94,6 +94,16 @@ var presets = map[string]palette{
 		accent: [2]string{"#b4520a", "#ffc15a"}, dim: [2]string{"#7a6a50", "#b5a589"}, hot: [2]string{"#fff6d6", "#38341c"},
 		attn: [2]string{"#ffb59a", "#7e2544"}, errc: [2]string{"#b3261e", "#ff8a7a"}, snooze: [2]string{"#1f7f9f", "#6fcbe8"},
 	},
+	// neon pink and cyan on deep purple, as on an arcade cabinet or a Memphis poster; what needs you is a hot pink that stands out from the purple
+	"eighties": {
+		accent: [2]string{"#b5127f", "#ff4fd8"}, dim: [2]string{"#1b6f85", "#4de3ff"}, hot: [2]string{"#e9dcff", "#2b1458"},
+		attn: [2]string{"#ff8fe0", "#7a1f6a"}, errc: [2]string{"#d0103a", "#ff5c7a"}, snooze: [2]string{"#5a2fc0", "#a995ff"},
+	},
+	// Kind of Blue: midnight indigo and smoke, with the brass of a trumpet for what needs you
+	"blues": {
+		accent: [2]string{"#2a3a9c", "#8c9cff"}, dim: [2]string{"#4a5280", "#9096c0"}, hot: [2]string{"#dfe3f7", "#1a1f4a"},
+		attn: [2]string{"#e8c04a", "#554700"}, errc: [2]string{"#b0303a", "#ff8f9a"}, snooze: [2]string{"#7a4fa8", "#b79cf0"},
+	},
 	"fall": {
 		accent: [2]string{"#9a4a1a", "#e0a060"}, dim: [2]string{"#86705c", "#b8a28c"}, hot: [2]string{"#f6ead6", "#36301c"},
 		attn: [2]string{"#f0a070", "#7a2e1c"}, errc: [2]string{"#a52a1a", "#ff8a70"}, snooze: [2]string{"#5f7a3f", "#b0c488"},
@@ -104,7 +114,7 @@ var presets = map[string]palette{
 var solidThemes = map[string]bool{"rainbow": true}
 
 // ThemeNames are the themes SITREP_THEME may name. "mono" uses no colours, only bold, faint and reverse.
-var ThemeNames = []string{"default", "pastel", "rainbow", "high-contrast", "ocean", "forest", "homebrew", "red-sands", "novel", "nord", "solarized", "winter", "spring", "summer", "fall", "mono"}
+var ThemeNames = []string{"default", "pastel", "rainbow", "high-contrast", "ocean", "forest", "homebrew", "red-sands", "novel", "nord", "solarized", "winter", "spring", "summer", "fall", "eighties", "blues", "mono"}
 
 // colorNames are the entries of SITREP_COLORS.
 var colorNames = []string{"accent", "dim", "hot", "attn", "error", "snoozed"}

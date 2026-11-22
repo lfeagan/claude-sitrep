@@ -596,7 +596,10 @@ func (m colorsModel) body() string {
 // text and an error, as the dashboard draws them.
 func (m colorsModel) galleryBody(w, h int, kind string) string {
 	out := []string{lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(fmt.Sprintf(" Themes   preview: %s terminal (t switches)", kind), w, "…"))}
-	for i, name := range ThemeNames {
+	room := max(h-2, 1) // the header and the footer; a screen with fewer rows than themes scrolls to keep the selected one in view
+	first := min(max(m.gallery.sel-room/2, 0), max(len(ThemeNames)-room, 0))
+	for i := first; i < min(first+room, len(ThemeNames)); i++ {
+		name := ThemeNames[i]
 		cur := "  "
 		if i == m.gallery.sel {
 			cur = "▶ "

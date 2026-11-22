@@ -200,7 +200,7 @@ func TestRainbowSetsItsOwnTextAndPastelDoesNot(t *testing.T) {
 }
 
 func TestColourfulThemes(t *testing.T) {
-	for _, name := range []string{"pastel", "rainbow", "ocean", "forest", "homebrew", "red-sands", "novel", "nord", "solarized", "winter", "spring", "summer", "fall"} {
+	for _, name := range []string{"pastel", "rainbow", "ocean", "forest", "homebrew", "red-sands", "novel", "nord", "solarized", "winter", "spring", "summer", "fall", "eighties", "blues"} {
 		checkColourfulTheme(t, name)
 	}
 }

@@ -683,8 +683,13 @@ func TestColorsGalleryFitsTheSmallestScreen(t *testing.T) {
 				t.Fatalf("%d wide: %q", w, l)
 			}
 		}
-		if !strings.Contains(ansi.Strip(m.body()), ThemeNames[len(ThemeNames)-1]) && w >= 40 {
-			t.Errorf("%d wide: the last theme is cut off", w)
+		if w >= 40 && !strings.Contains(ansi.Strip(m.body()), ThemeNames[0]) {
+			t.Errorf("%d wide: the first theme is cut off", w)
+		}
+		last := m
+		last.gallery = &colorGallery{sel: len(ThemeNames) - 1}
+		if w >= 40 && !strings.Contains(ansi.Strip(last.body()), ThemeNames[len(ThemeNames)-1]) {
+			t.Errorf("%d wide: the last theme is out of view when selected", w)
 		}
 	}
 	golden(t, "colors_gallery_100x24", func() string { m.width, m.height = 100, 24; return ansi.Strip(m.body()) }())
