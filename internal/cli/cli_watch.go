@@ -99,6 +99,7 @@ func cmdWatch(e Env, args []string) error {
 	once := fs.Bool("once", false, "print one frame as plain text and exit")
 	readOnly := fs.Bool("read-only", envOn(e.conf().Get, "SITREP_TUI_READONLY"), "turn off every key that changes state (or set SITREP_TUI_READONLY)")
 	noBell := fs.Bool("no-bell", envOff(e.conf().Get, "SITREP_TUI_BELL"), "do not ring the bell when a session starts needing you (or set SITREP_TUI_BELL=0)")
+	mouse := fs.Bool("mouse", envOn(e.conf().Get, "SITREP_TUI_MOUSE"), "a click selects a row and a double click jumps to its terminal (or set SITREP_TUI_MOUSE); the terminal then selects text only with shift or option held")
 	quitOnJump := fs.Bool("quit-on-jump", false, "leave the dashboard after a good jump, for a tmux popup")
 	width := fs.Int("width", 100, "the frame width for --once")
 	if err := parseFlags(fs, args); err != nil {
@@ -107,7 +108,7 @@ func cmdWatch(e Env, args []string) error {
 	if *once || !e.isTerminal() {
 		return e.printFrame(*tab, *width, false)
 	}
-	err := tui.Run(tui.Options{Tab: *tab, Interval: *interval, ReadOnly: *readOnly, NoBell: *noBell, QuitOnJump: *quitOnJump}, e.tuiEngine())
+	err := tui.Run(tui.Options{Tab: *tab, Interval: *interval, ReadOnly: *readOnly, NoBell: *noBell, Mouse: *mouse, QuitOnJump: *quitOnJump}, e.tuiEngine())
 	if err != nil {
 		return err
 	}

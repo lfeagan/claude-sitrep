@@ -56,7 +56,7 @@ func TestCompleteCommandsAndFlags(t *testing.T) {
 	}
 	for cmd, want := range map[string][]string{
 		"ls": {"--all", "--full", "--json", "-a", "-n", "-v"}, "prune": {"--dry-run", "--keep", "--yes", "-k", "-y"}, "setup": {"--remove"}, "snooze": {"--off"},
-		"rm": {"--item"}, "done": {"--item"}, "watch": {"--interval", "--no-bell", "--once", "--quit-on-jump", "--read-only", "--tab", "--width"},
+		"rm": {"--item"}, "done": {"--item"}, "watch": {"--interval", "--mouse", "--no-bell", "--once", "--quit-on-jump", "--read-only", "--tab", "--width"},
 	} {
 		if got := sorted(e.complete(ctx, []string{cmd, "-"})); !reflect.DeepEqual(got, sorted(want)) {
 			t.Errorf("%s flags: %v", cmd, got)

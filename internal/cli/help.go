@@ -160,7 +160,8 @@ and quits from the tabs, and ctrl+c quits from anywhere.
 --once prints one frame as plain text and exits, --quit-on-jump leaves the dashboard after
 a good jump, for a tmux popup, --read-only (or SITREP_TUI_READONLY) turns off p, z and every
 other key that changes state, and --no-bell (or SITREP_TUI_BELL=0) stops the bell that rings
-when a session starts needing you.
+when a session starts needing you. --mouse (or SITREP_TUI_MOUSE=1) makes a click select a row and
+a double click jump, as enter does; the terminal then selects text only with shift or option held.
 `,
 	"status": `usage: sitrep status [--tab watch|top] [--width n] [-a]
 

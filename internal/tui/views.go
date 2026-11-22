@@ -37,6 +37,7 @@ type viewOpts struct {
 	Sel           string // the id of the selected session, "" for none
 	Filter        string // only sessions that contain this text are listed
 	Theme         Theme
+	Hits          *[]string // when set, filled with the id of the session on each screen row ("" for none), for a mouse click
 }
 
 // visibleIDs lists the ids in the order a tab draws them, so selection moves the way the eye does.
@@ -330,7 +331,9 @@ func watchBody(s Snapshot, o viewOpts) []string {
 		head = append(head, "no session matches the filter")
 	}
 	var blocks [][]string
+	var ids []string
 	for _, x := range list {
+		ids = append(ids, x.ID)
 		row := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %s", idCell(x.Label(), iw), padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
 		block := []string{ansi.Truncate(row, o.Width, "…")}
 		block = append(block, field("Objective:", x.Objective, o.Width, 3)...)
@@ -339,13 +342,13 @@ func watchBody(s Snapshot, o viewOpts) []string {
 		block = append(block, queueLines("Queue:", x.Queue, o.Width, 2, 4+11, s.Settings.QueueItems)...)
 		blocks = append(blocks, selectBlock(mark(block, x, o), x, o))
 	}
-	return fitBlocks(head, blocks, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
+	return fitBlocks(head, blocks, ids, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
 }
 
 // fitBlocks fits whole sessions to the height and adds the footers. When they do not all
 // fit it scrolls by block, so that the selected one (sel, or -1) stays on the screen, and
 // says how many are above and below.
-func fitBlocks(head []string, blocks [][]string, sel, ended, stranded int, o viewOpts) []string {
+func fitBlocks(head []string, blocks [][]string, ids []string, sel, ended, stranded int, o viewOpts) []string {
 	foot := 0
 	if ended > 0 {
 		foot++
@@ -380,32 +383,43 @@ func fitBlocks(head []string, blocks [][]string, sel, ended, stranded int, o vie
 		}
 	}
 	out := append([]string{}, head...)
+	hits := make([]string, len(out)) // the session of each line of out, "" for a line that is none
+	add := func(lines []string, id string) {
+		out = append(out, lines...)
+		for range lines {
+			hits = append(hits, id)
+		}
+	}
 	if first > 0 {
-		out = append(out, fmt.Sprintf("+%d above", first))
+		add([]string{fmt.Sprintf("+%d above", first)}, "")
 	}
 	count := first
-	for _, b := range blocks[first:] {
+	for i, b := range blocks[first:] {
 		if limit > 0 && len(out)+len(b) > limit {
 			if count == first { // never show nothing: the first block shown is clipped to the room there is
-				out = append(out, b[:min(len(b), max(limit-len(out), 1))]...)
+				add(b[:min(len(b), max(limit-len(out), 1))], ids[first+i])
 				count++
 			}
 			break
 		}
-		out = append(out, b...)
+		add(b, ids[first+i])
 		count++
 	}
 	if count < len(blocks) {
-		out = append(out, fmt.Sprintf("+%d more", len(blocks)-count))
+		add([]string{fmt.Sprintf("+%d more", len(blocks)-count)}, "")
 	}
 	if ended > 0 {
-		out = append(out, fmt.Sprintf("+%d ended (a)", ended))
+		add([]string{fmt.Sprintf("+%d ended (a)", ended)}, "")
 	}
 	if stranded > 0 {
-		out = append(out, fmt.Sprintf("%d items stranded in ended sessions (sitrep prune)", stranded))
+		add([]string{fmt.Sprintf("%d items stranded in ended sessions (sitrep prune)", stranded)}, "")
 	}
 	if o.Height > 0 && len(out) > o.Height {
 		out = out[:o.Height]
+		hits = hits[:o.Height]
+	}
+	if o.Hits != nil {
+		*o.Hits = hits
 	}
 	return out
 }
@@ -481,7 +495,9 @@ func topBody(s Snapshot, o viewOpts) []string {
 		head = append(head, "no session matches the filter")
 	}
 	var blocks [][]string
+	var ids []string
 	for _, x := range list {
+		ids = append(ids, x.ID)
 		text := x.Now
 		if text == "" {
 			text = x.Objective
@@ -494,7 +510,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 		line := prefix + ansi.Truncate(text, max(o.Width-ansi.StringWidth(prefix), 1), "…")
 		blocks = append(blocks, selectBlock(mark([]string{line}, x, o), x, o))
 	}
-	return fitBlocks(head, blocks, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
+	return fitBlocks(head, blocks, ids, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
 }
 
 func tabBar(active, width int, th Theme) []string {
@@ -619,6 +635,10 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 		bodyOpts.Height = max(o.Height-len(bar)-1, 1)
 	}
 	var body []string
+	var hits []string
+	if o.Hits != nil {
+		bodyOpts.Hits = &hits
+	}
 	if tab == tabTop {
 		body = topBody(s, bodyOpts)
 	} else {
@@ -631,8 +651,18 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 		body = append(body, "")
 	}
 	lines := append(append(bar, body...), statusBar(s, o.Width, errText, tab, o.Theme))
+	if o.Hits != nil {
+		h := append(make([]string, len(bar)), hits...)
+		for len(h) < len(bar)+len(body) { // the body was padded
+			h = append(h, "")
+		}
+		*o.Hits = append(h, "") // the status bar
+	}
 	if o.Height > 0 && len(lines) > o.Height { // a tiny screen: keep the status bar, drop from the top
 		lines = append(lines[:o.Height-1], lines[len(lines)-1])
+		if o.Hits != nil {
+			*o.Hits = append((*o.Hits)[:o.Height-1], "")
+		}
 	}
 	return strings.Join(lines, "\n")
 }

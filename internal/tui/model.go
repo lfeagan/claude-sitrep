@@ -86,7 +86,13 @@ type model struct {
 	pending   string // the first key of a two-key command that waits for its second: g (gg, the first row) or d (dd, remove an item)
 	isDark    bool
 	now       func() time.Time
+	mouse     bool      // clicks select a row, and a double click jumps
+	clickID   string    // the session of the last click, and when it came,
+	clickAt   time.Time // for the double click
 }
+
+// doubleClick is the longest gap between two clicks on one row that counts as a double click.
+const doubleClick = 400 * time.Millisecond
 
 func newModel(bin string, interval time.Duration, tab int) model {
 	// fetching starts true because Init sends the first fetch; Init has a value receiver, so it cannot set it
@@ -503,6 +509,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			p.text = addText(p.text, msg.Content, maxPrompt)
 			m.prompt = &p
 		}
+	case tea.MouseClickMsg:
+		return m.click(msg.Mouse())
 	case tea.KeyPressMsg:
 		if m.filtering {
 			return m.filterKey(msg)
@@ -621,6 +629,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// click handles a click on a row of a tab: the first selects the session, a second on the same one within doubleClick jumps, as enter does.
+// Nothing happens while a screen, a question or a line of typing is open, as no row is then on show.
+func (m model) click(c tea.Mouse) (tea.Model, tea.Cmd) {
+	if !m.mouse || c.Button != tea.MouseLeft || !m.haveSnap || m.filtering || m.prune != pruneNone || m.prompt != nil || m.help || m.ask != nil ||
+		m.queue || m.detail || m.mover != nil {
+		return m, nil
+	}
+	var hits []string
+	render(m.snap, m.tab, "", viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Theme: plainTheme(), Hits: &hits})
+	if c.Y < 0 || c.Y >= len(hits) || hits[c.Y] == "" {
+		return m, nil
+	}
+	id, now := hits[c.Y], m.now()
+	m.selID, m.pending = id, ""
+	if id == m.clickID && now.Sub(m.clickAt) <= doubleClick {
+		m.clickID = ""
+		return m, m.jumpCmd()
+	}
+	m.clickID, m.clickAt = id, now
+	return m, nil
+}
+
 // errText says what went wrong and how old the data on screen is.
 func (m model) errText() string {
 	if m.err == nil {
@@ -659,5 +689,8 @@ func (m model) View() tea.View {
 	}
 	v := tea.NewView(body)
 	v.AltScreen = true
+	if m.mouse {
+		v.MouseMode = tea.MouseModeCellMotion
+	}
 	return v
 }

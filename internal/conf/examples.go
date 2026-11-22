@@ -51,6 +51,10 @@ const Examples = `# Uncomment a line and change it to use it. The environment wi
 # SITREP_TUI_READONLY=1
 # SITREP_TUI_BELL=0
 #
+# A click on a row selects it and a double click jumps to its terminal, as enter does. The terminal then
+# selects text in the dashboard only with shift (or option in iTerm2 and Terminal.app) held. Off by default.
+# SITREP_TUI_MOUSE=1
+#
 # A history of every change sitrep makes (queues, pins, aliases), in the state folder. Off by default.
 # It keeps the text of items. Read it with 'sitrep log'; 'sitrep log --clear' deletes it.
 # SITREP_LOG=on

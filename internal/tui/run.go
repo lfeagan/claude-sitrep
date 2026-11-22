@@ -32,6 +32,7 @@ type Options struct {
 	Interval   time.Duration
 	ReadOnly   bool
 	NoBell     bool
+	Mouse      bool // a click selects a row and a double click jumps
 	QuitOnJump bool
 }
 
@@ -122,7 +123,7 @@ func Run(opts Options, eng Engine) error {
 	}
 	m := newModel(engineName, max(opts.Interval, time.Second), t)
 	m.fetcher, m.run = fetcher(eng), routed(eng)
-	m.quitJump, m.readOnly, m.bell = opts.QuitOnJump, opts.ReadOnly, !opts.NoBell
+	m.quitJump, m.readOnly, m.bell, m.mouse = opts.QuitOnJump, opts.ReadOnly, !opts.NoBell, opts.Mouse
 	_, err = tea.NewProgram(m).Run()
 	return err
 }
