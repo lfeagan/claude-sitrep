@@ -137,6 +137,7 @@ func snoozeModel(t *testing.T, tab int) (model, *fake) {
 	m.bin = "/x/sitrep"
 	f := &fake{answer: map[string]string{"/x/sitrep snooze": "snoozed 15f1 until it changes\n"}}
 	m.run = f.run
+	m.snap.Sessions[0].NeedsInput = true // z snoozes a session that needs you; the selected one is the first
 	return m, f
 }
 
@@ -223,6 +224,7 @@ func TestACommandGetsTheIdNeverTheAlias(t *testing.T) {
 	for i := range snap.Sessions {
 		snap.Sessions[i].Alias = fmt.Sprintf("name-%d", i)
 	}
+	snap.Sessions[0].NeedsInput = true
 	next, _ := m.Update(snapMsg{snap: snap})
 	m = next.(model)
 	m.bin = "/x/sitrep"
@@ -342,5 +344,21 @@ func TestNKeyWorksOnAnEndedSession(t *testing.T) {
 	m = feed(t, m, cmd)
 	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep alias "+ended+" old-one" {
 		t.Errorf("calls %v", f.calls)
+	}
+}
+
+func TestZOnASessionThatDoesNotNeedYouSaysSoAndRunsNothing(t *testing.T) {
+	m, f := snoozeModel(t, tabWatch)
+	m.snap.Sessions[0].NeedsInput = false // a working session: a snooze would mute nothing
+	m, cmd := press(t, m, "z")
+	if cmd != nil || m.acting || len(f.calls) != 0 {
+		t.Fatalf("z does not run a command for it: %v", f.calls)
+	}
+	if got := m.statusText(); !strings.Contains(got, "does not need you") || !strings.Contains(got, "nothing to snooze") {
+		t.Errorf("the status says why: %q", got)
+	}
+	m.snap.Sessions[0].Snoozed = true // a snoozed one can still be un-snoozed
+	if _, cmd := press(t, m, "z"); cmd == nil {
+		t.Error("z on a snoozed session ends the snooze")
 	}
 }

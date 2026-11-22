@@ -533,7 +533,7 @@ func tabBar(active, width int, th Theme) []string {
 
 // statusBar shows the counts on the left and the keys on the right. A failed refresh
 // replaces the counts with the error, so the last good data stays on screen.
-func statusBar(s Snapshot, width int, errText string, tab int, typing bool, th Theme) string {
+func statusBar(s Snapshot, width int, errText string, tab int, typing, filtered bool, th Theme) string {
 	left := " " + shortSummary(s)
 	if errText != "" {
 		left = " " + errText
@@ -541,6 +541,9 @@ func statusBar(s Snapshot, width int, errText string, tab int, typing bool, th T
 	hints := []string{"q quit", "enter jump", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
 	if tab == tabTop { // only the Top view has a sort
 		hints = []string{"q quit", "enter jump", "s sort", "/ filter", "n name", "1-9 take", "a ended", "tab switch", "? help"}
+	}
+	if filtered && !typing { // a filter is on: say how to end it, ahead of the keys a narrow screen drops
+		hints = append([]string{hints[0], "esc clear filter"}, hints[1:]...)
 	}
 	if typing { // the other keys are text now
 		hints = []string{"enter keep", "up/down move", "ctrl+u clear", "esc cancel"}
@@ -566,6 +569,37 @@ func fitHints(hints []string, width int) string {
 		}
 	}
 	return ""
+}
+
+// helpWrap wraps a help line that is wider than the screen at the column where its description starts, so a narrow screen shows all of
+// it. A line with no description column, or a screen too narrow to hold one, is left for the caller to cut.
+func helpWrap(lines []string, width int) []string {
+	var out []string
+	for _, l := range lines {
+		if ansi.StringWidth(l) <= width {
+			out = append(out, l)
+			continue
+		}
+		r := []rune(l)
+		j := 2
+		for j+1 < len(r) && !(r[j] == ' ' && r[j+1] == ' ') {
+			j++
+		}
+		k := j
+		for k < len(r) && r[k] == ' ' {
+			k++
+		}
+		if j+1 >= len(r) || k >= len(r) || width-k < 12 {
+			out = append(out, l)
+			continue
+		}
+		wrapped := strings.Split(ansi.Wrap(string(r[k:]), width-k, ""), "\n")
+		out = append(out, string(r[:k])+wrapped[0])
+		for _, w := range wrapped[1:] {
+			out = append(out, strings.Repeat(" ", k)+w)
+		}
+	}
+	return out
 }
 
 // helpScreen is the key list: the keys, what the tabs show, and what the colours mean.
@@ -606,8 +640,6 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"  ○            snoozed: waiting, but you said it can wait",
 		"  purple       the session changed in the last minute",
 		"  idle?        working, but quiet for 10 minutes: it may have been interrupted",
-		"",
-		"Any key closes this list.",
 	}
 	if readOnly { // the keys that change state are off, so they are not listed
 		kept := lines[:0]
@@ -618,6 +650,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		}
 		lines = append(kept[:len(kept):len(kept)], "", "This dashboard is read-only.")
 	}
+	lines = helpWrap(lines, width)
 	for i, l := range lines {
 		lines[i] = ansi.Truncate(l, max(width, 1), "…")
 	}
@@ -627,7 +660,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 			lines = append(lines, "")
 		}
 	}
-	bar := th.Status.Width(max(width, 1)).Render(ansi.Truncate(" keys", max(width, 1), ""))
+	bar := th.Status.Width(max(width, 1)).Render(ansi.Truncate(" keys   any key closes this list", max(width, 1), ""))
 	if height == 1 {
 		return bar
 	}
@@ -657,7 +690,7 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 	for len(body) < bodyOpts.Height { // pad, so the status bar sits on the last row
 		body = append(body, "")
 	}
-	lines := append(append(bar, body...), statusBar(s, o.Width, errText, tab, o.Typing, o.Theme))
+	lines := append(append(bar, body...), statusBar(s, o.Width, errText, tab, o.Typing, strings.TrimSpace(o.Filter) != "", o.Theme))
 	if o.Hits != nil {
 		h := append(make([]string, len(bar)), hits...)
 		for len(h) < len(bar)+len(body) { // the body was padded

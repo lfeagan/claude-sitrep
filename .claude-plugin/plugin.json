@@ -1,7 +1,7 @@
 {
   "name": "sitrep",
   "description": "A per-session Objective, Progress and Now block and a work queue for each Claude Code session, with a status line, an inbox, and a full-screen dashboard, in one Go program",
-  "version": "0.16.3",
+  "version": "0.16.4",
   "author": {
     "name": "Lance Feagan"
   },

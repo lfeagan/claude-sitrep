@@ -382,13 +382,13 @@ func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
 }
 
 func TestHelpScreen(t *testing.T) {
-	out := helpScreen(80, 40, false, plainTheme())
-	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Top sort", "refresh", "quit", "Watch", "Top ", "pink-red", "purple", "Any key closes"} {
+	out := helpScreen(80, 60, false, plainTheme())
+	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Top sort", "refresh", "quit", "Watch", "Top ", "pink-red", "purple", "any key closes"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the help should mention %q", want)
 		}
 	}
-	golden(t, "help_80x40", out)
+	golden(t, "help_80x60", out)
 	for w := 1; w <= 100; w += 7 {
 		for h := 1; h <= 40; h += 3 {
 			lines := strings.Split(helpScreen(w, h, false, plainTheme()), "\n")
@@ -745,5 +745,45 @@ func TestBlockedSessionCountsAsWaitingAndShowsWhy(t *testing.T) {
 	bad.sanitize()
 	if bad.Sessions[0].Blocked != "" {
 		t.Error("an unknown kind must be dropped")
+	}
+}
+
+func TestHelpWrapsInsteadOfCuttingOnANarrowScreen(t *testing.T) {
+	for _, w := range []int{50, 60, 70, 80, 100} {
+		out := helpScreen(w, 80, false, plainTheme())
+		for _, l := range strings.Split(out, "\n") {
+			if strings.Contains(l, "…") {
+				t.Errorf("width %d cuts a line: %q", w, l)
+			}
+			if ansi.StringWidth(l) > w {
+				t.Errorf("width %d: %q is %d wide", w, l, ansi.StringWidth(l))
+			}
+		}
+		flat := strings.Join(strings.Fields(out), " ")
+		for _, want := range []string{"the selected session in full (q closes; e, i: queues)", "snooze it until it changes; z again ends it", "the colour fades after 10 minutes (SITREP_ATTN_FADE); the ● stays", "any key closes"} {
+			if !strings.Contains(flat, want) {
+				t.Errorf("width %d: the help lost %q", w, want)
+			}
+		}
+	}
+	// a screen too narrow for a description column still draws, cut
+	if out := helpScreen(20, 30, false, plainTheme()); !strings.Contains(out, "…") {
+		t.Error("a very narrow screen cuts")
+	}
+}
+
+func TestAKeptFilterSaysHowToClearIt(t *testing.T) {
+	s := loadFixture(t)
+	o := viewOpts{Width: 110, Height: 24, Theme: plainTheme(), Filter: "api"}
+	if got := render(s, tabWatch, "", o); !strings.Contains(got, "esc clear filter") {
+		t.Errorf("a filter that is on says how to clear it:\n%s", got)
+	}
+	o.Typing = true
+	if got := render(s, tabWatch, "", o); strings.Contains(got, "esc clear filter") || !strings.Contains(got, "esc cancel") {
+		t.Errorf("while typing the footer lists the typing keys:\n%s", got)
+	}
+	o.Filter, o.Typing = "", false
+	if got := render(s, tabWatch, "", o); strings.Contains(got, "esc clear filter") {
+		t.Error("no filter, no hint")
 	}
 }

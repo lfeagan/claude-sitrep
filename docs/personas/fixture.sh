@@ -61,7 +61,7 @@ printf 'api\n' >"$root/state/sessions/2f3a9c01/alias"
 states=(waiting working waiting ended working waiting)
 dirs=(api web infra docs mobile billing search auth ml-pipeline 日本語のプロジェクト)
 for ((i = 1; i <= extra; i++)); do
-	id=$(printf 'x%07d' "$i")
+	id=$(printf 's%03d-%03d' "$i" "$i")
 	st=${states[$((i % ${#states[@]}))]}
 	dir=${dirs[$((i % ${#dirs[@]}))]}-$i
 	age=$(((i * 397) % 10800 + 5))

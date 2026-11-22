@@ -10,9 +10,11 @@ More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](do
 
 ## Quick Start
 
-1. In Claude Code, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep`, then `/sitrep:setup`. It builds the program, so it needs Go 1.26 or newer and the `claude` CLI (see Install).
-2. Restart your Claude Code sessions. The status block shows under the prompt after your next prompt.
-3. In any terminal, run `sitrep watch`. Press `?` for the keys and `q` to quit.
+You need Go 1.26 or newer (`go version`) and the `claude` CLI, because setup builds the program.
+
+1. In Claude Code, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep`, then `/sitrep:setup`. Claude Code asks before setup changes `~/.claude/settings.json`, and setup backs it up first (see Install).
+2. Restart your Claude Code sessions, and send a prompt in one. The status block shows under the prompt, and the session appears in the dashboard. With no sessions the dashboard shows only the tabs and `0 running, 0 ended`, and fills in as sessions start.
+3. In any terminal, run `sitrep watch`. Press `?` for the keys and `q` to quit. Setup links `sitrep` into `~/bin`, so that folder must be on your `PATH`; if the shell says `sitrep: command not found`, add it, or run `~/.claude/sitrep/bin/sitrep watch`.
 
 The dashboard lists your sessions, and a session "needs you" when Claude has stopped and the next move is yours, or when it waits at a permission dialog:
 
@@ -28,7 +30,8 @@ Inbox: 3 items
  ● 1 need you   2 running   q quit  enter jump  / filter  ? help
 ```
 
-`enter` jumps to the terminal that shows the selected session, `z` snoozes one that can wait, and `n` gives a session a name. The colour of a row that needs you fades after ten minutes, and the `●` stays.
+The `Inbox` line is work you queued for no session yet. `enter` jumps to the terminal that shows the selected session, `z` snoozes one that can wait (it then shows a `○` instead of the `●`), and `n` gives a session a name. The colour of a row that needs you fades after ten minutes, and the `●` stays.
+
 ## What You See
 
 ```
@@ -43,6 +46,7 @@ The block works as follows:
 1. Objective starts as the first prompt (a resumed session is seeded from its transcript), so the raw prompt shows until the first turn finishes. A short title written by the same Haiku call that writes Progress and Now then replaces it. A pinned Objective (`+pin` or `sitrep pin`) stays until you run `sitrep unpin`.
 2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
 3. Queue shows how many items are waiting, the next item and the first four characters of the session id, which is how `sitrep` addresses the session (`sitrep add a1b2 ...`).
+
 ## Why sitrep
 
 Most tools show what your sessions are doing. sitrep also holds what you plan to do next, per session, and uses plain files and one small program, so the status line renders instantly and there is no server to run.
@@ -53,6 +57,7 @@ Most tools show what your sessions are doing. sitrep also holds what you plan to
 4. Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts.
 
 `docs/COMPARISON.md` compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
+
 ## Install
 
 sitrep is one Go program. It needs Go 1.26 or newer to build, and the `claude` CLI.
@@ -135,12 +140,15 @@ State is plain files in `~/.claude/sitrep/`, so the status line renders instantl
 ## Privacy And Safety
 
 Session state is stored in `~/.claude/sitrep`, which is owner-only (`700`, files `600`). Prompt and model text is treated as untrusted terminal input, so control characters (escape sequences and the C1 range) and format characters (such as bidi overrides) are removed before it is stored and again before it is printed. The summarizer sends the tail of the transcript to Haiku through `claude -p`, the same service the session itself uses. It runs from an empty temporary directory with no tools, no MCP servers, no settings and a 60 second limit, in its own process group that the limit ends whole, and only reads transcripts that live under `~/.claude/projects`. The daily update check is the only other network use: it asks this repository for its tag names and sends nothing from your sessions.
+
 ## Development
 
 `make test` runs `gofmt`, `go mod tidy -diff`, `go vet` and `go test -race`, in CI on Linux and macOS. `make build` builds `./sitrep`. The tests use a throwaway `$HOME` and a stub `claude`, so they never touch real settings or the API. The differential tests compare with the last shell version, the git tag `bash-final`, and need git, jq, perl and that tag. `docs/GO-PORT.md` describes the port from shell to Go.
+
 ## Status
 
 The queue does not feed work to Claude automatically. Whether a `Stop` hook should hand over the next item is TBD, as an unattended session that keeps itself busy is also a runaway session. Pushing the same text to the cmux sidebar has not been built; the state is plain files, so a script can read it.
+
 ## License
 
 MIT. See `LICENSE`.

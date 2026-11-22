@@ -4,17 +4,21 @@ Keys
   arrows, home, end, pgup, pgdn  the same, as in vi and top
   enter                          jump to its tmux pane or cmux surface
   y, Y                           copy the id, or its claude --resume command
-  v, space                       the selected session in full (q closes; e, i: …
+  v, space                       the selected session in full (q closes; e, i:
+                                 queues)
   tab, shift+tab, h, l           switch tab (left and right too)
   1-9                            take that inbox item into the selected session
   a                              show or hide ended sessions
   s                              cycle the Top sort: activity, state, dir, queue
-  /                              filter the sessions; enter keeps it, esc clear…
+  /                              filter the sessions; enter keeps it, esc clears
+                                 it
   ctrl+u, ctrl+w                 in a line you type: clear it, or its last word
-  i, e                           the inbox, or the session's queue; in a queue,…
+  i, e                           the inbox, or the session's queue; in a queue,
+                                 the other one
   o, enter, dd, K J T            add, edit, remove (asks), move up, down, top
   t, P, U, m                     take an inbox item; pin, unpin; m sends it on
-  n                              name the selected session (an alias); empty cl…
+  n                              name the selected session (an alias); empty
+                                 clears it
   z                              snooze it until it changes; z again ends it
   p                              prune the sessions that are gone (asks first)
   r                              refresh now
@@ -34,7 +38,23 @@ Colours
   purple       the session changed in the last minute
   idle?        working, but quiet for 10 minutes: it may have been interrupted
 
-Any key closes this list.
 
 
- keys                                                                           
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ keys   any key closes this list                                                

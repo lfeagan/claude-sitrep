@@ -216,6 +216,9 @@ func (m model) snoozeKey() (tea.Model, tea.Cmd) {
 	case !idRe.MatchString(x.ID):
 		m.say("snooze: this session's id looks unusual, so it is left alone")
 		return m, nil
+	case !x.NeedsInput && !x.Snoozed:
+		m.say("snooze: " + x.Label() + " does not need you, so there is nothing to snooze")
+		return m, nil
 	}
 	args := []string{"snooze", x.ID}
 	if x.Snoozed {
