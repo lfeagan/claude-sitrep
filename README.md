@@ -37,7 +37,7 @@ sitrep is one Go program. It needs Go 1.26 or newer to build, and the `claude` C
 /sitrep:setup
 ```
 
-The first line adds this repository as a marketplace and installs the plugin, which brings the program's source, the hooks and the `sitrep-queue` skill (as `/sitrep:sitrep-queue`). A plugin cannot build a program or declare a status line, so `/sitrep:setup` does the rest, after Claude Code asks about the settings change:
+The first line adds this repository as a marketplace and installs the plugin, which brings the program's source, the hooks, the `sitrep-queue` skill (as `/sitrep:sitrep-queue`) and the `sitrep-history` skill, which tells Claude how to read the history log. A plugin cannot build a program or declare a status line, so `/sitrep:setup` does the rest, after Claude Code asks about the settings change:
 
 1. It builds the program from the plugin's own folder into `~/.claude/sitrep/bin/sitrep`, which the hooks and the status line run, so it always matches the plugin.
 2. It points the status line at `"$HOME/.claude/sitrep/bin/sitrep" statusline`. An existing status line, such as Claude HUD, is saved as `SITREP_HUD_CMD` in `~/.claude/sitrep/sitrep.conf` and runs first.
@@ -174,7 +174,7 @@ Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the envi
 
 With `SITREP_LOG=on`, sitrep appends one line to `~/.claude/sitrep/log/current.jsonl` for each change it makes: a queue add, remove, edit, move or reorder, a pin or unpin, a snooze, an alias, a prune, and the start and end of a session. Reads and the summarizer's rewrites of the notes are not recorded. An entry says what happened, with the text of the item, so it still means something a week later. `sitrep top 3` is recorded as a reorder from 3 to 1.
 
-`sitrep log` shows the latest entries, and `--session`, `--op`, `--host`, `--since` and `-n` narrow them (`--json` prints one object per line). The log is a record beside the files and nothing replays it: the files stay the source of truth. It keeps two files (`current.jsonl` and `previous.jsonl`), so it holds at most `SITREP_LOG_MAX` megabytes and no entry older than `SITREP_LOG_DAYS` days. Each entry names its host, so logs from several machines (over ssh, as `docs/REMOTE.md` does for `ls`) can be told apart. `sitrep log --clear` deletes the files. Nothing sends the log anywhere. Because it keeps the text of your items, it is off until you turn it on.
+`sitrep log` shows the latest entries, and `--session`, `--op`, `--host`, `--since` and `-n` narrow them (`--json` prints one object per line). The log is a record beside the files and nothing replays it: the files stay the source of truth. It keeps two files (`current.jsonl` and `previous.jsonl`), so it holds at most `SITREP_LOG_MAX` megabytes and no entry older than `SITREP_LOG_DAYS` days. Each entry names its host, so logs from several machines (over ssh, as `docs/REMOTE.md` does for `ls`) can be told apart. `sitrep log --clear` deletes the files. Nothing sends the log anywhere. Because it keeps the text of your items, it is off until you turn it on. The `sitrep-history` skill tells Claude how to search it, so you can ask what you queued last week.
 
 Each line of `sitrep log --json` is one entry, and these are its fields:
 
