@@ -98,6 +98,15 @@ func Clean(s string, max int) Text {
 	return Text{cut(strings.TrimRight(flat(head(s, max)), " "), max)}
 }
 
+// CleanMarked is Clean that ends in an ellipsis, within max characters, when it had to cut, so that a reader can tell the text is not whole.
+func CleanMarked(s string, max int) Text {
+	t := Clean(s, max+1)
+	if max < 2 || utf8.RuneCountInString(t.s) <= max {
+		return Clean(s, max)
+	}
+	return Text{strings.TrimRight(cut(t.s, max-1), " ") + "…"}
+}
+
 // Sane is Clean without the trailing-space trim, for the hook's own fields.
 func Sane(s string, max int) Text { return Text{cut(flat(head(s, max)), max)} }
 

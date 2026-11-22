@@ -528,3 +528,17 @@ func TestThemeSettingsAreReadAgainWithEverySnapshot(t *testing.T) {
 		t.Errorf("a running dashboard would not see a saved change: %+v", got)
 	}
 }
+
+func TestALongNoteEndsInAnEllipsis(t *testing.T) {
+	w := newWorld(t)
+	w.file("l0000001.txt", "Objective: "+strings.Repeat("word ", 100)+"\nProgress:  short\nNow:       n\n", time.Hour)
+	w.file("l0000001.state", "working\n", time.Hour)
+	w.register("l0000001", 1)
+	x := byID(w.build(Options{Cap: -1}), "l0000001")
+	if got := x.Objective.String(); !strings.HasSuffix(got, "…") {
+		t.Errorf("a cut Objective says so: %q", got)
+	}
+	if got := x.Progress.String(); got != "short" {
+		t.Errorf("a short one is as it was: %q", got)
+	}
+}

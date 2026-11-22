@@ -183,3 +183,19 @@ func TestEveryCodePointIsKeptOrRemovedAsTheSpecificationSays(t *testing.T) {
 		}
 	}
 }
+
+func TestCleanMarkedEndsInAnEllipsisOnlyWhenItCut(t *testing.T) {
+	if got := CleanMarked(strings.Repeat("x", 200), 200).String(); got != strings.Repeat("x", 200) {
+		t.Errorf("text that fits is kept whole: %q", got)
+	}
+	got := CleanMarked(strings.Repeat("word ", 100), 200).String()
+	if !strings.HasSuffix(got, "…") || utf8.RuneCountInString(got) > 200 || strings.Contains(got, " …") {
+		t.Errorf("a cut ends in an ellipsis within 200 characters: %q", got)
+	}
+	if got := CleanMarked(strings.Repeat("世", 300), 200).String(); utf8.RuneCountInString(got) != 200 || !strings.HasSuffix(got, "…") {
+		t.Errorf("counts characters, not bytes: %d", utf8.RuneCountInString(got))
+	}
+	if got := CleanMarked("a\x1b[31mb"+strings.Repeat("y", 300), 50).String(); strings.Contains(got, "\x1b") {
+		t.Errorf("still cleaned: %q", got)
+	}
+}

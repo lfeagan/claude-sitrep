@@ -284,14 +284,14 @@ func dirOf(cwd string) textsafe.Text {
 	return textsafe.Clean(parts[len(parts)-1], 0)
 }
 
-// field is the value of the first "Key:" line, cleaned and cut to 200 characters.
+// field is the value of the first "Key:" line, cleaned and cut to 200 characters, the last of them an ellipsis when it was cut.
 func field(notes, key string) textsafe.Text {
 	for _, l := range strings.Split(notes, "\n") {
 		if !strings.HasPrefix(l, key+":") {
 			continue
 		}
 		v := l[strings.Index(l, ":")+1:]
-		return textsafe.Clean(strings.TrimLeft(v, " "), 200)
+		return textsafe.CleanMarked(strings.TrimLeft(v, " "), 200)
 	}
 	return textsafe.Clean("", 0)
 }
