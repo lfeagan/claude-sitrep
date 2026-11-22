@@ -8,7 +8,7 @@ import (
 )
 
 func TestGGAndGOnTheTabs(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	ids := m.visible()
 	m, _ = press(t, m, "G")
 	if m.selID != ids[len(ids)-1] {
@@ -29,7 +29,7 @@ func TestGGAndGOnTheTabs(t *testing.T) {
 
 func TestAnyOtherKeyAfterGIsSwallowed(t *testing.T) {
 	for _, other := range []string{"x", "j", "esc", "q", "d", "n", "?", "enter", "K"} {
-		m := loaded(t, tabWatch)
+		m := loaded(t, tabCards)
 		m, _ = press(t, m, "G")
 		last := m.selID
 		m, _ = press(t, m, "g")
@@ -38,7 +38,7 @@ func TestAnyOtherKeyAfterGIsSwallowed(t *testing.T) {
 			t.Errorf("g then %q: pending %v cmd %v sel %q detail %v queue %v help %v", other, m.pending != "", cmd != nil, m.selID, m.detail, m.queue, m.help)
 		}
 	}
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "g")
 	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
 		t.Error("ctrl+c still quits with a g waiting")
@@ -46,7 +46,7 @@ func TestAnyOtherKeyAfterGIsSwallowed(t *testing.T) {
 }
 
 func TestGIsTextWhereTextIsTyped(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "/")
 	m = typed(t, m, "gg")
 	if m.pending != "" || m.filter != "gg" {
@@ -86,7 +86,7 @@ func TestGGAndGInTheQueueAndTheDetailView(t *testing.T) {
 	if m.queueIndex() != 0 || m.pending != "" {
 		t.Errorf("gg in the queue: %d", m.queueIndex())
 	}
-	d := loaded(t, tabWatch)
+	d := loaded(t, tabCards)
 	d.height = 10
 	d, _ = press(t, d, "v")
 	d, _ = press(t, d, "G")
@@ -104,13 +104,13 @@ func TestGGAndGInTheQueueAndTheDetailView(t *testing.T) {
 }
 
 func TestHAndLSwitchTabs(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "l")
 	if m.tab != tabTable {
 		t.Errorf("l: %d", m.tab)
 	}
 	m, _ = press(t, m, "h")
-	if m.tab != tabWatch {
+	if m.tab != tabCards {
 		t.Errorf("h: %d", m.tab)
 	}
 	m, _ = press(t, m, "h")
@@ -118,21 +118,21 @@ func TestHAndLSwitchTabs(t *testing.T) {
 		t.Errorf("h wraps to the last tab: %d", m.tab)
 	}
 	// they are text in the filter, and do nothing in the queue
-	f, _ := press(t, loaded(t, tabWatch), "/")
+	f, _ := press(t, loaded(t, tabCards), "/")
 	f = typed(t, f, "hl")
-	if f.tab != tabWatch || f.filter != "hl" {
+	if f.tab != tabCards || f.filter != "hl" {
 		t.Errorf("filter: tab %d %q", f.tab, f.filter)
 	}
 	q, _ := queueModel(t, qSession)
 	q, _ = press(t, q, "l")
-	if !q.queue || q.tab != tabWatch {
+	if !q.queue || q.tab != tabCards {
 		t.Error("l in the queue does nothing")
 	}
 }
 
 func TestPagingTheLists(t *testing.T) {
 	m := loaded(t, tabTable)
-	m.height = 7 // a Top page is height-5 = 2 rows
+	m.height = 7 // a Table page is height-5 = 2 rows
 	ids := m.visible()
 	if len(ids) < 3 {
 		t.Fatal("the fixture needs three sessions")
@@ -154,11 +154,11 @@ func TestPagingTheLists(t *testing.T) {
 	if m.selID != ids[0] {
 		t.Errorf("pgup stops at the first: %q", m.selID)
 	}
-	w := loaded(t, tabWatch)
-	w.height = 7 // a Watch page is one session at this height
+	w := loaded(t, tabCards)
+	w.height = 7 // a Cards page is one session at this height
 	w, _ = press(t, w, "ctrl+d")
 	if w.selID != w.visible()[1] {
-		t.Errorf("Watch page: %q", w.selID)
+		t.Errorf("Cards page: %q", w.selID)
 	}
 	q, _ := queueModel(t, qSession)
 	q.height = 4
@@ -174,10 +174,10 @@ func TestPagingTheLists(t *testing.T) {
 
 func TestHelpOpensFromEveryScreenAndReturns(t *testing.T) {
 	for name, open := range map[string]func(*testing.T) model{
-		"the tabs":  func(t *testing.T) model { return loaded(t, tabWatch) },
+		"the tabs":  func(t *testing.T) model { return loaded(t, tabCards) },
 		"the queue": func(t *testing.T) model { m, _ := queueModel(t, qSession); return m },
 		"the inbox": func(t *testing.T) model { m, _ := queueModel(t, qInbox); return m },
-		"detail":    func(t *testing.T) model { m, _ := press(t, loaded(t, tabWatch), "v"); return m },
+		"detail":    func(t *testing.T) model { m, _ := press(t, loaded(t, tabCards), "v"); return m },
 	} {
 		m := open(t)
 		wasQueue, wasDetail := m.queue, m.detail
@@ -247,7 +247,7 @@ func takeModel(t *testing.T, tab int) (model, *fake) {
 }
 
 func TestANumberAsksToTakeAnInboxItem(t *testing.T) {
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		m, f := takeModel(t, tab)
 		id := m.selID
 		items := m.snap.Inbox.Items
@@ -278,14 +278,14 @@ func TestANumberAsksToTakeAnInboxItem(t *testing.T) {
 
 func TestTheTakeQuestionAnswers(t *testing.T) {
 	for _, k := range []string{"n", "esc", "q"} {
-		m, f := takeModel(t, tabWatch)
+		m, f := takeModel(t, tabCards)
 		m, _ = press(t, m, "1")
 		m, cmd := press(t, m, k)
 		if m.ask != nil || cmd != nil || len(f.calls) != 0 {
 			t.Errorf("%s cancels: %v %v", k, m.ask, f.calls)
 		}
 	}
-	m, f := takeModel(t, tabWatch)
+	m, f := takeModel(t, tabCards)
 	m, _ = press(t, m, "1")
 	for _, k := range []string{"j", "2", "tab", "d", "e", "a", "g", "x", "enter", "p", "z", "/"} {
 		after, cmd := press(t, m, k)
@@ -307,19 +307,19 @@ func TestANumberRefusals(t *testing.T) {
 		"no session is selected":     func(m *model) { m.selID = "" },
 	}
 	for want, set := range cases {
-		m, f := takeModel(t, tabWatch)
+		m, f := takeModel(t, tabCards)
 		set(&m)
 		m, cmd := press(t, m, "1")
 		if m.ask != nil || cmd != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), want) {
 			t.Errorf("%s: ask %v status %q", want, m.ask, m.statusText())
 		}
 	}
-	m, _ := takeModel(t, tabWatch)
+	m, _ := takeModel(t, tabCards)
 	m, _ = press(t, m, "9")
 	if m.ask != nil || !strings.Contains(m.statusText(), "no inbox item 9") {
 		t.Errorf("a number past the inbox: %v %q", m.ask, m.statusText())
 	}
-	m2, _ := takeModel(t, tabWatch)
+	m2, _ := takeModel(t, tabCards)
 	m2.snap.Inbox = Queue{}
 	m2, _ = press(t, m2, "1")
 	if m2.ask != nil || !strings.Contains(m2.statusText(), "no inbox item 1") {
@@ -328,7 +328,7 @@ func TestANumberRefusals(t *testing.T) {
 }
 
 func TestNumbersAreTextOrNothingElsewhere(t *testing.T) {
-	f, _ := press(t, loaded(t, tabWatch), "/")
+	f, _ := press(t, loaded(t, tabCards), "/")
 	f = typed(t, f, "15")
 	if f.ask != nil || f.filter != "15" {
 		t.Errorf("in the filter a number is text: ask %v %q", f.ask, f.filter)
@@ -338,7 +338,7 @@ func TestNumbersAreTextOrNothingElsewhere(t *testing.T) {
 	if q.ask != nil || !q.queue {
 		t.Error("in the queue a number does nothing")
 	}
-	d, _ := press(t, loaded(t, tabWatch), "v")
+	d, _ := press(t, loaded(t, tabCards), "v")
 	d, _ = press(t, d, "1")
 	if d.ask != nil || !d.detail {
 		t.Error("in the detail view a number does nothing")
@@ -346,7 +346,7 @@ func TestNumbersAreTextOrNothingElsewhere(t *testing.T) {
 }
 
 func TestTheTakeQuestionIsDroppedWhenTheInboxChanges(t *testing.T) {
-	m, _ := takeModel(t, tabWatch)
+	m, _ := takeModel(t, tabCards)
 	m, _ = press(t, m, "1")
 	snap := loadFixture(t)
 	snap.Inbox.Items = snap.Inbox.Items[1:]
@@ -592,7 +592,7 @@ func TestDThenAnotherKeyIsSwallowed(t *testing.T) {
 
 func TestDIsNotPendingWhereItDoesNothing(t *testing.T) {
 	// on the tabs and in the detail view d is nothing now, and the detail view is v
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, cmd := press(t, m, "d")
 	if m.pending != "" || m.detail || cmd != nil {
 		t.Errorf("d on a tab: %q detail %v", m.pending, m.detail)
@@ -685,13 +685,13 @@ func TestEAndIOpenQueuesFromTheDetailView(t *testing.T) {
 		t.Error("q again closes the detail view")
 	}
 	// the inbox too
-	d, _ := press(t, loaded(t, tabWatch), "v")
+	d, _ := press(t, loaded(t, tabCards), "v")
 	d, _ = press(t, d, "i")
 	if !d.queue || d.qKind != qInbox || !d.detail {
 		t.Errorf("i opens the inbox from the detail view: %v %d", d.queue, d.qKind)
 	}
 	// the detail footer says so
-	e, _ := press(t, loaded(t, tabWatch), "v")
+	e, _ := press(t, loaded(t, tabCards), "v")
 	e.width, e.height = 100, 30
 	if v := e.View().Content; !strings.Contains(v, "e queue") {
 		t.Errorf("the detail bar names e:\n%s", v)

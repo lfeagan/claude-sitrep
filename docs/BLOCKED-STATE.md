@@ -48,7 +48,7 @@ Option 2 is the better one. Its cost is one more file and a rule in the snapshot
 4. The snapshot treats a session as blocked when the file is there, the word is `working`, and the transcript has not been written since the block (a slack of three seconds covers the write that follows the dialog by 0.3 seconds). A blocked session has `needs_input` true, `state_label` `blocked 40s`, and a new field `blocked` set to `permission` or `question` (empty otherwise). The README names `needs_input` as the one to use, so a program that ignores `blocked` still works.
 5. A snooze keys on the time of the block, so `z` mutes it until the session changes, as it does for `waiting`.
 6. When the user answers, the transcript grows within a moment, the rule fails and the session is `working` again. A file left behind by a crash is harmless for the same reason, and the next prompt removes it. A session with no readable transcript keeps the block until the file is removed, as we cannot tell otherwise.
-7. The bell rings on the change to `needs_input`, and the Top and Watch tabs already count it, so they need no change beyond showing `blocked` in the state column.
+7. The bell rings on the change to `needs_input`, and the Table and Cards tabs already count it, so they need no change beyond showing `blocked` in the state column.
 
 ## Where The Hook Has To Be Added
 

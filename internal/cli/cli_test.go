@@ -440,7 +440,7 @@ func TestUnreadableStateFolderIsNotEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.Chmod(st.Dir, 0o700)
-	for _, args := range [][]string{{"ls"}, {"ls", "--json"}, {"ls", "inbox"}, {"status"}, {"watch", "--once"}} {
+	for _, args := range [][]string{{"ls"}, {"ls", "--json"}, {"ls", "inbox"}, {"status"}, {"dash", "--once"}} {
 		code, out, errs := run(t, home, args...)
 		if code != 1 || out != "" || !strings.HasPrefix(errs, "sitrep: cannot read the state folder "+st.Dir+": ") {
 			t.Errorf("%v: %d %q %q", args, code, out, errs)

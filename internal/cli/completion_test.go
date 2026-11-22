@@ -41,7 +41,7 @@ func TestCompleteCommandsAndFlags(t *testing.T) {
 	e := completionEnv(t)
 	ctx := context.Background()
 	cmds := e.complete(ctx, []string{""})
-	for _, want := range []string{"ls", "add", "rm", "done", "move", "watch", "status", "setup", "prune", "snooze", "help", "completion", "version"} {
+	for _, want := range []string{"ls", "add", "rm", "done", "move", "dash", "status", "setup", "prune", "snooze", "help", "completion", "version"} {
 		if !contains(cmds, want) {
 			t.Errorf("no %q in %v", want, cmds)
 		}
@@ -56,7 +56,7 @@ func TestCompleteCommandsAndFlags(t *testing.T) {
 	}
 	for cmd, want := range map[string][]string{
 		"ls": {"--all", "--full", "--json", "-a", "-n", "-v"}, "prune": {"--dry-run", "--keep", "--yes", "-k", "-y"}, "setup": {"--remove"}, "snooze": {"--off"},
-		"rm": {"--item"}, "done": {"--item"}, "watch": {"--interval", "--mouse", "--no-bell", "--once", "--quit-on-jump", "--read-only", "--tab", "--width"},
+		"rm": {"--item"}, "done": {"--item"}, "dash": {"--interval", "--mouse", "--no-bell", "--once", "--quit-on-jump", "--read-only", "--tab", "--width"},
 	} {
 		if got := sorted(e.complete(ctx, []string{cmd, "-"})); !reflect.DeepEqual(got, sorted(want)) {
 			t.Errorf("%s flags: %v", cmd, got)
@@ -70,12 +70,12 @@ func TestCompleteCommandsAndFlags(t *testing.T) {
 func TestCompleteFlagValues(t *testing.T) {
 	e := completionEnv(t)
 	ctx := context.Background()
-	for _, w := range [][]string{{"watch", "--tab", ""}, {"status", "--tab", "t"}} {
-		if got := e.complete(ctx, w); !reflect.DeepEqual(got, []string{"table", "wall", "watch"}) {
+	for _, w := range [][]string{{"dash", "--tab", ""}, {"status", "--tab", "t"}} {
+		if got := e.complete(ctx, w); !reflect.DeepEqual(got, []string{"cards", "table", "wall"}) {
 			t.Errorf("%v: %v", w, got)
 		}
 	}
-	for _, w := range [][]string{{"watch", "--interval", ""}, {"ls", "-n", ""}, {"rm", "abcd", "1", "--item", ""}} {
+	for _, w := range [][]string{{"dash", "--interval", ""}, {"ls", "-n", ""}, {"rm", "abcd", "1", "--item", ""}} {
 		if got := e.complete(ctx, w); len(got) != 0 {
 			t.Errorf("%v offered %v", w, got)
 		}
@@ -188,9 +188,9 @@ func TestBashScript(t *testing.T) {
 		for line, want := range map[string]string{
 			`sitrep ls abc`:        "abcd1 abcd2",
 			`sitrep ls z`:          "zzzz",
-			`sitrep wa`:            "watch",
-			`sitrep watch --tab t`: "table",
-			`sitrep status --tab `: "table wall watch",
+			`sitrep das`:           "dash",
+			`sitrep dash --tab t`:  "table",
+			`sitrep status --tab `: "cards table wall",
 			`sitrep pin i`:         "",
 			`sitrep move abcd1 in`: "inbox",
 			`sitrep prune --d`:     "--dry-run",

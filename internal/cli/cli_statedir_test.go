@@ -80,7 +80,7 @@ func TestABadStateDirSaysSoOnTheStatusLineAndInCommands(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "SITREP_STATE_DIR must be an absolute path") {
 		t.Errorf("statusline: %d %q", code, out)
 	}
-	for _, args := range [][]string{{"ls"}, {"add", "inbox", "x"}, {"watch"}, {"prune"}} {
+	for _, args := range [][]string{{"ls"}, {"add", "inbox", "x"}, {"dash"}, {"prune"}} {
 		code, out, errs := runWith(t, home, "state\x1b[31m", "", args...)
 		if code != 1 || out != "" || !strings.Contains(errs, "SITREP_STATE_DIR must be an absolute path") || strings.Contains(errs, "\x1b") {
 			t.Errorf("%v: %d %q %q", args, code, out, errs)

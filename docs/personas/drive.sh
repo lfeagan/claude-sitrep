@@ -2,7 +2,7 @@
 # Runs the dashboard on the fixture state, in a terminal that a persona can type into and read, in tmux (or in cmux when there is no tmux).
 #
 #   drive.sh start [--sessions N] [--hostile] [--size WxH]
-#                       builds the fixture (see fixture.sh) and starts `sitrep watch` in it, 110 columns by 34 rows unless --size says
+#                       builds the fixture (see fixture.sh) and starts `sitrep dash` in it, 110 columns by 34 rows unless --size says
 #                       otherwise (tmux only)
 #   drive.sh env        prints the exports that point `sitrep` at the fixture, for the persona's own shell commands
 #   drive.sh screen     prints what the dashboard shows now
@@ -67,7 +67,7 @@ start)
 	done
 	case $size in [0-9]*x[0-9]*) ;; *) echo "drive.sh: --size is WxH" >&2; exit 2 ;; esac
 	"$here/fixture.sh" "$root" "${fixopts[@]+"${fixopts[@]}"}" >/dev/null
-	run="env SITREP_STATE_DIR='$root/state' CLAUDE_CONFIG_DIR='$root/claude' '$bin' watch"
+	run="env SITREP_STATE_DIR='$root/state' CLAUDE_CONFIG_DIR='$root/claude' '$bin' dash"
 	ws="" surface=""
 	if [ "$backend" = tmux ]; then
 		tm new-session -d -s persona -x "${size%x*}" -y "${size#*x}" "$run"

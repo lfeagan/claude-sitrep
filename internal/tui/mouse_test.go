@@ -39,7 +39,7 @@ func mouseModel(t *testing.T, tab int) (model, *time.Time) {
 }
 
 func TestClickSelectsAndDoubleClickJumps(t *testing.T) {
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		m, clock := mouseModel(t, tab)
 		id := m.snap.Sessions[1].ID
 		y := rowOf(t, m, id, 0)
@@ -56,7 +56,7 @@ func TestClickSelectsAndDoubleClickJumps(t *testing.T) {
 }
 
 func TestSlowSecondClickOrAnotherRowIsNotADoubleClick(t *testing.T) {
-	m, clock := mouseModel(t, tabWatch)
+	m, clock := mouseModel(t, tabCards)
 	a, b := m.snap.Sessions[0].ID, m.snap.Sessions[1].ID
 	m, _ = clickAt(m, rowOf(t, m, a, 0))
 	*clock = clock.Add(doubleClick + time.Millisecond)
@@ -77,7 +77,7 @@ func TestSlowSecondClickOrAnotherRowIsNotADoubleClick(t *testing.T) {
 }
 
 func TestAnyLineOfABlockCounts(t *testing.T) {
-	m, _ := mouseModel(t, tabWatch)
+	m, _ := mouseModel(t, tabCards)
 	id := m.snap.Sessions[0].ID
 	m, _ = clickAt(m, rowOf(t, m, id, 0))
 	_, cmd := clickAt(m, rowOf(t, m, id, 1)) // a later line of the same block
@@ -87,7 +87,7 @@ func TestAnyLineOfABlockCounts(t *testing.T) {
 }
 
 func TestDoubleClickNeedsTheSecondClickToBeNew(t *testing.T) {
-	m, _ := mouseModel(t, tabWatch)
+	m, _ := mouseModel(t, tabCards)
 	id := m.snap.Sessions[0].ID
 	y := rowOf(t, m, id, 0)
 	m, _ = clickAt(m, y)
@@ -102,7 +102,7 @@ func TestDoubleClickNeedsTheSecondClickToBeNew(t *testing.T) {
 }
 
 func TestMouseIsOffByDefault(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	if m.mouse || m.View().MouseMode != tea.MouseModeNone {
 		t.Error("the mouse is off unless asked for")
 	}
@@ -118,7 +118,7 @@ func TestMouseIsOffByDefault(t *testing.T) {
 }
 
 func TestClicksOutsideRowsAndOnScreensAreIgnored(t *testing.T) {
-	m, _ := mouseModel(t, tabWatch)
+	m, _ := mouseModel(t, tabCards)
 	id := m.snap.Sessions[1].ID
 	y := rowOf(t, m, id, 0)
 	for _, y := range []int{0, -1, m.height + 5, m.height - 1} { // the tab bar, off screen, the status bar
@@ -148,7 +148,7 @@ func TestClicksOutsideRowsAndOnScreensAreIgnored(t *testing.T) {
 }
 
 func TestHitsFollowTheScroll(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m.height = 12
 	ids := m.visible()
 	last := ids[len(ids)-1]
@@ -172,7 +172,7 @@ func TestHitsFollowTheScroll(t *testing.T) {
 
 func TestClickOnATabNameOpensTheTab(t *testing.T) {
 	for _, name := range ThemeNames { // the names are drawn with different padding in different themes
-		m, _ := mouseModel(t, tabWatch)
+		m, _ := mouseModel(t, tabCards)
 		m.snap.Settings.Theme = name
 		parts := tabParts(0, themeFor(m.isDark, m.snap.Settings))
 		col := 0
@@ -187,7 +187,7 @@ func TestClickOnATabNameOpensTheTab(t *testing.T) {
 			col += w
 		}
 		for _, x := range []int{col, col + 10, -1} {
-			if next, _ := m.Update(tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft}); next.(model).tab != tabWatch {
+			if next, _ := m.Update(tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft}); next.(model).tab != tabCards {
 				t.Errorf("a click at column %d, beyond the names, opens nothing", x)
 			}
 		}
@@ -195,18 +195,18 @@ func TestClickOnATabNameOpensTheTab(t *testing.T) {
 }
 
 func TestClickOnATabNeedsTheMouseAndNoScreenOpen(t *testing.T) {
-	m, _ := mouseModel(t, tabWatch)
+	m, _ := mouseModel(t, tabCards)
 	click := tea.MouseClickMsg{X: 9, Y: 0, Button: tea.MouseLeft} // inside the second name
 	if next, _ := m.Update(click); next.(model).tab != tabTable {
 		t.Fatal("the click opens the Table tab")
 	}
 	off := m
 	off.mouse = false
-	if next, _ := off.Update(click); next.(model).tab != tabWatch {
+	if next, _ := off.Update(click); next.(model).tab != tabCards {
 		t.Error("with the mouse off a click does nothing")
 	}
 	right := tea.MouseClickMsg{X: 9, Y: 0, Button: tea.MouseRight}
-	if next, _ := m.Update(right); next.(model).tab != tabWatch {
+	if next, _ := m.Update(right); next.(model).tab != tabCards {
 		t.Error("only the left button")
 	}
 	for name, set := range map[string]func(*model){
@@ -217,12 +217,12 @@ func TestClickOnATabNeedsTheMouseAndNoScreenOpen(t *testing.T) {
 	} {
 		o := m
 		set(&o)
-		if next, _ := o.Update(click); next.(model).tab != tabWatch {
+		if next, _ := o.Update(click); next.(model).tab != tabCards {
 			t.Errorf("%s: the tab bar is not on screen, so the click does nothing", name)
 		}
 	}
 	// before the first snapshot there are tabs to click and nothing in them
-	empty := newModel("x", 0, tabWatch)
+	empty := newModel("x", 0, tabCards)
 	empty.mouse = true
 	if next, _ := empty.Update(click); next.(model).tab != tabTable {
 		t.Error("a tab opens before any data has come")
@@ -230,7 +230,7 @@ func TestClickOnATabNeedsTheMouseAndNoScreenOpen(t *testing.T) {
 }
 
 func TestClickOnATabKeepsTheSelectionAndStopsADoubleClick(t *testing.T) {
-	m, _ := mouseModel(t, tabWatch)
+	m, _ := mouseModel(t, tabCards)
 	id := m.snap.Sessions[1].ID
 	m, _ = clickAt(m, rowOf(t, m, id, 0)) // the first click of a pair
 	next, _ := m.Update(tea.MouseClickMsg{X: 9, Y: 0, Button: tea.MouseLeft})

@@ -4,7 +4,7 @@ Status: built (0.19.0).
 
 ## Claim
 
-Watch gives each session a block of five to eleven rows, so a 24-row pane shows two sessions, and Table gives each one row but shows almost nothing about it. A user who runs twenty sessions (the heavy-user persona, and the user's own idea of a "super-industrial" view) needs a third view that shows many sessions at once, with the state of each, and lets the eye find the ones that need them. A new tab, **Wall**, lays the sessions out as tiles in as many columns as the width allows.
+Cards gives each session a block of five to eleven rows, so a 24-row pane shows two sessions, and Table gives each one row but shows almost nothing about it. A user who runs twenty sessions (the heavy-user persona, and the user's own idea of a "super-industrial" view) needs a third view that shows many sessions at once, with the state of each, and lets the eye find the ones that need them. A new tab, **Wall**, lays the sessions out as tiles in as many columns as the width allows.
 
 ## Rule
 
@@ -22,7 +22,7 @@ Three sizes, cycled with `s` (the Table's sort key, which Wall does not need). T
 | standard | 4 | The label and the state; Now; `N queued: the next item`, or `no queue`; the directory and, when it fits, the context left. |
 | roomy | 6 | The label and the state; Objective; Progress; Now; the queue row; the directory and context. |
 
-A text that does not fit is cut with an ellipsis. Between tile rows there is one blank row (none in compact). The first two columns of a tile are the gutter, which holds the `▶` and the bar of the selected tile, as in Watch. The colours are the ones of the other tabs: the needs-you colour (until it fades), the recent-activity colour, and the plain `●` and `○` marks in the mono theme.
+A text that does not fit is cut with an ellipsis. Between tile rows there is one blank row (none in compact). The first two columns of a tile are the gutter, which holds the `▶` and the bar of the selected tile, as in Cards. The colours are the ones of the other tabs: the needs-you colour (until it fades), the recent-activity colour, and the plain `●` and `○` marks in the mono theme.
 
 ## Keys
 

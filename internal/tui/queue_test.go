@@ -20,7 +20,7 @@ const (
 // queueModel opens the inbox (kind qInbox) or the queue of the first session (qSession).
 func queueModel(t *testing.T, kind int) (model, *fake) {
 	t.Helper()
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m.bin = "/x/sitrep"
 	f := &fake{answer: map[string]string{"/x/sitrep": "done\n"}}
 	m.run = f.run
@@ -88,7 +88,7 @@ func TestQueueOpensAndCloses(t *testing.T) {
 }
 
 func TestQueueNeedsASessionToOpen(t *testing.T) {
-	m := newModel("x", 0, tabWatch)
+	m := newModel("x", 0, tabCards)
 	m, _ = press(t, m, "e")
 	if m.queue || !strings.Contains(m.statusText(), "no session is selected") {
 		t.Errorf("e with nothing selected says so: %q", m.statusText())
@@ -441,13 +441,13 @@ func TestQueueSelectionFollowsItsItemEvenWithDuplicates(t *testing.T) {
 }
 
 func TestQueueKeyInOtherModes(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "/")
 	m, _ = press(t, m, "e")
 	if m.queue || m.filter != "e" {
 		t.Errorf("e is text while filtering: queue %v filter %q", m.queue, m.filter)
 	}
-	m = loaded(t, tabWatch)
+	m = loaded(t, tabCards)
 	m, _ = press(t, m, "?")
 	m, _ = press(t, m, "i")
 	if m.queue || m.help {

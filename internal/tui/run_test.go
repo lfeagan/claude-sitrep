@@ -47,7 +47,7 @@ func TestFromSnapshot(t *testing.T) {
 }
 
 func TestTabByName(t *testing.T) {
-	for name, want := range map[string]int{"": tabWatch, "watch": tabWatch, "table": tabTable, "wall": tabWall} {
+	for name, want := range map[string]int{"": tabCards, "cards": tabCards, "table": tabTable, "wall": tabWall} {
 		if got, err := tabByName(name); err != nil || got != want {
 			t.Errorf("%q: %d, %v", name, got, err)
 		}
@@ -55,14 +55,14 @@ func TestTabByName(t *testing.T) {
 	if _, err := tabByName("nope"); err == nil || !strings.Contains(err.Error(), `unknown tab "nope"`) {
 		t.Errorf("%v", err)
 	}
-	if _, err := tabByName("top"); err == nil || !strings.Contains(err.Error(), "watch, table or wall") {
+	if _, err := tabByName("top"); err == nil || !strings.Contains(err.Error(), "cards, table or wall") {
 		t.Errorf("the old name is gone: %v", err)
 	}
 }
 
 func TestFrame(t *testing.T) {
 	eng := Engine{Snapshot: func(context.Context) (snapshot.Snapshot, error) { return sample(), nil }}
-	out, err := Frame(context.Background(), eng, "watch", 100, false)
+	out, err := Frame(context.Background(), eng, "cards", 100, false)
 	if err != nil || !strings.Contains(out, "build it") || strings.Contains(out, "\x1b[") || strings.HasSuffix(out, "\n") {
 		t.Errorf("%q, %v", out, err)
 	}

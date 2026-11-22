@@ -14,12 +14,12 @@ You need Go 1.26 or newer (`go version`) and the `claude` CLI, because setup bui
 
 1. In Claude Code, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep`, then `/sitrep:setup`. Claude Code asks before setup changes `~/.claude/settings.json`, and setup backs it up first (see Install).
 2. Restart your Claude Code sessions, and send a prompt in one. The status block shows under the prompt, and the session appears in the dashboard. With no sessions the dashboard shows only the tabs and `0 running, 0 ended`, and fills in as sessions start.
-3. In any terminal, run `sitrep watch`. Press `?` for the keys and `q` to quit. Setup links `sitrep` into `~/bin`, so that folder must be on your `PATH`; if the shell says `sitrep: command not found`, add it, or run `~/.claude/sitrep/bin/sitrep watch`.
+3. In any terminal, run `sitrep dash`. Press `?` for the keys and `q` to quit. Setup links `sitrep` into `~/bin`, so that folder must be on your `PATH`; if the shell says `sitrep: command not found`, add it, or run `~/.claude/sitrep/bin/sitrep dash`.
 
 The dashboard lists your sessions, and a session "needs you" when Claude has stopped and the next move is yours, or when it waits at a permission dialog:
 
 ```
- Watch  Table  Wall
+ Cards  Table  Wall
 ────────────────────────────────────────────────────────────────────
 Inbox: 3 items
 ▶ 5b7d  web   working <1m   1 item         <- ▶ is the selected row
@@ -53,7 +53,7 @@ Most tools show what your sessions are doing. sitrep also holds what you plan to
 
 1. A status block and a per-session queue under each prompt, plus an inbox for work you have not yet matched to a session. `+ <text>` queues an item without sending anything to Claude.
 2. Objective, Progress and Now come from a short Haiku call after each turn. See Privacy And Safety for the cost cap and what is sent.
-3. A full-screen dashboard (`sitrep watch`) and a stable JSON format (`sitrep ls --json`) for your own tools.
+3. A full-screen dashboard (`sitrep dash`) and a stable JSON format (`sitrep ls --json`) for your own tools.
 4. Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts.
 
 `docs/COMPARISON.md` compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
@@ -94,9 +94,9 @@ The inbox is a queue that belongs to no session, for work you have not yet match
 
 ## The Dashboard
 
-`sitrep watch` is a full-screen view of all your sessions, with a status bar. Without a terminal it prints one frame and exits, and `sitrep status` always does.
+`sitrep dash` is a full-screen view of all your sessions, with a status bar. Without a terminal it prints one frame and exits, and `sitrep status` always does.
 
-1. **Watch** shows Objective, Progress, Now and the queue of each session.
+1. **Cards** shows Objective, Progress, Now and the queue of each session.
 2. **Table** is a summary line and one line per session, with its state, queue size, the share of its context window left (CTX) and what it is doing now.
 3. **Wall** lays the sessions out as tiles of one size, in as many columns as the width holds, for twenty sessions at once. The sessions that need you come first, `h` `l` `j` `k` move between tiles, and `s` changes the tile size.
 

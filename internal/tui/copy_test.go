@@ -14,7 +14,7 @@ import (
 func clip(text string) string { return fmt.Sprintf("%#v", tea.SetClipboard(text)()) }
 
 func TestYCopiesTheIdAndShiftYTheResumeCommand(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	id := m.selID
 	m, cmd := press(t, m, "y")
 	if cmd == nil || fmt.Sprintf("%#v", cmd()) != clip(id) {
@@ -36,7 +36,7 @@ func TestYCopiesTheIdAndShiftYTheResumeCommand(t *testing.T) {
 }
 
 func TestCopyWorksInTheDetailPane(t *testing.T) {
-	m, _ := press(t, loaded(t, tabWatch), "v")
+	m, _ := press(t, loaded(t, tabCards), "v")
 	if _, cmd := press(t, m, "y"); cmd == nil {
 		t.Errorf("y copies from the detail pane too")
 	}
@@ -45,7 +45,7 @@ func TestCopyWorksInTheDetailPane(t *testing.T) {
 func TestCopyRefusesAnUnusualId(t *testing.T) {
 	snap := loadFixture(t)
 	snap.Sessions[0].ID = "abc; rm -rf /"
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	next, _ := m.Update(snapMsg{snap: snap})
 	m = next.(model)
 	for _, k := range []string{"y", "Y"} {
@@ -54,7 +54,7 @@ func TestCopyRefusesAnUnusualId(t *testing.T) {
 			t.Errorf("%s: an id with shell characters is never copied: %q", k, after.statusText())
 		}
 	}
-	if _, cmd := press(t, newModel("x", time.Second, tabWatch), "y"); cmd != nil {
+	if _, cmd := press(t, newModel("x", time.Second, tabCards), "y"); cmd != nil {
 		t.Errorf("nothing selected, nothing copied")
 	}
 }
@@ -110,7 +110,7 @@ func TestTheBellRingsOnceForANewWaitingSession(t *testing.T) {
 		return snap
 	}
 	base := waiting(waiting(loadFixture(t), "b1fb", false), "15f1", false)
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	next, cmd := m.Update(snapMsg{snap: waiting(base, "b1fb", true)}) // the first load: sessions already waiting
 	if cmd != nil {
 		t.Errorf("no bell on the first load")
@@ -142,7 +142,7 @@ func snoozeModel(t *testing.T, tab int) (model, *fake) {
 }
 
 func TestZSnoozesAndUnsnoozes(t *testing.T) {
-	m, f := snoozeModel(t, tabWatch)
+	m, f := snoozeModel(t, tabCards)
 	id := m.selID
 	m, cmd := press(t, m, "z")
 	if cmd == nil || !m.acting {
@@ -168,7 +168,7 @@ func TestZSnoozesAndUnsnoozes(t *testing.T) {
 }
 
 func TestZGuards(t *testing.T) {
-	m, f := snoozeModel(t, tabWatch)
+	m, f := snoozeModel(t, tabCards)
 	m.readOnly = true
 	if after, cmd := press(t, m, "z"); cmd != nil || !strings.Contains(after.statusText(), "read-only") {
 		t.Errorf("read-only turns z off: %q", after.statusText())
@@ -180,18 +180,18 @@ func TestZGuards(t *testing.T) {
 	}
 	snap := loadFixture(t)
 	snap.Sessions[0].ID = "a b; c"
-	next, _ := newModel("x", time.Second, tabWatch).Update(snapMsg{snap: snap})
+	next, _ := newModel("x", time.Second, tabCards).Update(snapMsg{snap: snap})
 	if after, cmd := press(t, next.(model), "z"); cmd != nil || !strings.Contains(after.statusText(), "unusual") {
 		t.Errorf("an unusual id is left alone")
 	}
-	if _, cmd := press(t, newModel("x", time.Second, tabWatch), "z"); cmd != nil {
+	if _, cmd := press(t, newModel("x", time.Second, tabCards), "z"); cmd != nil {
 		t.Errorf("nothing selected, nothing to snooze")
 	}
 	if len(f.calls) != 0 {
 		t.Errorf("none of those ran a command: %v", f.calls)
 	}
 	bad := &fake{fail: map[string]error{"/x/sitrep snooze": errors.New("sitrep: cannot read when 15f1 last changed")}}
-	m2, _ := snoozeModel(t, tabWatch)
+	m2, _ := snoozeModel(t, tabCards)
 	m2.run = bad.run
 	m2, cmd := press(t, m2, "z")
 	m2 = feed(t, m2, cmd)
@@ -203,7 +203,7 @@ func TestZGuards(t *testing.T) {
 func TestSnoozedIsDrawnHollowAndWithoutPink(t *testing.T) {
 	s := loadFixture(t)
 	s.Sessions[2].NeedsInput, s.Sessions[2].Snoozed = false, true
-	out := render(s, tabWatch, "", opts(80, 40))
+	out := render(s, tabCards, "", opts(80, 40))
 	if !strings.Contains(out, "○ waiting 3m") || strings.Contains(out, "● waiting") {
 		t.Errorf("a snoozed session has the hollow mark:\n%s", out)
 	}
@@ -219,7 +219,7 @@ func TestSnoozedIsDrawnHollowAndWithoutPink(t *testing.T) {
 }
 
 func TestACommandGetsTheIdNeverTheAlias(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	snap := loadFixture(t)
 	for i := range snap.Sessions {
 		snap.Sessions[i].Alias = fmt.Sprintf("name-%d", i)
@@ -240,7 +240,7 @@ func TestACommandGetsTheIdNeverTheAlias(t *testing.T) {
 
 func aliasModel(t *testing.T) (model, *fake) {
 	t.Helper()
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m.bin = "/x/sitrep"
 	f := &fake{answer: map[string]string{"/x/sitrep alias": "15f1 is now called work\n"}}
 	m.run = f.run
@@ -348,7 +348,7 @@ func TestNKeyWorksOnAnEndedSession(t *testing.T) {
 }
 
 func TestZOnASessionThatDoesNotNeedYouSaysSoAndRunsNothing(t *testing.T) {
-	m, f := snoozeModel(t, tabWatch)
+	m, f := snoozeModel(t, tabCards)
 	m.snap.Sessions[0].NeedsInput = false // a working session: a snooze would mute nothing
 	m, cmd := press(t, m, "z")
 	if cmd != nil || m.acting || len(f.calls) != 0 {

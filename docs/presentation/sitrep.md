@@ -110,7 +110,7 @@ This is the answer to "do I need to go back to that terminal?" without opening i
 
 # The dashboard
 
-`sitrep watch` is a full-screen view of every running session, with its state, queue, Objective, Now and how much of the context window is left.
+`sitrep dash` is a full-screen view of every running session, with its state, queue, Objective, Now and how much of the context window is left.
 
 - `enter` jumps to the terminal that shows the session, in tmux or cmux.
 - `d` opens a session in full, `i` opens the inbox, `e` opens a session's queue.
@@ -135,7 +135,7 @@ State is files under `~/.claude/sitrep/`: a folder per session, an inbox and one
 <!-- Fill this in when the demo exists. The outline: -->
 
 1. Three sessions, three terminals, each with its status block.
-2. `+ <text>` in one of them, then `sitrep watch` to see the queue appear.
+2. `+ <text>` in one of them, then `sitrep dash` to see the queue appear.
 3. A session stops and asks a question: the row turns pink-red and the bell rings.
 4. `enter` jumps to it.
 5. `+inbox`, then `+take` from another session.

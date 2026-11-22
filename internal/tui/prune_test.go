@@ -15,7 +15,7 @@ const previewOut = "would mark dea0 (ddead) ended\nwould ask: move 3 item(s) fro
 
 func pruneModel(t *testing.T, answers map[string]string) (model, *fake) {
 	t.Helper()
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m.bin = "/x/sitrep"
 	f := &fake{answer: answers}
 	m.run = f.run
@@ -111,7 +111,7 @@ func TestPruneIgnoresEveryKeyWhileRunning(t *testing.T) {
 	if _, quit := press(t, m, "ctrl+c"); quit == nil {
 		t.Errorf("ctrl+c quits")
 	}
-	loading, _ := press(t, loaded(t, tabWatch), "p")
+	loading, _ := press(t, loaded(t, tabCards), "p")
 	if after, c := press(t, loading, "y"); after.prune != pruneLoading || c != nil {
 		t.Errorf("y while the preview is still running does nothing")
 	}
@@ -125,7 +125,7 @@ func TestPruneNothingToDoAndErrors(t *testing.T) {
 		t.Errorf("an empty preview needs no question: phase %d, %q", m.prune, m.statusText())
 	}
 	bad := &fake{fail: map[string]error{"/x/sitrep prune": errors.New("sitrep: cannot read the live-session registry")}}
-	m2 := loaded(t, tabWatch)
+	m2 := loaded(t, tabCards)
 	m2.bin, m2.run = "/x/sitrep", bad.run
 	m2, cmd = press(t, m2, "p")
 	m2 = feed(t, m2, cmd)
@@ -135,14 +135,14 @@ func TestPruneNothingToDoAndErrors(t *testing.T) {
 }
 
 func TestPruneGuards(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m.readOnly = true
 	if after, cmd := press(t, m, "p"); after.prune != pruneNone || cmd != nil || !strings.Contains(after.statusText(), "read-only") {
 		t.Errorf("read-only turns p off: %q", after.statusText())
 	}
 	snap := loadFixture(t)
 	snap.Registry = "unavailable"
-	next, _ := loaded(t, tabWatch).Update(snapMsg{snap: snap})
+	next, _ := loaded(t, tabCards).Update(snapMsg{snap: snap})
 	if after, cmd := press(t, next.(model), "p"); after.prune != pruneNone || cmd != nil || !strings.Contains(after.statusText(), "registry") {
 		t.Errorf("without the registry p says so: %q", after.statusText())
 	}

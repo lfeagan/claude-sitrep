@@ -134,10 +134,10 @@ The three options exclude one another.
 It reads Claude Code's live-session registry and changes nothing if it cannot. It never
 touches a running session or one under two minutes old, and never deletes a queue.
 `,
-	"watch": `usage: sitrep watch [--tab watch|table|wall] [--interval 3s] [--once] [--width n] [--quit-on-jump]
+	"dash": `usage: sitrep dash [--tab cards|table|wall] [--interval 3s] [--once] [--width n] [--quit-on-jump]
                     [--read-only] [--no-bell]
 
-A live full-screen dashboard of the sessions, with a Watch tab, a Table tab and a Wall tab (the
+A live full-screen dashboard of the sessions, with a Cards tab, a Table tab and a Wall tab (the
 sessions as tiles, for many at once) and a status bar.
 It reads the sessions itself and changes nothing except through the same fixed commands this
 program has (prune, snooze and the queue edits), after a preview or a question. Without a
@@ -147,7 +147,7 @@ Keys: up, down, j and k move the selection, gg and G go to the first and last se
 ctrl+d, ctrl+u, pgdn and pgup move by a page; enter jumps to the session's tmux pane or cmux
 surface; v or space opens the session in full (e and i open its queue and the inbox there); tab, shift-tab, h, l, left and right switch
 tabs; a number from 1 to 9 asks whether to move that inbox item into the selected session
-(y or n); a shows or hides ended sessions; s sorts Top; n names the session (an alias); y or
+(y or n); a shows or hides ended sessions; s sorts Table, or sizes the Wall tiles; n names the session (an alias); y or
 Y copies the session id or its resume command; z snoozes a session until it changes; / filters
 the sessions (enter keeps the filter, esc clears it); i opens the inbox and e the selected
 session's queue: there o (or a) adds an item (typed), enter (or E) edits the selected one, x
@@ -164,7 +164,7 @@ other key that changes state, and --no-bell (or SITREP_TUI_BELL=0) stops the bel
 when a session starts needing you. --mouse (or SITREP_TUI_MOUSE=1) makes a click select a row and
 a double click jump, as enter does; the terminal then selects text only with shift or option held.
 `,
-	"status": `usage: sitrep status [--tab watch|table|wall] [--width n] [-a]
+	"status": `usage: sitrep status [--tab cards|table|wall] [--width n] [-a]
 
 Print one frame of the dashboard as plain text: for a script, a pipe or a quick look. -a includes
 ended sessions.
@@ -235,7 +235,7 @@ const helpAll = `usage: sitrep <command> [args]
   snooze [--off] <id>        mute the needs-you state of a session until it changes
   prune                      clear out sessions that are gone
   log                        show the history of changes, when SITREP_LOG is on
-  watch                      live full-screen dashboard of the sessions
+  dash                       live full-screen dashboard of the sessions and their queues
   status                     print one frame of the dashboard as text
   setup [--remove]           put sitrep on the status line, or take it off
   migrate [--dry-run]        move state of version 0.4 and before into a folder per session

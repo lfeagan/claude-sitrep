@@ -1,10 +1,10 @@
 # Context window column, version 0.8.0
 
-Status: first round built (0.8.0): the record, the snapshot and JSON field, and the Top column. The sort, the Watch line and the transcript are not. Reviewed once. Changes from the review: the percentage is not taken from `used_percentage` when it is 0 (Claude Code sends 0 or null before the first answer), `at` means last seen, a record is made only for a session that has notes, the claim that the write cannot delay the line is gone, a low value is marked with `!` and not a colour inside a coloured row, the column drops by the room NOW has left, the sort and the Watch line are a second round, and `left_percent` is not in the JSON.
+Status: first round built (0.8.0): the record, the snapshot and JSON field, and the Table column. The sort, the Cards line and the transcript are not. Reviewed once. Changes from the review: the percentage is not taken from `used_percentage` when it is 0 (Claude Code sends 0 or null before the first answer), `at` means last seen, a record is made only for a session that has notes, the claim that the write cannot delay the line is gone, a low value is marked with `!` and not a colour inside a coloured row, the column drops by the room NOW has left, the sort and the Cards line are a second round, and `left_percent` is not in the JSON.
 
 ## Purpose
 
-The Top tab shows what each session is doing but not how full its context window is, which is what decides whether a session needs a `/compact` or a fresh start. This document adds a CTX column that shows the share of the window left, and a `context` field in `sitrep ls --json` that carries the numbers.
+The Table tab shows what each session is doing but not how full its context window is, which is what decides whether a session needs a `/compact` or a fresh start. This document adds a CTX column that shows the share of the window left, and a `context` field in `sitrep ls --json` that carries the numbers.
 
 ## Where The Numbers Come From
 
@@ -31,12 +31,12 @@ The recommendation is the status line, as the exact source. Sessions that never 
 
 ## The Column
 
-1. The Top tab gains a CTX column after QUEUE, four wide: the percentage left, rounded down, as `62%`, and `-` where there is no record. At 10% or less the value is marked with a leading `!` (`!9%`), so the plain text carries the warning too. At 20% or less it is bold, on a row that is not already coloured as needing the user or as recently active, as a colour reset inside such a row would end its colour.
+1. The Table tab gains a CTX column after QUEUE, four wide: the percentage left, rounded down, as `62%`, and `-` where there is no record. At 10% or less the value is marked with a leading `!` (`!9%`), so the plain text carries the warning too. At 20% or less it is bold, on a row that is not already coloured as needing the user or as recently active, as a colour reset inside such a row would end its colour.
 2. The column is dropped when the NOW text would get fewer than 20 columns, computed from the widths of the row, so a narrow screen loses it before it loses the line that says what a session is doing. The cap on the directory column takes the six columns into account when CTX is shown.
 
 ## Second Round
 
-The Top sort by the least context left (sessions with no record last, never as 0% left), `ctx 62%` on the first line of a Watch block after the queue text, the transcript for sessions with no status line, and any greying of old values.
+The Table sort by the least context left (sessions with no record last, never as 0% left), `ctx 62%` on the first line of a Cards block after the queue text, the transcript for sessions with no status line, and any greying of old values.
 
 ## What Does Not Change
 

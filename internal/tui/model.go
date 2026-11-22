@@ -397,7 +397,7 @@ func (m *model) goTop() {
 }
 
 // listPage is how many sessions ctrl+d and ctrl+u move: about a screen less a line, as the detail view pages. A session takes a few lines
-// on the Watch tab and one on the Table tab.
+// on the Cards tab and one on the Table tab.
 func (m model) listPage() int {
 	switch m.tab {
 	case tabTable:

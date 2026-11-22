@@ -29,7 +29,7 @@ pause() {
 }
 
 # at_prompt: the recorded shell's last line is a bare prompt, with no draft and no program
-# (such as `sitrep watch`) that would take the typing as keys. DEMO_PROMPT_RE matches that line.
+# (such as `sitrep dash`) that would take the typing as keys. DEMO_PROMPT_RE matches that line.
 at_prompt() {
 	local re=${DEMO_PROMPT_RE:-}
 	[ -n "$re" ] || re='(^|[[:space:]])\$$'
@@ -165,7 +165,7 @@ quit_dashboard() {
 
 scene1() {
 	say "1. the glance"
-	type_into "$DEMO_SHELL" 'sitrep watch'
+	type_into "$DEMO_SHELL" 'sitrep dash'
 	sleep 2
 	cue_api
 	cue_web
@@ -219,7 +219,7 @@ scene6() {
 	type_into "$DEMO_SHELL" "sitrep add web 'update the settings page copy'"
 	type_into "$DEMO_SHELL" "sitrep ls --json | jq '.sessions[] | {id, alias, state, queue: .queue.count}'"
 	sleep 2
-	type_into "$DEMO_SHELL" 'sitrep watch'
+	type_into "$DEMO_SHELL" 'sitrep dash'
 }
 
 case "${1:-}" in

@@ -91,7 +91,7 @@ func TestThemes(t *testing.T) {
 		for _, dark := range []bool{true, false} {
 			th := themeFor(dark, Settings{HighlightSGR: "48;5;238", Theme: name})
 			s := newModelWith(t, th)
-			if !strings.Contains(s, "Watch") {
+			if !strings.Contains(s, "Cards") {
 				t.Errorf("%s dark=%v: %q", name, dark, s)
 			}
 		}
@@ -112,14 +112,14 @@ func newModelWith(t *testing.T, th Theme) string {
 	t.Helper()
 	s := loadFixture(t)
 	o := viewOpts{Width: 80, Height: 40, Theme: th, Sel: s.Sessions[0].ID}
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		for _, l := range strings.Split(render(s, tab, "", o), "\n") {
 			if ansi.StringWidth(l) > 80 {
 				t.Errorf("a line wider than the screen: %q", l)
 			}
 		}
 	}
-	return ansi.Strip(render(s, tabWatch, "", o))
+	return ansi.Strip(render(s, tabCards, "", o))
 }
 
 func TestRgbOf(t *testing.T) {

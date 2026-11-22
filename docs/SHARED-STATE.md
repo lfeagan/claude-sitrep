@@ -48,7 +48,7 @@ So a state folder on a network mount is usable to read, and wrong for a live ses
 
 Each machine keeps its own state in a local folder, as it does now, so a hook never waits on a network. A detached `publish` child, started by a hook at most once in a while and kept to a deadline and its own process group like `update-check` (invariant 9), copies what other machines need into its own subtree of the shared root, for example `hosts/<host>/sessions/<id>/`. Each file then has exactly one writer: the machine that owns it. A machine never writes another machine's files.
 
-Reading is the easy half. `sitrep ls` and `sitrep watch` read every host's subtree and show a HOST column. The snapshot (`internal/snapshot`) is the seam, so the dashboard and `ls --json` get the new field together. `ls --json` is a public contract at version 1, so the host field has to be added without breaking it.
+Reading is the easy half. `sitrep ls` and `sitrep dash` read every host's subtree and show a HOST column. The snapshot (`internal/snapshot`) is the seam, so the dashboard and `ls --json` get the new field together. `ls --json` is a public contract at version 1, so the host field has to be added without breaking it.
 
 Open questions:
 - The host name: the machine's name, or a name the user sets. It becomes part of a path, so it needs a validated type like `state.ID`.

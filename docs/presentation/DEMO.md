@@ -45,7 +45,7 @@ Each scene lists what we do and what the audience should see. The sessions are s
 Start the dashboard first, with both sessions idle, then give `api` its cue and `web` its question prompt while it is on screen:
 
 ```
-sitrep watch
+sitrep dash
 ```
 
 The audience sees each row appear and change, since `api` finishes in a few seconds. Both sessions on one screen, each with its state, queue, Objective, Now and how much of its context window is left. `api` goes from working to waiting, and `web` has stopped to ask. Its row turns pink-red and the bell rings. Press `enter`: the terminal jumps to the `web` surface in cmux. This is the whole pitch, shown before any explanation. Say what it replaces: opening each terminal in turn to find out.
@@ -108,16 +108,16 @@ sitrep ls --json | jq '.sessions[] | {id, alias, state, queue: .queue.count}'
 
 Everything the dashboard does is a `sitrep` command, so a script can fill a queue. `--json` is a versioned format for tools of your own. The recipe for filling the inbox from GitHub or Linear is in `INBOX-SOURCES.md`.
 
-Then back to `sitrep watch`: the rows now show a different picture from the opening, with the queues moved, one item finished and one session waiting.
+Then back to `sitrep dash`: the rows now show a different picture from the opening, with the queues moved, one item finished and one session waiting.
 
 ## Recording
 
 - **By hand.** Run the demo in a cmux window and record the screen, for example with `cmux record start --format mp4`, or with the system's screen recorder. This is the simplest while we rehearse.
-- **Driven by a script.** `demo.sh` types the cues and commands into the three demo terminals with `cmux send`, and waits on sitrep's own state (`sitrep ls --json`), not on the screen. Set `DEMO_API`, `DEMO_WEB` and `DEMO_SHELL` to their cmux surfaces (`cmux list-pane-surfaces`), run `./demo.sh check`, then `reset` (it restores the two projects, removes the tests `api` writes, frees the names `api` and `web` that an earlier take left taken, and empties the inbox), then `scene1` to `scene6` or `all`. `scene1` starts the dashboard and then runs `cue-api` and `cue-web` on screen; `cue` does both when no dashboard is open. The surfaces have no default, so it never types into the terminal it runs in. It types into the shell only at a bare prompt (it stops if a program such as `sitrep watch` is running there or a draft is typed), clears the leftover `+inbox` text from the `api` input box after scene 2, and waits `DEMO_BEAT` seconds (default 3) after each shell command so a viewer can read it. With `DEMO_AUTO=1` it also waits `DEMO_GAP` seconds (default 4) between scenes and at the end, where it would otherwise wait for you. Scene 1 stays by hand, since the jump moves focus. It saves effort only if we record many takes.
+- **Driven by a script.** `demo.sh` types the cues and commands into the three demo terminals with `cmux send`, and waits on sitrep's own state (`sitrep ls --json`), not on the screen. Set `DEMO_API`, `DEMO_WEB` and `DEMO_SHELL` to their cmux surfaces (`cmux list-pane-surfaces`), run `./demo.sh check`, then `reset` (it restores the two projects, removes the tests `api` writes, frees the names `api` and `web` that an earlier take left taken, and empties the inbox), then `scene1` to `scene6` or `all`. `scene1` starts the dashboard and then runs `cue-api` and `cue-web` on screen; `cue` does both when no dashboard is open. The surfaces have no default, so it never types into the terminal it runs in. It types into the shell only at a bare prompt (it stops if a program such as `sitrep dash` is running there or a draft is typed), clears the leftover `+inbox` text from the `api` input box after scene 2, and waits `DEMO_BEAT` seconds (default 3) after each shell command so a viewer can read it. With `DEMO_AUTO=1` it also waits `DEMO_GAP` seconds (default 4) between scenes and at the end, where it would otherwise wait for you. Scene 1 stays by hand, since the jump moves focus. It saves effort only if we record many takes.
 - **Editing.** Real turns take ten seconds to a minute. Cut the waiting in scenes 1 and 4, or speed it up and say so on screen.
 - **In the deck.** Marp builds one HTML file. A recording is a short video on the Demo slide, or one slide per scene with the commands on it as a fallback when nothing can play.
 
 ## Questions
 
-- Whether `sitrep watch` runs full screen or in a popup (`--quit-on-jump`).
+- Whether `sitrep dash` runs full screen or in a popup (`--quit-on-jump`).
 - Whether the script should name the other tools. We lean to no: the comparison slide has them.

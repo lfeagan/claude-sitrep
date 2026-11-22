@@ -190,7 +190,7 @@ func TestJumpWithFakeCommands(t *testing.T) {
 }
 
 func TestEnterJumpsOnce(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m.run = (&fake{}).run
 	m2, cmd := press(t, m, "enter")
 	if cmd == nil || !m2.acting {
@@ -199,7 +199,7 @@ func TestEnterJumpsOnce(t *testing.T) {
 	if _, again := press(t, m2, "enter"); again != nil {
 		t.Errorf("a second enter while one runs does nothing")
 	}
-	if _, none := press(t, newModel("x", time.Second, tabWatch), "enter"); none != nil {
+	if _, none := press(t, newModel("x", time.Second, tabCards), "enter"); none != nil {
 		t.Errorf("nothing selected, nothing to jump to")
 	}
 	d, _ := press(t, m, "v")
@@ -209,7 +209,7 @@ func TestEnterJumpsOnce(t *testing.T) {
 }
 
 func TestJumpResultIsShownThenExpires(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	now := time.Unix(1000, 0)
 	m.now = func() time.Time { return now }
 	m.acting = true
@@ -232,7 +232,7 @@ func TestJumpResultIsShownThenExpires(t *testing.T) {
 }
 
 func TestQuitOnJump(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m.quitJump = true
 	if _, cmd := m.Update(jumpMsg{text: "jumped to x"}); cmd == nil {
 		t.Errorf("--quit-on-jump leaves after a good jump")

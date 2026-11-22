@@ -13,7 +13,7 @@ Choose sitrep if you want the whiteboard role: a place to write down the next it
 1. **Your list, not the agent's.** The queue belongs to you. It is never fed to Claude automatically, and Claude changes it only when you ask. `+ <text>` queues an item from inside a session, and Claude never sees that prompt.
 2. **Plain files and one Go program.** State is files under `~/.claude/sitrep/`. The status line reads files, so it renders instantly. There is no server, no database and no daemon, and no other tool is needed beyond Go to build it.
 3. **A summary of each session.** A short Haiku call after each turn writes the Objective, Progress and Now. You can pin the Objective.
-4. **Read-only views and a stable data contract.** `sitrep watch` shows every running session in a full-screen dashboard, and `sitrep status` prints one frame. `sitrep ls --json` has a versioned format, so another program can draw its own view.
+4. **Read-only views and a stable data contract.** `sitrep dash` shows every running session in a full-screen dashboard, and `sitrep status` prints one frame. `sitrep ls --json` has a versioned format, so another program can draw its own view.
 5. **A state that says who is waiting.** The hooks record `working`, `waiting` and `ended`, and `needs_input` is true while Claude has stopped and the next move is yours.
 
 ## Where sitrep Is Weaker

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func key(s string) tea.KeyPressMsg {
@@ -59,18 +60,18 @@ func press(t *testing.T, m model, s string) (model, tea.Cmd) {
 }
 
 func TestKeysSwitchTabs(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	m, _ = press(t, m, "tab")
 	if m.tab != tabTable {
-		t.Errorf("tab should go to Top, got %d", m.tab)
+		t.Errorf("tab should go to Table, got %d", m.tab)
 	}
 	m, _ = press(t, m, "tab")
 	if m.tab != tabWall {
 		t.Errorf("tab should go to Wall, got %d", m.tab)
 	}
 	m, _ = press(t, m, "tab")
-	if m.tab != tabWatch {
-		t.Errorf("tab should wrap to Watch, got %d", m.tab)
+	if m.tab != tabCards {
+		t.Errorf("tab should wrap to Cards, got %d", m.tab)
 	}
 	m, _ = press(t, m, "shift+tab")
 	if m.tab != tabWall {
@@ -85,7 +86,7 @@ func TestKeysSwitchTabs(t *testing.T) {
 }
 
 func TestKeyAShowsEnded(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	m, _ = press(t, m, "a")
 	if !m.showEnded {
 		t.Errorf("a should show ended sessions")
@@ -98,7 +99,7 @@ func TestKeyAShowsEnded(t *testing.T) {
 
 func TestQuit(t *testing.T) {
 	for _, k := range []string{"q", "ctrl+c"} {
-		_, cmd := press(t, newModel("x", time.Second, tabWatch), k)
+		_, cmd := press(t, newModel("x", time.Second, tabCards), k)
 		if cmd == nil {
 			t.Fatalf("%s should quit", k)
 		}
@@ -109,7 +110,7 @@ func TestQuit(t *testing.T) {
 }
 
 func TestSnapshotAndErrorKeepLastGood(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	m.now = func() time.Time { return time.Unix(1000, 0) }
 	next, _ := m.Update(snapMsg{snap: loadFixture(t)})
 	m = next.(model)
@@ -132,7 +133,7 @@ func TestSnapshotAndErrorKeepLastGood(t *testing.T) {
 }
 
 func TestErrorBeforeAnyData(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	next, _ := m.Update(snapMsg{err: errors.New("cannot run")})
 	m = next.(model)
 	if got := m.errText(); got != "error: cannot run" {
@@ -144,7 +145,7 @@ func TestErrorBeforeAnyData(t *testing.T) {
 }
 
 func TestTickDoesNotOverlapFetches(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	m.fetching = true
 	next, cmd := m.Update(tickMsg(time.Now()))
 	if !next.(model).fetching || cmd == nil {
@@ -158,7 +159,7 @@ func TestTickDoesNotOverlapFetches(t *testing.T) {
 }
 
 func TestWindowSizeAndBackground(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 77, Height: 22})
 	m = next.(model)
 	if m.width != 77 || m.height != 22 {
@@ -167,21 +168,22 @@ func TestWindowSizeAndBackground(t *testing.T) {
 }
 
 func TestViewUsesAltScreenAndShowsTabs(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	next, _ := m.Update(snapMsg{snap: loadFixture(t)})
 	v := next.(model).View()
 	if !v.AltScreen {
 		t.Errorf("the dashboard should use the alternate screen")
 	}
-	for _, want := range []string{"Watch", "Top", "claude-sitrep", "q quit"} {
-		if !strings.Contains(v.Content, want) {
+	plain := ansi.Strip(v.Content) // the active tab's name is underlined, which the style draws one letter at a time
+	for _, want := range []string{"Cards", "Table", "Wall", "claude-sitrep", "q quit"} {
+		if !strings.Contains(plain, want) {
 			t.Errorf("the view should contain %q", want)
 		}
 	}
 }
 
 func TestFirstFetchIsInFlightFromTheStart(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	if !m.fetching {
 		t.Fatalf("Init sends the first fetch, so the model must start as fetching")
 	}
@@ -197,7 +199,7 @@ func TestFirstFetchIsInFlightFromTheStart(t *testing.T) {
 }
 
 func TestNoTwoFetchesOverlap(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch) // the first fetch is in flight
+	m := newModel("x", time.Second, tabCards) // the first fetch is in flight
 	for i := 0; i < 3; i++ {
 		next, _ := m.Update(tickMsg(time.Now()))
 		m = next.(model)
@@ -217,7 +219,7 @@ func TestNoTwoFetchesOverlap(t *testing.T) {
 }
 
 func TestRefreshKeyDoesNotOverlap(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	m, cmd := press(t, m, "r")
 	if m.started != 1 || cmd != nil {
 		t.Errorf("r during a fetch does nothing: started %d", m.started)
@@ -235,7 +237,7 @@ func TestRefreshKeyDoesNotOverlap(t *testing.T) {
 }
 
 func TestZeroSizedWindowMeansOneRow(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	next, _ := m.Update(snapMsg{snap: loadFixture(t)})
 	next, _ = next.Update(tea.WindowSizeMsg{Width: 0, Height: 0})
 	m = next.(model)
@@ -255,15 +257,15 @@ func TestSKeyCyclesTheTopSort(t *testing.T) {
 			t.Fatalf("after %d presses the sort is %d", want, m.sortBy)
 		}
 	}
-	w := newModel("x", time.Second, tabWatch)
+	w := newModel("x", time.Second, tabCards)
 	w, _ = press(t, w, "s")
 	if w.sortBy != sortActivity {
-		t.Errorf("s does nothing on the Watch tab")
+		t.Errorf("s does nothing on the Cards tab")
 	}
 }
 
 func TestQuestionMarkOpensAndAnyKeyCloses(t *testing.T) {
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	next, _ := m.Update(snapMsg{snap: loadFixture(t)})
 	m = next.(model)
 	m, _ = press(t, m, "?")
@@ -279,7 +281,7 @@ func TestQuestionMarkOpensAndAnyKeyCloses(t *testing.T) {
 	}
 	m, _ = press(t, m, "?")
 	m, _ = press(t, m, "tab")
-	if m.help || m.tab != tabWatch {
+	if m.help || m.tab != tabCards {
 		t.Errorf("a key that closes the list must not also act: tab %d", m.tab)
 	}
 	m, _ = press(t, m, "?")
@@ -302,17 +304,17 @@ func loaded(t *testing.T, tab int) model {
 }
 
 func TestSelectionStartsOnTheFirstSession(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	if m.selID != m.snap.Sessions[0].ID {
 		t.Errorf("the first session is selected: %q", m.selID)
 	}
 }
 
 func TestSelectionKeys(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	first, second, third := m.snap.Sessions[0].ID, m.snap.Sessions[1].ID, m.snap.Sessions[2].ID
 	for _, k := range []string{"down", "j"} {
-		m = loaded(t, tabWatch)
+		m = loaded(t, tabCards)
 		m, _ = press(t, m, k)
 		if m.selID != second {
 			t.Errorf("%s moves down: %q", k, m.selID)
@@ -361,7 +363,7 @@ func TestSelectionFollowsTheSessionNotTheRow(t *testing.T) {
 }
 
 func TestSelectionFallsBackWhenTheSessionLeaves(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "down")
 	snap := loadFixture(t)
 	snap.Sessions = append(snap.Sessions[:1], snap.Sessions[2:]...) // the selected one is gone
@@ -376,7 +378,7 @@ func TestSelectionFallsBackWhenTheSessionLeaves(t *testing.T) {
 }
 
 func TestEndedToggleKeepsOrMovesTheSelection(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "a")
 	m, _ = press(t, m, "end") // the ended session, now shown
 	if m.selID != m.snap.Sessions[3].ID {
@@ -389,7 +391,7 @@ func TestEndedToggleKeepsOrMovesTheSelection(t *testing.T) {
 }
 
 func TestSelectionKeysIgnoredInTheKeyList(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "?")
 	m, _ = press(t, m, "j")
 	if m.help || m.selID != m.snap.Sessions[0].ID {
@@ -399,7 +401,7 @@ func TestSelectionKeysIgnoredInTheKeyList(t *testing.T) {
 
 func TestDetailOpensAndCloses(t *testing.T) {
 	for _, k := range []string{"v", "space"} {
-		m, _ := press(t, loaded(t, tabWatch), k)
+		m, _ := press(t, loaded(t, tabCards), k)
 		if !m.detail {
 			t.Errorf("%s opens the detail pane", k)
 		}
@@ -410,11 +412,11 @@ func TestDetailOpensAndCloses(t *testing.T) {
 			}
 		}
 	}
-	m, _ := press(t, loaded(t, tabWatch), "enter")
+	m, _ := press(t, loaded(t, tabCards), "enter")
 	if m.detail {
 		t.Errorf("enter is for the jump, not the detail pane")
 	}
-	if empty := newModel("x", time.Second, tabWatch); true {
+	if empty := newModel("x", time.Second, tabCards); true {
 		e, _ := press(t, empty, "v")
 		if e.detail {
 			t.Errorf("with nothing selected there is nothing to open")
@@ -423,7 +425,7 @@ func TestDetailOpensAndCloses(t *testing.T) {
 }
 
 func TestDetailUpDownSwitchSessions(t *testing.T) {
-	m, _ := press(t, loaded(t, tabWatch), "v")
+	m, _ := press(t, loaded(t, tabCards), "v")
 	first := m.selID
 	m.scroll = 5
 	m, _ = press(t, m, "down")
@@ -442,7 +444,7 @@ func TestDetailScrolls(t *testing.T) {
 		snap.Sessions[0].Queue.Items = append(snap.Sessions[0].Queue.Items, fmt.Sprintf("queued item number %d with some words", i))
 	}
 	snap.Sessions[0].Queue.Count = len(snap.Sessions[0].Queue.Items)
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	next, _ := m.Update(snapMsg{snap: snap})
 	next, _ = next.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
 	m = next.(model)
@@ -479,7 +481,7 @@ func TestDetailScrolls(t *testing.T) {
 }
 
 func TestDetailQuitAndRefresh(t *testing.T) {
-	m, _ := press(t, loaded(t, tabWatch), "v")
+	m, _ := press(t, loaded(t, tabCards), "v")
 	if _, cmd := press(t, m, "ctrl+c"); cmd == nil {
 		t.Errorf("ctrl+c quits from the detail pane")
 	}
@@ -499,7 +501,7 @@ func TestDetailQuitAndRefresh(t *testing.T) {
 }
 
 func TestDetailView(t *testing.T) {
-	m, _ := press(t, loaded(t, tabWatch), "v")
+	m, _ := press(t, loaded(t, tabCards), "v")
 	v := m.View()
 	if !v.AltScreen {
 		t.Errorf("alternate screen")
@@ -509,7 +511,7 @@ func TestDetailView(t *testing.T) {
 			t.Errorf("the detail view should contain %q", want)
 		}
 	}
-	if strings.Contains(v.Content, "[Watch]") {
+	if strings.Contains(v.Content, "[Cards]") {
 		t.Errorf("the detail pane replaces the tabs")
 	}
 }
@@ -518,9 +520,9 @@ func TestListsCapQueueItemsBySetting(t *testing.T) {
 	snap := loadFixture(t)
 	snap.Settings.QueueItems = 2
 	snap.Sessions[0].Queue = Queue{Count: 9, Items: []string{"a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9"}}
-	out := render(snap, tabWatch, "", opts(80, 60))
+	out := render(snap, tabCards, "", opts(80, 60))
 	if !strings.Contains(out, "2. a2") || strings.Contains(out, "3. a3") || !strings.Contains(out, "+7 more") {
-		t.Errorf("the Watch view lists the setting's number of items and counts the rest:\n%s", out)
+		t.Errorf("the Cards view lists the setting's number of items and counts the rest:\n%s", out)
 	}
 }
 
@@ -547,24 +549,24 @@ func TestFilterMatchesCaseInsensitivelyOverEveryField(t *testing.T) {
 		{"golden tests", "15f1"}, // Now
 		{"  Golden  ", "15f1"},   // trimmed
 	} {
-		got := visibleIDs(s, tabWatch, false, sortActivity, c.text)
+		got := visibleIDs(s, tabCards, false, sortActivity, c.text)
 		if len(got) != 1 || !strings.HasPrefix(got[0], c.want) {
 			t.Errorf("filter %q: %v, want only %s", c.text, got, c.want)
 		}
 	}
-	if got := visibleIDs(s, tabWatch, false, sortActivity, "nothing like this"); len(got) != 0 {
+	if got := visibleIDs(s, tabCards, false, sortActivity, "nothing like this"); len(got) != 0 {
 		t.Errorf("no match lists nothing: %v", got)
 	}
 }
 
 func TestFilterKeysAreTextNotCommands(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "/")
 	if !m.filtering {
 		t.Fatal("/ starts the filter")
 	}
 	m = typed(t, m, "pqaszy")
-	if m.filter != "pqaszy" || !m.filtering || m.showEnded || m.prune != pruneNone || m.tab != tabWatch {
+	if m.filter != "pqaszy" || !m.filtering || m.showEnded || m.prune != pruneNone || m.tab != tabCards {
 		t.Errorf("command letters are text while filtering: %+v", m)
 	}
 	if _, cmd := press(t, m, "q"); cmd != nil {
@@ -578,7 +580,7 @@ func TestFilterKeysAreTextNotCommands(t *testing.T) {
 }
 
 func TestFilterEnterKeepsAndEscClears(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "/")
 	m = typed(t, m, "timescale")
 	if got := m.visible(); len(got) != 1 || m.selID != got[0] {
@@ -604,7 +606,7 @@ func TestFilterEnterKeepsAndEscClears(t *testing.T) {
 }
 
 func TestFilterBackspaceAndSelectionKeys(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "/")
 	m = typed(t, m, "ab")
 	m, _ = press(t, m, "backspace")
@@ -632,7 +634,7 @@ func TestFilterBackspaceAndSelectionKeys(t *testing.T) {
 }
 
 func TestFilterPasteIsCleanedAndCapped(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	next, _ := m.Update(tea.PasteMsg{Content: "ignored"})
 	if next.(model).filter != "" {
 		t.Error("a paste outside the filter goes nowhere")
@@ -649,7 +651,7 @@ func TestFilterPasteIsCleanedAndCapped(t *testing.T) {
 }
 
 func TestFilterSlashIsIgnoredInDetailAndHelp(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "v")
 	m, _ = press(t, m, "/")
 	if m.filtering {
@@ -658,7 +660,7 @@ func TestFilterSlashIsIgnoredInDetailAndHelp(t *testing.T) {
 }
 
 func TestFilterViewSaysWhenNothingMatches(t *testing.T) {
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		m := loaded(t, tab)
 		m.width, m.height = 80, 20
 		m, _ = press(t, m, "/")

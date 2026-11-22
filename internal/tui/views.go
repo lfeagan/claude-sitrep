@@ -12,13 +12,13 @@ import (
 // The views are pure: a snapshot and some options go in, lines of text come out.
 
 const (
-	tabWatch = iota
+	tabCards = iota
 	tabTable
 	tabWall
 	tabCount
 )
 
-var tabNames = [tabCount]string{"Watch", "Table", "Wall"}
+var tabNames = [tabCount]string{"Cards", "Table", "Wall"}
 
 // The Table view can be sorted four ways. Activity is the order sitrep sends, newest first.
 const (
@@ -321,8 +321,8 @@ func needYou(s Snapshot) int {
 	return n
 }
 
-// watchBody is today's multi-line view: a block per session.
-func watchBody(s Snapshot, o viewOpts) []string {
+// cardsBody is today's multi-line view: a block per session.
+func cardsBody(s Snapshot, o viewOpts) []string {
 	list, ended := shown(s, o.ShowEnded)
 	list = filterSessions(list, o.Filter)
 	var head []string
@@ -659,7 +659,7 @@ func helpScreen(width, height int, readOnly bool, th Theme) string {
 		"",
 		"Tabs",
 		"",
-		"  Watch   every session as a block: Objective, Progress, Now and the queue",
+		"  Cards   every session as a block: Objective, Progress, Now and the queue",
 		"  Table   a summary line, then one line per session (CTX: context left)",
 		"  Wall    the sessions as tiles of one size, many to a screen, those that need you first",
 		"",
@@ -719,7 +719,7 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 		}
 		body = wallBody(s, bodyOpts)
 	default:
-		body = watchBody(s, bodyOpts)
+		body = cardsBody(s, bodyOpts)
 	}
 	if o.Cells != nil {
 		*o.Cells = (*o.Cells)[:0]

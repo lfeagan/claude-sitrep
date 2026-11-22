@@ -16,7 +16,7 @@ func TestDropWord(t *testing.T) {
 }
 
 func TestCtrlUAndCtrlWEditTheFilter(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "/")
 	m = typed(t, m, "web app")
 	if m, _ = press(t, m, "ctrl+w"); m.filter != "web " || !m.filtering {
@@ -31,7 +31,7 @@ func TestCtrlUAndCtrlWEditTheFilter(t *testing.T) {
 }
 
 func TestCtrlUAndCtrlWEditAPrompt(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "n")
 	if m.prompt == nil {
 		t.Fatal("n opens the name prompt")
@@ -46,7 +46,7 @@ func TestCtrlUAndCtrlWEditAPrompt(t *testing.T) {
 }
 
 func TestFilterFooterListsTheKeysThatWork(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m.width, m.height = 110, 30
 	if v := m.View().Content; !strings.Contains(v, "n name") || strings.Contains(v, "enter keep") {
 		t.Error("the normal footer lists the normal keys")
@@ -63,7 +63,7 @@ func TestFilterFooterListsTheKeysThatWork(t *testing.T) {
 }
 
 func TestDetailFooterShowsJumpSnoozeAndCopy(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m.width, m.height = 140, 30
 	m, _ = press(t, m, "v")
 	v := m.View().Content
@@ -92,7 +92,7 @@ func TestQueueFooterNamesTheOtherQueue(t *testing.T) {
 }
 
 func TestSwitchingQueuesKeepsTheDetailViewUnderneath(t *testing.T) {
-	m := loaded(t, tabWatch)
+	m := loaded(t, tabCards)
 	m, _ = press(t, m, "v")
 	id := m.selID
 	m, _ = press(t, m, "e")

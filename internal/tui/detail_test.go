@@ -107,7 +107,7 @@ func TestStaleScrollIsClamped(t *testing.T) {
 		snap.Sessions[0].Queue.Items = append(snap.Sessions[0].Queue.Items, fmt.Sprintf("queued item %d with some words", i))
 	}
 	snap.Sessions[0].Queue.Count = len(snap.Sessions[0].Queue.Items)
-	m := newModel("x", time.Second, tabWatch)
+	m := newModel("x", time.Second, tabCards)
 	next, _ := m.Update(snapMsg{snap: snap})
 	next, _ = next.Update(tea.WindowSizeMsg{Width: 80, Height: 12})
 	m = next.(model)

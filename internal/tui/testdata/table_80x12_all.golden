@@ -1,12 +1,12 @@
- Watch  [Table]  Wall  
+ Cards  [Table]  Wall  
 ────────────────────────────────────────────────────────────────────────────────
 ● 1 need you   3 running: 1 working, 1 waiting, 1 idle?, 2 ended   inbox 3 items
   ID    DIRECTORY           STATE         QUEUE  CTX   NOW   sort: activity
   15f1  claude-sitrep       working 1m    7      62%   writing the golden tests…
   2cd8  savannah-dbagent-…  idle? 25m     0      -     日本語の目的: データベー…
   b1fb  timescaledb-stora…  ● waiting 3m  1      !6%   waiting for your call on…
-+2 ended (a)
+  3a6b  old                 ended 8m      2      -     exited
++1 ended (a)
 2 items stranded in ended sessions (sitrep prune)
-
 
  ● 1 need you   3 running, 2 ended           q quit  enter jump  s sort  ? help 

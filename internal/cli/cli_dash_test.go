@@ -38,11 +38,11 @@ func TestStatusPrintsAFrame(t *testing.T) {
 	}
 }
 
-func TestWatchWithoutATerminalPrintsOneFrame(t *testing.T) {
+func TestCardsWithoutATerminalPrintsOneFrame(t *testing.T) {
 	e, out, errb, _ := pruneEnv(t, "none")
 	e.Getenv = func(k string) string { return map[string]string{"TERM": "xterm-256color"}[k] }
 	e.TermSize = func() (int, int, bool) { return 0, 0, false } // standard output is a pipe
-	if code := Run([]string{"watch"}, e); code != 0 {
+	if code := Run([]string{"dash"}, e); code != 0 {
 		t.Fatalf("exit %d: %s", code, errb)
 	}
 	if out.Len() == 0 || strings.Contains(out.String(), "\x1b[") {
@@ -52,15 +52,15 @@ func TestWatchWithoutATerminalPrintsOneFrame(t *testing.T) {
 		out.Reset()
 		e.Getenv = func(k string) string { return env[k] }
 		e.TermSize = func() (int, int, bool) { return 24, 80, true }
-		if code := Run([]string{"watch"}, e); code != 0 || out.Len() == 0 {
+		if code := Run([]string{"dash"}, e); code != 0 || out.Len() == 0 {
 			t.Errorf("TERM %v: exit %d, %q", env, code, out)
 		}
 	}
 }
 
-func TestWatchAndStatusFlagErrors(t *testing.T) {
+func TestCardsAndStatusFlagErrors(t *testing.T) {
 	e, _, errb, _ := pruneEnv(t, "none")
-	for _, args := range [][]string{{"watch", "--bogus"}, {"watch", "--interval", "x"}, {"watch", "extra"}, {"status", "--width"}, {"status", "x"}} {
+	for _, args := range [][]string{{"dash", "--bogus"}, {"dash", "--interval", "x"}, {"dash", "extra"}, {"status", "--width"}, {"status", "x"}} {
 		errb.Reset()
 		if code := Run(args, e); code != 2 || errb.Len() == 0 {
 			t.Errorf("%v: exit %d, %q", args, code, errb)
@@ -71,14 +71,14 @@ func TestWatchAndStatusFlagErrors(t *testing.T) {
 		t.Errorf("exit %d: %q", code, errb)
 	}
 	errb.Reset()
-	if code := Run([]string{"watch", "--tab", "table", "-h"}, e); code != 0 {
+	if code := Run([]string{"dash", "--tab", "table", "-h"}, e); code != 0 {
 		t.Errorf("-h exits %d", code)
 	}
 }
 
 func TestHelpForTheNewCommands(t *testing.T) {
 	e, out, _, _ := pruneEnv(t, "none")
-	for _, c := range []string{"watch", "status", "setup", "hook", "statusline"} {
+	for _, c := range []string{"dash", "status", "setup", "hook", "statusline"} {
 		out.Reset()
 		if code := Run([]string{c, "--help"}, e); code != 0 || !strings.HasPrefix(out.String(), "usage: sitrep "+c) {
 			t.Errorf("%s: %d %q", c, code, out)
@@ -86,7 +86,7 @@ func TestHelpForTheNewCommands(t *testing.T) {
 	}
 	out.Reset()
 	Run([]string{"help"}, e)
-	for _, c := range []string{"watch ", "status ", "setup ", "ls ", "prune "} {
+	for _, c := range []string{"dash ", "status ", "setup ", "ls ", "prune "} {
 		if !strings.Contains(out.String(), "  "+c) {
 			t.Errorf("help lists no %q", c)
 		}

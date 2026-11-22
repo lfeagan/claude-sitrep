@@ -17,7 +17,7 @@ The state comes from the hooks:
 
 The number after the state is how long ago it changed. Claude Code fires no hook when you interrupt a turn, so a `working` session whose transcript has been quiet for ten minutes shows as `idle?` with how long it has been quiet. A session with no state file shows `-`.
 
-If the state folder cannot be read, such as a stale network mount, `ls`, `status` and `watch` say `cannot read the state folder` and exit 1, and do not show an empty list. A folder that does not exist yet is not an error. A mount that hangs is not caught. The hooks and the status line stay quiet on purpose, so that they never hold a prompt.
+If the state folder cannot be read, such as a stale network mount, `ls`, `status` and `dash` say `cannot read the state folder` and exit 1, and do not show an empty list. A folder that does not exist yet is not an error. A mount that hangs is not caught. The hooks and the status line stay quiet on purpose, so that they never hold a prompt.
 
 ## Pruning
 

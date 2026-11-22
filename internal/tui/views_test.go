@@ -34,28 +34,28 @@ func golden(t *testing.T, name, got string) {
 
 func opts(w, h int) viewOpts { return viewOpts{Width: w, Height: h, Theme: plainTheme()} }
 
-func TestWatchGolden(t *testing.T) {
+func TestCardsGolden(t *testing.T) {
 	s := loadFixture(t)
-	golden(t, "watch_80x40", render(s, tabWatch, "", opts(80, 40)))
-	golden(t, "watch_48x40", render(s, tabWatch, "", opts(48, 40)))
-	golden(t, "watch_80x14_cut", render(s, tabWatch, "", opts(80, 14)))
+	golden(t, "cards_80x40", render(s, tabCards, "", opts(80, 40)))
+	golden(t, "cards_48x40", render(s, tabCards, "", opts(48, 40)))
+	golden(t, "cards_80x14_cut", render(s, tabCards, "", opts(80, 14)))
 	o := opts(80, 40)
 	o.ShowEnded = true
-	golden(t, "watch_80x40_all", render(s, tabWatch, "", o))
+	golden(t, "cards_80x40_all", render(s, tabCards, "", o))
 }
 
 func TestTopGolden(t *testing.T) {
 	s := loadFixture(t)
-	golden(t, "top_80x12", render(s, tabTable, "", opts(80, 12)))
-	golden(t, "top_50x12", render(s, tabTable, "", opts(50, 12)))
+	golden(t, "table_80x12", render(s, tabTable, "", opts(80, 12)))
+	golden(t, "table_50x12", render(s, tabTable, "", opts(50, 12)))
 	o := opts(80, 12)
 	o.ShowEnded = true
-	golden(t, "top_80x12_all", render(s, tabTable, "", o))
+	golden(t, "table_80x12_all", render(s, tabTable, "", o))
 }
 
 func TestErrorShowsInStatusBar(t *testing.T) {
 	s := loadFixture(t)
-	out := render(s, tabWatch, "error: sitrep took longer than 5s (showing data from 12s ago)", opts(100, 20))
+	out := render(s, tabCards, "error: sitrep took longer than 5s (showing data from 12s ago)", opts(100, 20))
 	lines := strings.Split(out, "\n")
 	if last := lines[len(lines)-1]; !strings.Contains(last, "showing data from 12s ago") {
 		t.Errorf("the status bar should carry the error, got %q", last)
@@ -68,7 +68,7 @@ func TestErrorShowsInStatusBar(t *testing.T) {
 // Whatever the size, no line may be wider than the screen, nor the frame taller.
 func TestFramesFit(t *testing.T) {
 	s := loadFixture(t)
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		for _, w := range []int{20, 30, 40, 60, 80, 120} {
 			for _, h := range []int{5, 8, 12, 30} {
 				for _, ended := range []bool{false, true} {
@@ -91,7 +91,7 @@ func TestFramesFit(t *testing.T) {
 }
 
 func TestPlainThemeHasNoEscapes(t *testing.T) {
-	out := render(loadFixture(t), tabWatch, "", opts(80, 40))
+	out := render(loadFixture(t), tabCards, "", opts(80, 40))
 	if strings.ContainsRune(out, 0x1b) {
 		t.Errorf("the plain theme must not emit escape codes")
 	}
@@ -100,7 +100,7 @@ func TestPlainThemeHasNoEscapes(t *testing.T) {
 func TestStyledMatchesPlainText(t *testing.T) {
 	s := loadFixture(t)
 	styled := viewOpts{Width: 80, Height: 40, Theme: newTheme(true, "48;5;238")}
-	got := render(s, tabWatch, "", styled)
+	got := render(s, tabCards, "", styled)
 	if !strings.ContainsRune(got, 0x1b) {
 		t.Fatalf("a styled frame should have escape codes")
 	}
@@ -108,7 +108,7 @@ func TestStyledMatchesPlainText(t *testing.T) {
 	for _, l := range strings.Split(ansi.Strip(got), "\n") {
 		plain = append(plain, strings.TrimRight(l, " "))
 	}
-	want := strings.Split(render(s, tabWatch, "", opts(80, 40)), "\n")
+	want := strings.Split(render(s, tabCards, "", opts(80, 40)), "\n")
 	for i := range want {
 		want[i] = strings.TrimRight(want[i], " ")
 	}
@@ -121,7 +121,7 @@ func TestStyledMatchesPlainText(t *testing.T) {
 func TestHighlightOnlyForRecentRunning(t *testing.T) {
 	s := loadFixture(t)
 	hot := viewOpts{Width: 60, Height: 0, Theme: newTheme(true, "48;5;238")}
-	lines := strings.Split(render(s, tabWatch, "", hot), "\n")
+	lines := strings.Split(render(s, tabCards, "", hot), "\n")
 	var hotLines, other int
 	for _, l := range lines {
 		if strings.Contains(l, "48;5;238") {
@@ -172,7 +172,7 @@ func TestBgFromSGR(t *testing.T) {
 
 func TestStatusBarKeepsTheKeysAt80Columns(t *testing.T) {
 	s := loadFixture(t)
-	lines := strings.Split(render(s, tabWatch, "", opts(80, 20)), "\n")
+	lines := strings.Split(render(s, tabCards, "", opts(80, 20)), "\n")
 	last := lines[len(lines)-1]
 	if !strings.Contains(last, "● 1 need you") || !strings.Contains(last, "q quit") {
 		t.Errorf("the status bar should show who needs you and the keys: %q", last)
@@ -187,7 +187,7 @@ func TestSummaryCounts(t *testing.T) {
 
 func TestTinyScreensNeverOverflow(t *testing.T) {
 	s := loadFixture(t)
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		for w := 1; w <= 16; w++ {
 			for h := 1; h <= 5; h++ {
 				lines := strings.Split(render(s, tab, "", opts(w, h)), "\n")
@@ -219,7 +219,7 @@ func TestNeedsInputIsMarkedAndColoured(t *testing.T) {
 	if !s.Sessions[2].NeedsInput || s.Sessions[0].NeedsInput {
 		t.Fatalf("the fixture's waiting session needs input, the working one does not")
 	}
-	plain := render(s, tabWatch, "", opts(80, 40))
+	plain := render(s, tabCards, "", opts(80, 40))
 	if strings.Count(plain, "● waiting 3m") != 1 || strings.Contains(plain, "● working") {
 		t.Errorf("only the waiting session carries the marker:\n%s", plain)
 	}
@@ -230,7 +230,7 @@ func TestNeedsInputIsMarkedAndColoured(t *testing.T) {
 	const attn, hot = "48;2;92;31;53", "48;5;238" // the dark attention colour, and the recent-activity colour
 	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
 	var attnLines, hotLines int
-	for _, l := range strings.Split(render(s, tabWatch, "", styled), "\n") {
+	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
 		if strings.Contains(l, attn) {
 			attnLines++
 		}
@@ -247,7 +247,7 @@ func TestNeedsInputBeatsRecentActivity(t *testing.T) {
 	s := loadFixture(t)
 	s.Sessions[2].Highlight = true // recent as well as waiting
 	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
-	for _, l := range strings.Split(render(s, tabWatch, "", styled), "\n") {
+	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
 		if strings.Contains(ansi.Strip(l), "waiting for your call on the branch") {
 			if !strings.Contains(l, "48;2;92;31;53") || strings.Contains(l, "48;5;238") {
 				t.Errorf("a waiting session shows the attention colour even when it is recent: %q", l)
@@ -261,7 +261,7 @@ func TestAFadedSessionKeepsItsMarkerButNotItsColour(t *testing.T) {
 	s.Sessions[2].AttnFaded = true
 	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
 	found := false
-	for _, l := range strings.Split(render(s, tabWatch, "", styled), "\n") {
+	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
 		if strings.Contains(ansi.Strip(l), "waiting for your call on the branch") || strings.Contains(ansi.Strip(l), "● waiting 3m") {
 			found = true
 			if strings.Contains(l, "48;2;92;31;53") {
@@ -272,7 +272,7 @@ func TestAFadedSessionKeepsItsMarkerButNotItsColour(t *testing.T) {
 	if !found {
 		t.Fatal("the session is not on screen")
 	}
-	if got := render(s, tabWatch, "", opts(80, 40)); strings.Count(got, "● waiting 3m") != 1 {
+	if got := render(s, tabCards, "", opts(80, 40)); strings.Count(got, "● waiting 3m") != 1 {
 		t.Errorf("the marker stays:\n%s", got)
 	}
 	if needYou(s) != 1 {
@@ -285,7 +285,7 @@ func TestEndedSessionsNeverNeedYou(t *testing.T) {
 	s.Sessions[3].NeedsInput = true // an ended session, which the shell would never flag
 	o := opts(80, 40)
 	o.ShowEnded = true
-	if got := render(s, tabWatch, "", o); strings.Contains(got, "● ended") {
+	if got := render(s, tabCards, "", o); strings.Contains(got, "● ended") {
 		t.Errorf("an ended session must not be marked:\n%s", got)
 	}
 	if needYou(s) != 1 {
@@ -344,23 +344,23 @@ func TestTopNamesItsSort(t *testing.T) {
 	}
 	o := opts(80, 12)
 	o.Sort = sortState
-	golden(t, "top_80x12_by_state", render(s, tabTable, "", o))
-	if got := render(s, tabWatch, "", opts(100, 40)); strings.Contains(got, "sort:") {
-		t.Errorf("the Watch view has no sort")
+	golden(t, "table_80x12_by_state", render(s, tabTable, "", o))
+	if got := render(s, tabCards, "", opts(100, 40)); strings.Contains(got, "sort:") {
+		t.Errorf("the Cards view has no sort")
 	}
 }
 
 func TestStatusBarHints(t *testing.T) {
 	last := func(w int) string {
-		lines := strings.Split(render(loadFixture(t), tabWatch, "", opts(w, 20)), "\n")
+		lines := strings.Split(render(loadFixture(t), tabCards, "", opts(w, 20)), "\n")
 		return lines[len(lines)-1]
 	}
 	if got := last(80); !strings.Contains(got, "enter jump") || !strings.Contains(got, "? help") || !strings.Contains(got, "● 1 need you") || strings.Contains(got, "s sort") {
-		t.Errorf("at 80 columns the Watch bar keeps who needs you and the key hints, and has no sort: %q", got)
+		t.Errorf("at 80 columns the Cards bar keeps who needs you and the key hints, and has no sort: %q", got)
 	}
 	top := strings.Split(render(loadFixture(t), tabTable, "", opts(80, 20)), "\n")
 	if got := top[len(top)-1]; !strings.Contains(got, "s sort") || !strings.Contains(got, "? help") {
-		t.Errorf("the Top bar has the sort: %q", got)
+		t.Errorf("the Table bar has the sort: %q", got)
 	}
 }
 
@@ -371,7 +371,7 @@ func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
 			t.Errorf("width %d: %q, want %q", w, got, want)
 		}
 	}
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		for w := 1; w <= 120; w++ {
 			last := func(out string) string { l := strings.Split(out, "\n"); return l[len(l)-1] }
 			if got := last(render(loadFixture(t), tab, "", opts(w, 12))); ansi.StringWidth(got) > w {
@@ -383,7 +383,7 @@ func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
 
 func TestHelpScreen(t *testing.T) {
 	out := helpScreen(80, 60, false, plainTheme())
-	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Table sort", "refresh", "quit", "Watch", "Table ", "pink-red", "purple", "any key closes"} {
+	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Table sort", "refresh", "quit", "Cards", "Table ", "pink-red", "purple", "any key closes"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the help should mention %q", want)
 		}
@@ -406,13 +406,13 @@ func TestHelpScreen(t *testing.T) {
 
 func TestVisibleIDsFollowTheTab(t *testing.T) {
 	s := loadFixture(t)
-	if got := strings.Join(visibleIDs(s, tabWatch, false, sortState, ""), " "); !strings.HasPrefix(got, "15f1") {
-		t.Errorf("Watch ignores the sort and keeps activity order: %s", got)
+	if got := strings.Join(visibleIDs(s, tabCards, false, sortState, ""), " "); !strings.HasPrefix(got, "15f1") {
+		t.Errorf("Cards ignores the sort and keeps activity order: %s", got)
 	}
 	if got := visibleIDs(s, tabTable, false, sortState, ""); len(got) != 3 || !strings.HasPrefix(got[0], "b1fb") {
-		t.Errorf("Top follows the sort: %v", got)
+		t.Errorf("Table follows the sort: %v", got)
 	}
-	if got := visibleIDs(s, tabWatch, true, sortActivity, ""); len(got) != 4 {
+	if got := visibleIDs(s, tabCards, true, sortActivity, ""); len(got) != 4 {
 		t.Errorf("ended sessions appear when asked for: %v", got)
 	}
 }
@@ -421,7 +421,7 @@ func TestSelectionMarker(t *testing.T) {
 	s := loadFixture(t)
 	o := opts(80, 40)
 	o.Sel = s.Sessions[2].ID
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		out := render(s, tab, "", o)
 		if strings.Count(out, "▶ ") != 1 {
 			t.Fatalf("tab %d: exactly one marker:\n%s", tab, out)
@@ -433,20 +433,20 @@ func TestSelectionMarker(t *testing.T) {
 		}
 	}
 	o.Sel = ""
-	if strings.Contains(render(s, tabWatch, "", o), "▶") {
+	if strings.Contains(render(s, tabCards, "", o), "▶") {
 		t.Errorf("no selection, no marker")
 	}
 	o.Sel, o.Width = s.Sessions[2].ID, 19
 	if strings.Contains(render(s, tabTable, "", o), "▶") {
 		t.Errorf("a narrow screen has no gutter")
 	}
-	golden(t, "watch_80x40_sel", render(s, tabWatch, "", viewOpts{Width: 80, Height: 40, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
-	golden(t, "top_80x12_sel", render(s, tabTable, "", viewOpts{Width: 80, Height: 12, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
+	golden(t, "cards_80x40_sel", render(s, tabCards, "", viewOpts{Width: 80, Height: 40, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
+	golden(t, "table_80x12_sel", render(s, tabTable, "", viewOpts{Width: 80, Height: 12, Sel: s.Sessions[1].ID, Theme: plainTheme()}))
 }
 
 func TestScrollingKeepsTheSelectionOnScreen(t *testing.T) {
 	s := loadFixture(t)
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		minH := 10 // below this the chrome, the footers and one block cannot all fit
 		if tab == tabTable {
 			minH = 7
@@ -461,13 +461,13 @@ func TestScrollingKeepsTheSelectionOnScreen(t *testing.T) {
 			}
 		}
 	}
-	// the last session, in a short Watch frame: blocks above are scrolled off and counted
+	// the last session, in a short Cards frame: blocks above are scrolled off and counted
 	o := viewOpts{Width: 80, Height: 15, Sel: s.Sessions[2].ID, Theme: plainTheme()}
-	out := render(s, tabWatch, "", o)
+	out := render(s, tabCards, "", o)
 	if !strings.Contains(out, "+2 above") && !strings.Contains(out, "+1 above") {
 		t.Errorf("scrolled-off blocks are counted:\n%s", out)
 	}
-	golden(t, "watch_80x15_scrolled", out)
+	golden(t, "cards_80x15_scrolled", out)
 }
 
 func TestAliasInTheDashboard(t *testing.T) {
@@ -477,7 +477,7 @@ func TestAliasInTheDashboard(t *testing.T) {
 	}
 	s.Sessions[0].Alias = "sitrep"
 	s.Sessions[1].Alias = "a-name-that-is-much-too-long"
-	for _, tab := range []int{tabWatch, tabTable} {
+	for _, tab := range []int{tabCards, tabTable} {
 		for _, w := range []int{20, 40, 80, 120} {
 			o := opts(w, 40)
 			o.ShowEnded = true
@@ -533,7 +533,7 @@ func TestHostileAliasIsDroppedOnDecode(t *testing.T) {
 func TestSelectionIsASolidBarOverTheWholeBlock(t *testing.T) {
 	s := loadFixture(t)
 	o := viewOpts{Width: 80, Height: 40, Theme: newTheme(true, "48;5;238"), Sel: s.Sessions[0].ID}
-	lines := strings.Split(render(s, tabWatch, "", o), "\n")
+	lines := strings.Split(render(s, tabCards, "", o), "\n")
 	bar, first := 0, -1
 	for i, l := range lines {
 		if strings.HasPrefix(l, o.Theme.StatusKey.Render("  ")) || strings.HasPrefix(l, o.Theme.StatusKey.Render("▶ ")) {
@@ -775,15 +775,15 @@ func TestHelpWrapsInsteadOfCuttingOnANarrowScreen(t *testing.T) {
 func TestAKeptFilterSaysHowToClearIt(t *testing.T) {
 	s := loadFixture(t)
 	o := viewOpts{Width: 110, Height: 24, Theme: plainTheme(), Filter: "api"}
-	if got := render(s, tabWatch, "", o); !strings.Contains(got, "esc clear filter") {
+	if got := render(s, tabCards, "", o); !strings.Contains(got, "esc clear filter") {
 		t.Errorf("a filter that is on says how to clear it:\n%s", got)
 	}
 	o.Typing = true
-	if got := render(s, tabWatch, "", o); strings.Contains(got, "esc clear filter") || !strings.Contains(got, "esc cancel") {
+	if got := render(s, tabCards, "", o); strings.Contains(got, "esc clear filter") || !strings.Contains(got, "esc cancel") {
 		t.Errorf("while typing the footer lists the typing keys:\n%s", got)
 	}
 	o.Filter, o.Typing = "", false
-	if got := render(s, tabWatch, "", o); strings.Contains(got, "esc clear filter") {
+	if got := render(s, tabCards, "", o); strings.Contains(got, "esc clear filter") {
 		t.Error("no filter, no hint")
 	}
 }

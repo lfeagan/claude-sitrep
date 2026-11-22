@@ -14,7 +14,7 @@ ssh devbox sitrep ls -v
 ssh devbox sitrep ls --json | jq '.sessions[] | {id, alias, state, queue: .queue.count}'
 ```
 
-`ls --json` is the versioned format, and its text has had control and format characters removed on the remote machine, so it is safe to print. Check `version` before you rely on a field. For the dashboard on the remote machine, `ssh -t devbox sitrep watch` runs it in your terminal, with `--read-only` if you only want to look. `enter` jumps only in a terminal that the dashboard itself runs in, so on a remote machine it will not move your local window.
+`ls --json` is the versioned format, and its text has had control and format characters removed on the remote machine, so it is safe to print. Check `version` before you rely on a field. For the dashboard on the remote machine, `ssh -t devbox sitrep dash` runs it in your terminal, with `--read-only` if you only want to look. `enter` jumps only in a terminal that the dashboard itself runs in, so on a remote machine it will not move your local window.
 
 ## Queue
 
@@ -45,4 +45,4 @@ Keep a connection open with `ControlMaster auto`, `ControlPath` and `ControlPers
 
 ## If this is not enough
 
-A configured list of ssh hosts could feed extra rows into `sitrep watch`, through the same snapshot as `ls --json`, with the keys that change things running `ssh host sitrep ...`. It would be a third network use besides the summarizer and the update check, so invariant 9 would have to change on purpose. We wait to see whether this recipe is enough first.
+A configured list of ssh hosts could feed extra rows into `sitrep dash`, through the same snapshot as `ls --json`, with the keys that change things running `ssh host sitrep ...`. It would be a third network use besides the summarizer and the update check, so invariant 9 would have to change on purpose. We wait to see whether this recipe is enough first.

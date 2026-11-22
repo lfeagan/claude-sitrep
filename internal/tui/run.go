@@ -1,4 +1,4 @@
-// Package tui is sitrep's full-screen dashboard: tabs for a Watch view and a Table view, a detail pane, jumping to a session's terminal, and the
+// Package tui is sitrep's full-screen dashboard: tabs for a Cards view and a Table view, a detail pane, jumping to a session's terminal, and the
 // queue and prune screens. It reads a snapshot from an Engine and changes state only by running the same fixed sitrep commands, after a
 // confirm, through that Engine; --read-only turns every one of them off.
 package tui
@@ -28,7 +28,7 @@ type Engine struct {
 
 // Options are the dashboard's settings.
 type Options struct {
-	Tab        string // watch or top
+	Tab        string // cards, table or wall
 	Interval   time.Duration
 	ReadOnly   bool
 	NoBell     bool
@@ -38,14 +38,14 @@ type Options struct {
 
 func tabByName(name string) (int, error) {
 	switch name {
-	case "", "watch":
-		return tabWatch, nil
+	case "", "cards":
+		return tabCards, nil
 	case "table":
 		return tabTable, nil
 	case "wall":
 		return tabWall, nil
 	}
-	return 0, fmt.Errorf("unknown tab %q (watch, table or wall)", name)
+	return 0, fmt.Errorf("unknown tab %q (cards, table or wall)", name)
 }
 
 // FromSnapshot makes the dashboard's own copy of a snapshot, cleaned again as everything it shows is.
