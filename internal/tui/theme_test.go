@@ -205,6 +205,34 @@ func TestColourfulThemes(t *testing.T) {
 	}
 }
 
+// relLum is the relative luminance of #rrggbb.
+func relLum(c string) float64 {
+	r, g, b := rgbOf(c)
+	f := func(v int) float64 {
+		x := float64(v) / 255
+		if x <= 0.03928 {
+			return x / 12.92
+		}
+		return math.Pow((x+0.055)/1.055, 2.4)
+	}
+	return 0.2126*f(r) + 0.7152*f(g) + 0.0722*f(b)
+}
+
+// What needs you must differ from recent activity in lightness, not in hue alone, so that a person who cannot tell red from green, or blue
+// from yellow, still sees the difference: on a dark terminal the needs-you background is clearly lighter than the recent-activity one, and on a
+// light terminal clearly deeper.
+func TestNeedsYouDiffersFromRecentActivityInLightness(t *testing.T) {
+	for _, name := range []string{"ocean", "forest", "homebrew", "red-sands", "novel", "nord", "solarized", "winter", "spring", "summer", "fall"} {
+		p := presets[name]
+		if a, h := relLum(p.attn[1]), relLum(p.hot[1]); a < 1.6*h {
+			t.Errorf("%s dark: attn L %.3f is not 1.6 times hot L %.3f", name, a, h)
+		}
+		if a, h := relLum(p.attn[0]), relLum(p.hot[0]); a > 0.8*h {
+			t.Errorf("%s light: attn L %.3f is not under 0.8 times hot L %.3f", name, a, h)
+		}
+	}
+}
+
 func checkColourfulTheme(t *testing.T, name string) {
 	p := presets[name]
 	d := presets["default"]

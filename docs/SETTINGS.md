@@ -24,10 +24,10 @@ Besides `default`, `pastel`, `rainbow`, `high-contrast` and `mono`, described ab
 
 | Theme | Mood |
 | --- | --- |
-| `ocean` | blues and steel, with a warm sand for what needs you |
-| `forest` | greens, with amber for what needs you |
-| `homebrew` | phosphor green, for a black terminal |
-| `red-sands` | terracotta and sand |
+| `ocean` | blues and steel, with sand (olive on a dark terminal) for what needs you |
+| `forest` | moss, bark and olive, with amber (crimson on a dark terminal) for what needs you |
+| `homebrew` | neon phosphor green with amber, for a black terminal |
+| `red-sands` | terracotta and sand, with teal for what needs you |
 | `novel` | sepia paper tones, for a light terminal |
 | `nord` | cool grey-blue, after the Nord palette |
 | `solarized` | after the Solarized palette |
