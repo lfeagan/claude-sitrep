@@ -290,3 +290,14 @@ func TestDefaultThemeIsReadableOnALightTerminal(t *testing.T) {
 		}
 	}
 }
+
+// Dim text carries the labels and the tab names, so it must be readable, not only visible.
+func TestDimTextIsReadableInEveryTheme(t *testing.T) {
+	for name, p := range presets {
+		for side, bg := range []string{"#ffffff", "#1e1e1e"} {
+			if c := contrast(p.dim[side], bg); c < 4.5 {
+				t.Errorf("%s %s: dim %s has contrast %.1f", name, []string{"light", "dark"}[side], p.dim[side], c)
+			}
+		}
+	}
+}

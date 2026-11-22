@@ -33,7 +33,7 @@ var presets = map[string]palette{
 	// soft lavender, mint and peach, for a quiet screen: the accent is a periwinkle, recent activity a mint, a session that needs you a peach on
 	// a light terminal and a dusky rose on a dark one, as a dark peach would be brown
 	"pastel": {
-		accent: [2]string{"#7565b8", "#b8a9f0"}, dim: [2]string{"#7a7a8c", "#9a9aae"}, hot: [2]string{"#d8f3e4", "#1f3a32"},
+		accent: [2]string{"#7565b8", "#b8a9f0"}, dim: [2]string{"#6e6e82", "#9a9aae"}, hot: [2]string{"#d8f3e4", "#1f3a32"},
 		attn: [2]string{"#ffc99a", "#5e405a"}, errc: [2]string{"#c2476b", "#ff9eb5"}, snooze: [2]string{"#4f86b0", "#8fbcdb"},
 	},
 	// one colour of the spectrum for each role: green accent, blue for dim text, orange for recent activity, yellow for what needs you, red for errors
@@ -65,7 +65,7 @@ var presets = map[string]palette{
 		attn: [2]string{"#bedddf", "#0f4a52"}, errc: [2]string{"#8e1b1b", "#ff7b6b"}, snooze: [2]string{"#7a6a8f", "#b7a6d0"},
 	},
 	"novel": {
-		accent: [2]string{"#7a5a2e", "#d2b078"}, dim: [2]string{"#8a7a62", "#b0a088"}, hot: [2]string{"#f6f1e5", "#342e20"},
+		accent: [2]string{"#7a5a2e", "#d2b078"}, dim: [2]string{"#7d6e56", "#b0a088"}, hot: [2]string{"#f6f1e5", "#342e20"},
 		attn: [2]string{"#f0d49c", "#2e447e"}, errc: [2]string{"#9b2c1f", "#ff8f7a"}, snooze: [2]string{"#5c7a6a", "#9cc0ac"},
 	},
 	"nord": {
@@ -73,7 +73,7 @@ var presets = map[string]palette{
 		attn: [2]string{"#e5d6ae", "#67384a"}, errc: [2]string{"#bf616a", "#e08a93"}, snooze: [2]string{"#4a8a89", "#8fbcbb"},
 	},
 	"solarized": {
-		accent: [2]string{"#1f78b8", "#40b0a5"}, dim: [2]string{"#657b83", "#839496"}, hot: [2]string{"#f5f1e6", "#073642"},
+		accent: [2]string{"#1f78b8", "#40b0a5"}, dim: [2]string{"#5f757d", "#839496"}, hot: [2]string{"#f5f1e6", "#073642"},
 		attn: [2]string{"#e8d79a", "#702f59"}, errc: [2]string{"#dc322f", "#ff6b66"}, snooze: [2]string{"#6c71c4", "#9aa0f0"},
 	},
 	// the seasons; the dark side of each keeps what needs you clearly lighter than recent activity, so that red-green and blue-yellow colour
