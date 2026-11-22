@@ -1017,3 +1017,22 @@ func TestHeaderNotesAreLeftOutNotCutInHalf(t *testing.T) {
 		}
 	}
 }
+
+func TestNoMatchLineSitsUnderTheRowsIndent(t *testing.T) {
+	s := loadFixture(t)
+	for _, tab := range []int{tabCards, tabTable} {
+		out := ansi.Strip(render(s, tab, "", viewOpts{Width: 80, Height: 20, Filter: "zzzz-no-such"}))
+		found := false
+		for _, l := range strings.Split(out, "\n") {
+			if strings.Contains(l, "no session matches") {
+				found = true
+				if !strings.HasPrefix(l, "  no session") {
+					t.Errorf("tab %d: the line is not indented like the rows: %q", tab, l)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("tab %d: no message in\n%s", tab, out)
+		}
+	}
+}

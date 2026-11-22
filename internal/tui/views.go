@@ -426,7 +426,7 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 		dw, sw = max(dw, ansi.StringWidth(x.Dir)), max(sw, ansi.StringWidth(stateText(x)))
 	}
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
-		head = append(head, noMatch(s, o))
+		head = append(head, "  "+noMatch(s, o)) // under the rows' two-column indent
 	}
 	for _, x := range list {
 		ids = append(ids, x.ID)
@@ -627,7 +627,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 	}
 	head = append(head, o.Theme.Label.Render(cols))
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
-		head = append(head, noMatch(s, o))
+		head = append(head, "  "+noMatch(s, o)) // under the rows' two-column indent
 	}
 	var blocks [][]string
 	var ids []string
@@ -787,7 +787,7 @@ func helpStep(key string, height int) (int, bool) {
 // helpLines is the key list: the keys, what the tabs show, and what the colours mean, wrapped and cut to the width.
 func helpLines(width int, readOnly bool) []string {
 	lines := []string{
-		"Keys",
+		" Keys",
 		"",
 		"  j, k, gg, G, ctrl+d, ctrl+u    move the selection (the \u25b6 arrow and bar)",
 		"  arrows, home, end, pgup, pgdn  the same, as in vi and top",
@@ -813,13 +813,13 @@ func helpLines(width int, readOnly bool) []string {
 		"  ?                              this list, from any screen",
 		"  q                              back; quit on the tabs (ctrl+c: anywhere)",
 		"",
-		"Tabs",
+		" Tabs",
 		"",
 		"  Cards   every session as a block: Objective, Progress, Now and the queue",
 		"  Table   a summary line, then one line per session (CTX: context left)",
 		"  Wall    the sessions as tiles of one size, many to a screen, those that need you first",
 		"",
-		"Colours (default theme)",
+		" Colours (default theme)",
 		"",
 		"  ● pink-red   Claude has stopped and the next move is yours, until you reply",
 		"               the colour fades after 10 minutes (SITREP_ATTN_FADE); the ● stays",

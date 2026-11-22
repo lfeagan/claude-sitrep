@@ -1,4 +1,4 @@
-Keys
+ Keys
 
   j, k, gg, G, ctrl+d, ctrl+u    move the selection (the ▶ arrow and bar)
   arrows, home, end, pgup, pgdn  the same, as in vi and top
@@ -30,14 +30,14 @@ Keys
   ?                              this list, from any screen
   q                              back; quit on the tabs (ctrl+c: anywhere)
 
-Tabs
+ Tabs
 
   Cards   every session as a block: Objective, Progress, Now and the queue
   Table   a summary line, then one line per session (CTX: context left)
   Wall    the sessions as tiles of one size, many to a screen, those that need
           you first
 
-Colours (default theme)
+ Colours (default theme)
 
   ● pink-red   Claude has stopped and the next move is yours, until you reply
                the colour fades after 10 minutes (SITREP_ATTN_FADE); the ● stays
