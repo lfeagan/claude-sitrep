@@ -228,7 +228,7 @@ func TestNeedsInputIsMarkedAndColoured(t *testing.T) {
 	if !strings.Contains(top, "● waiting 3m") {
 		t.Errorf("the Table tab marks it too:\n%s", top)
 	}
-	const attn, hot = "48;2;92;31;53", "48;5;238" // the dark attention colour, and the recent-activity colour
+	const attn, hot = "48;2;150;52;92", "48;5;238" // the dark attention colour (#96345c), and the recent-activity colour
 	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
 	var attnLines, hotLines int
 	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
@@ -250,7 +250,7 @@ func TestNeedsInputBeatsRecentActivity(t *testing.T) {
 	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
 	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
 		if strings.Contains(ansi.Strip(l), "waiting for your call on the branch") {
-			if !strings.Contains(l, "48;2;92;31;53") || strings.Contains(l, "48;5;238") {
+			if !strings.Contains(l, "48;2;150;52;92") || strings.Contains(l, "48;5;238") {
 				t.Errorf("a waiting session shows the attention colour even when it is recent: %q", l)
 			}
 		}
@@ -265,7 +265,7 @@ func TestAFadedSessionKeepsItsMarkerButNotItsColour(t *testing.T) {
 	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
 		if strings.Contains(ansi.Strip(l), "waiting for your call on the branch") || strings.Contains(ansi.Strip(l), "● waiting 3m") {
 			found = true
-			if strings.Contains(l, "48;2;92;31;53") {
+			if strings.Contains(l, "48;2;150;52;92") {
 				t.Errorf("a faded session is not painted: %q", l)
 			}
 		}
@@ -384,7 +384,7 @@ func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
 
 func TestHelpScreen(t *testing.T) {
 	out := helpScreen(80, 60, false, 0, plainTheme())
-	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Table sort", "refresh", "quit", "Cards", "Table ", "pink-red", "purple", "any key closes"} {
+	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Table sort", "refresh", "quit", "Cards", "Table ", "pink-red", "grey", "any key closes"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the help should mention %q", want)
 		}

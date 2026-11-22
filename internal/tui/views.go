@@ -104,7 +104,7 @@ func gutter(id string, o viewOpts) string {
 }
 
 // selectBlock gives the selected session's lines a solid two-column bar in the gutter, over the whole block, with an arrow on the first
-// line. The bar uses the style of the status bar's keys (white on the accent colour) so it shows against the pink and purple row colours;
+// line. The bar uses the style of the status bar's keys (white on the accent colour) so it shows against the pink and grey row colours;
 // without colour the arrow is followed by a vertical line.
 func selectBlock(lines []string, x Session, o viewOpts) []string {
 	if o.Width < 20 || x.ID == "" || x.ID != o.Sel {
@@ -290,7 +290,7 @@ func paint(lines []string, st lipgloss.Style, width int) []string {
 }
 
 // mark colours a session's lines: pink-red when it waits for the user, which beats the
-// purple of recent activity. A session that has waited long (AttnFaded) is not coloured for it.
+// grey of recent activity. A session that has waited long (AttnFaded) is not coloured for it.
 func mark(lines []string, x Session, o viewOpts) []string {
 	switch {
 	case x.NeedsInput && x.Running && !x.AttnFaded:
@@ -781,12 +781,12 @@ func helpLines(width int, readOnly bool) []string {
 		"  Table   a summary line, then one line per session (CTX: context left)",
 		"  Wall    the sessions as tiles of one size, many to a screen, those that need you first",
 		"",
-		"Colours",
+		"Colours (default theme)",
 		"",
 		"  ● pink-red   Claude has stopped and the next move is yours, until you reply",
 		"               the colour fades after 10 minutes (SITREP_ATTN_FADE); the ● stays",
 		"  ○            snoozed: waiting, but you said it can wait",
-		"  purple       the session changed in the last minute",
+		"  grey         the session changed in the last minute",
 		"  idle?        working, but quiet for 10 minutes: it may have been interrupted",
 	}
 	if readOnly { // the keys that change state are off, so they are not listed

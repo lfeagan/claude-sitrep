@@ -26,24 +26,24 @@ type palette struct{ accent, dim, hot, attn, errc, snooze [2]string }
 
 var presets = map[string]palette{
 	"default": {
-		accent: [2]string{"#5b3fd1", "#a78bfa"}, dim: [2]string{"#6b6b76", "#8b8b96"}, hot: [2]string{"238", "238"},
-		// a session waiting for the user: a soft pink-red that stands out from the grey of recent activity
-		attn: [2]string{"#ffd9e4", "#5c1f35"}, errc: [2]string{"#b3261e", "#ff8a80"}, snooze: [2]string{"#2f6fed", "#7aa2f7"},
+		accent: [2]string{"#5b3fd1", "#a78bfa"}, dim: [2]string{"#6b6b76", "#8b8b96"}, hot: [2]string{"#e4e4ea", "238"},
+		// a session waiting for the user: a pink-red that is lighter than the grey of recent activity on a dark terminal and deeper on a light one
+		attn: [2]string{"#ffb8cc", "#96345c"}, errc: [2]string{"#b3261e", "#ff8a80"}, snooze: [2]string{"#2f6fed", "#7aa2f7"},
 	},
 	// soft lavender, mint and peach, for a quiet screen: the accent is a periwinkle, recent activity a mint, a session that needs you a peach on
 	// a light terminal and a dusky rose on a dark one, as a dark peach would be brown
 	"pastel": {
-		accent: [2]string{"#7565b8", "#b8a9f0"}, dim: [2]string{"#7a7a8c", "#9a9aae"}, hot: [2]string{"#d8f3e4", "#24433a"},
-		attn: [2]string{"#ffe0c2", "#5b3a58"}, errc: [2]string{"#c2476b", "#ff9eb5"}, snooze: [2]string{"#4f86b0", "#8fbcdb"},
+		accent: [2]string{"#7565b8", "#b8a9f0"}, dim: [2]string{"#7a7a8c", "#9a9aae"}, hot: [2]string{"#d8f3e4", "#1f3a32"},
+		attn: [2]string{"#ffc99a", "#5e405a"}, errc: [2]string{"#c2476b", "#ff9eb5"}, snooze: [2]string{"#4f86b0", "#8fbcdb"},
 	},
 	// one colour of the spectrum for each role: green accent, blue for dim text, orange for recent activity, yellow for what needs you, red for errors
 	"rainbow": {
-		accent: [2]string{"#2e7d32", "#7ddc8a"}, dim: [2]string{"#4a6fa5", "#8fb0e0"}, hot: [2]string{"#ffe0b8", "#ffb870"},
-		attn: [2]string{"#fff2a8", "#ffe566"}, errc: [2]string{"#d32f2f", "#ff6b6b"}, snooze: [2]string{"#1565c0", "#64b5f6"},
+		accent: [2]string{"#2e7d32", "#7ddc8a"}, dim: [2]string{"#4a6fa5", "#8fb0e0"}, hot: [2]string{"#ffe0b8", "#e08a3c"},
+		attn: [2]string{"#f5c400", "#ffe566"}, errc: [2]string{"#d32f2f", "#ff6b6b"}, snooze: [2]string{"#1565c0", "#64b5f6"},
 	},
 	"high-contrast": {
-		accent: [2]string{"#0000b3", "#ffd400"}, dim: [2]string{"#3a3a3a", "#c8c8c8"}, hot: [2]string{"#c8c8c8", "#505050"},
-		attn: [2]string{"#ff9a9a", "#a40000"}, errc: [2]string{"#a00000", "#ff7070"}, snooze: [2]string{"#0033cc", "#6ea8ff"},
+		accent: [2]string{"#0000b3", "#ffd400"}, dim: [2]string{"#3a3a3a", "#c8c8c8"}, hot: [2]string{"#c8c8c8", "#3a3a3a"},
+		attn: [2]string{"#ff9090", "#a40000"}, errc: [2]string{"#a00000", "#ff7070"}, snooze: [2]string{"#0033cc", "#6ea8ff"},
 	},
 	// the themes below are moods, not copies of any terminal's colours: sitrep draws bars, rows and marks, and the terminal keeps its own background
 	"ocean": {

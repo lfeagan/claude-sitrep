@@ -222,8 +222,11 @@ func relLum(c string) float64 {
 // from yellow, still sees the difference: on a dark terminal the needs-you background is clearly lighter than the recent-activity one, and on a
 // light terminal clearly deeper.
 func TestNeedsYouDiffersFromRecentActivityInLightness(t *testing.T) {
-	for _, name := range []string{"ocean", "forest", "homebrew", "red-sands", "novel", "nord", "solarized", "winter", "spring", "summer", "fall"} {
-		p := presets[name]
+	for _, name := range ThemeNames {
+		p, ok := presets[name]
+		if !ok {
+			continue
+		}
 		if a, h := relLum(p.attn[1]), relLum(p.hot[1]); a < 1.6*h {
 			t.Errorf("%s dark: attn L %.3f is not 1.6 times hot L %.3f", name, a, h)
 		}
@@ -274,5 +277,16 @@ func checkColourfulTheme(t *testing.T, name string) {
 	}
 	if !slices.Contains(ThemeNames, name) {
 		t.Errorf("%s is not offered", name)
+	}
+}
+
+// The default theme is the one most people run, and its recent-activity colour must read on a light terminal too, where the terminal's own
+// text is dark.
+func TestDefaultThemeIsReadableOnALightTerminal(t *testing.T) {
+	p := presets["default"]
+	for role, bg := range map[string]string{"hot": p.hot[0], "attn": p.attn[0]} {
+		if c := contrast("#1a1a1a", bg); c < 7 {
+			t.Errorf("default light %s: terminal text has contrast %.1f", role, c)
+		}
 	}
 }
