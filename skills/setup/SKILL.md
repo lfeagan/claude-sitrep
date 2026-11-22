@@ -3,10 +3,12 @@ name: setup
 description: Set up or remove sitrep after installing the sitrep plugin: build the program, add the sitrep block to the status line and link the `sitrep` command. Use when the user has just installed or updated the plugin, asks how to update sitrep, says the sitrep block is missing from the status line, or wants to remove sitrep's status line and links.
 argument-hint: "[remove]"
 disable-model-invocation: true
-allowed-tools: Bash(go version), Bash(go build*), Bash(mkdir -p "$HOME/.claude/sitrep"), Bash("$HOME/.claude/sitrep/sitrep.new" setup*), Bash("$HOME/.claude/sitrep/bin/sitrep" setup*)
+allowed-tools: Bash(uname -s), Bash(go version), Bash(go build*), Bash(mkdir -p "$HOME/.claude/sitrep"), Bash("$HOME/.claude/sitrep/sitrep.new" setup*), Bash("$HOME/.claude/sitrep/bin/sitrep" setup*)
 ---
 
 sitrep is one Go program. The plugin brings its source, its hooks and the `sitrep-queue` skill. This setup builds the program into `~/.claude/sitrep/bin/sitrep`, which the hooks and the status line run, adds the sitrep block to the status line (keeping any status line that is already there, such as Claude HUD, above it), and links `sitrep` into `~/bin`. It writes `~/.claude/settings.json`, so Claude Code asks first.
+
+First run `uname -s`. `Darwin` and `Linux` (WSL prints `Linux`) go on. For anything else, such as `MINGW`, `MSYS` or `CYGWIN`, or when `uname` is not found, stop and change nothing: tell the user that sitrep runs on macOS and Linux only, since it uses file locks and process groups that Windows does not have, and that WSL is the way to use it there. The hooks of the installed plugin will report an error on every event until the plugin is removed, so tell them to run `/plugin uninstall sitrep`.
 
 If the argument is `remove`, run `"$HOME/.claude/sitrep/bin/sitrep" setup --remove` and report what it printed. Then tell the user to run `/plugin uninstall sitrep`, because until then the plugin's hooks name a program that is gone.
 

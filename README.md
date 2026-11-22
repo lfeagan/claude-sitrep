@@ -45,7 +45,7 @@ The first line adds this repository as a marketplace and installs the plugin, wh
 
 `sitrep setup` backs up `~/.claude/settings.json` (to `settings.json.bak.<time>`, owner-only, never over an earlier backup) and checks the edit before it writes anything. It changes only the `statusLine` key and leaves the rest of the file as it was, a symlinked file included. If it finds an install from a checkout of the old shell version, it stops, changes nothing, and names what to take out by hand.
 
-sitrep runs on macOS and Linux; it uses file locks and process groups, so there is no Windows build.
+sitrep runs on macOS and Linux; it uses file locks and process groups, so there is no Windows build. On Windows, use WSL. A native install ends in hook errors on every event until you run `/plugin uninstall sitrep`, and `/sitrep:setup` stops on Windows before it changes anything.
 
 ### Updating
 
