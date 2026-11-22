@@ -4,39 +4,41 @@ See which of your Claude Code sessions needs you, and what each one is doing.
 
 ![The sitrep dashboard on the Cards tab: two sessions that need you in pink, one working, one snoozed](docs/img/hero-cards.png)
 
-*`sitrep dash --demo`, on made-up sessions. The pink rows need you; the `▶` is the selected one.*
+*`sitrep dash --demo`, on made-up sessions. A row with `●` needs you; `○` is a snoozed session; `▶` marks the selected row; the grey row is working.*
 
 When you run several Claude Code sessions in separate terminals, you lose track of them. Which one has stopped and waits for you? Which one is still working? What did you mean to ask next?
 
 sitrep puts a short report under each prompt: the objective, the progress, what the session is doing now, and a queue of what comes next. A full-screen dashboard lists all sessions on one screen and puts the ones that need you first. It is one Go program with plain files, and there is no server.
 
-To look around before you install anything, build it (`make build`) and run `./sitrep dash --demo`. The install is in [Quick Start](#quick-start).
+To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Quick Start](#quick-start)). To look around first, clone the repository, run `make build`, then `./sitrep dash --demo`.
 
 ## What It Looks Like
 
-The dashboard has three tabs, and `tab` switches between them. Cards shows the detail of a few sessions, as above. Table is a quick scan of many:
+The dashboard has three tabs, and `tab` switches between them. Cards shows the detail of a few sessions, as above. Table is a quick scan of many. `CTX` is the share of the context window left, and `idle?` marks a working session that has been quiet for a while:
 
 ![The Table tab: one line per session, with state, queue, context left and what it is doing now](docs/img/table.png)
 
-Wall shows the sessions as tiles, many to a screen, with those that need you first:
+Wall shows the sessions as tiles, many to a screen, with those that need you first. Text is cut to the width of a tile:
 
 ![The Wall tab: tiles of one size, the sessions that need you first](docs/img/wall.png)
 
-There are 38 themes, each for a dark and a light terminal, and `sitrep colors` is a tool for choosing one or making your own. A theme never repaints the terminal's background, only the rows, the bars and the marks:
+There are 38 themes, most with a dark and a light form, and `sitrep colors` is a tool for choosing one or making your own. A theme never repaints the terminal's background, only the rows, the bars and the marks:
+
+Ten of them are shown here, each on the same four sessions: one needs you, one has recent activity, one is working and one is snoozed.
 
 ![Six themes on a dark terminal: eighties, homebrew, nord, tokyo, volcano and gameboy](docs/img/themes-dark.png)
 
 ![Four themes on a light terminal: paper, novel, bossa-nova and arctic](docs/img/themes-light.png)
 
-What needs you never depends on colour alone: it has a `●` and the word `waiting`, and a snoozed session has a `○`. The `cvd-safe` theme uses only blue and orange, apart in lightness, and the picture shows it as it looks with normal sight, with protanopia and with deuteranopia:
+What needs you never depends on colour alone: it has a `●` and the word `waiting`, and a snoozed session has a `○`. The `cvd-safe` theme uses only blue and orange, apart in lightness, and the picture shows it as it would look with normal sight, with protanopia and with deuteranopia:
 
-![The cvd-safe theme as seen with normal sight, protanopia and deuteranopia](docs/img/cvd.png)
+![The cvd-safe theme as seen with normal sight, and simulated protanopia and deuteranopia](docs/img/cvd.png)
 
 The pictures are made from the program itself (`make screenshots`), so they match what you get. [The colour tool](docs/COLORS.md) and [the themes](docs/SETTINGS.md#the-themes) are described in the docs.
 
 ## Contents
 
-[Quick Start](#quick-start) · [What You See](#what-you-see) · [Why sitrep](#why-sitrep) · [Install](#install) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
+[What It Looks Like](#what-it-looks-like) · [Quick Start](#quick-start) · [What You See](#what-you-see) · [Why sitrep](#why-sitrep) · [Install](#install) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
 
 More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md) and [remote machines](docs/REMOTE.md).
 
@@ -48,21 +50,9 @@ You need Go 1.26 or newer (`go version`) and the `claude` CLI, because setup bui
 2. Restart your Claude Code sessions, and send a prompt in one. The status block shows under the prompt, and the session appears in the dashboard. With no sessions the dashboard shows only the tabs and `0 running, 0 ended`, and fills in as sessions start.
 3. In any terminal, run `sitrep dash` (`sitrep dash --demo` shows made-up sessions, if you want to look around first). Press `?` for the keys and `q` to quit. Setup links `sitrep` into `~/bin`, so that folder must be on your `PATH`; if the shell says `sitrep: command not found`, add it, or run `~/.claude/sitrep/bin/sitrep dash`.
 
-The dashboard lists your sessions, and a session "needs you" when Claude has stopped and the next move is yours, or when it waits at a permission dialog:
+A session "needs you" when Claude has stopped and the next move is yours, or when it waits at a permission dialog. It has a `●` before its state, and the dashboard puts it first.
 
-```
- Cards  Table  Wall
-────────────────────────────────────────────────────────────────────
-Inbox: 3 items
-▶ 5b7d  web   working <1m   1 item         <- ▶ is the selected row
-    Objective: Dark mode for the settings page
-  api   api   ● waiting 3m  2 items        <- ● means it needs you
-    Objective: Add pagination to list_orders
-    Now:       Waiting for you: should offset be zero-based?
- ● 1 need you   2 running   q quit  enter jump  / filter  ? help
-```
-
-Start on Cards for the detail of a few sessions, Table for a quick scan of many, and Wall when you have more than fit on a screen; `tab` switches. The `Inbox` line is work you queued for no session yet. `enter` jumps to the terminal that shows the selected session, `z` snoozes one that can wait (it then shows a `○` instead of the `●`, and the snooze ends by itself when the session changes), and `n` gives a session a name. The colour of a row that needs you fades after ten minutes, and the `●` stays.
+Start on Cards for a few sessions, Table for many, and Wall when you have more than fit on a screen. The `Inbox` line is work you queued for no session yet. `enter` jumps to the terminal that shows the selected session, `z` snoozes one that can wait (it then shows a `○` instead of the `●`, and the snooze ends by itself when the session changes), and `n` gives a session a name. The colour of a row that needs you fades after ten minutes, and the `●` stays.
 
 ## What You See
 
