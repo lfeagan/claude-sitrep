@@ -18,7 +18,7 @@ export SITREP_STATE_DIR="${SITREP_STATE_DIR:-$HOME/demo-state}"
 WAIT="${DEMO_WAIT:-180}"
 
 # shellcheck disable=SC2016 # the backticks are literal
-API_CUE='In `app.py`, add `limit` and `offset` to `list_orders`. Keep the change small. Do not ask, just make the change.'
+API_CUE='In `app.py`, add `limit` and `offset` to `list_orders`. Then write unittest tests for them in `test_orders.py` next to it and run them with `python3 -m unittest test_orders`. Keep it small. Do not ask, just do it.'
 WEB_CUE='Before changing anything, ask me in plain text, without using a question tool, whether dark mode should follow the system setting or a toggle. Then stop and wait for my answer.'
 
 say() { printf '\n== %s\n' "$*"; }
@@ -103,16 +103,17 @@ check() {
 	echo "ok: the three surfaces answer"
 }
 
-# reset puts the two demo projects back to their first commit's files, so a take starts
-# with work to do. It restores tracked files only and deletes nothing.
+# reset puts the two demo projects back to their committed files, so a take starts with work
+# to do. It restores tracked files, and removes the one file the api cue makes, by its own path.
 reset() {
 	say "reset the demo projects"
 	local root=$HOME/demo-projects d
 	for d in shop-api shop-web; do
 		git -C "$root/$d" rev-parse --is-inside-work-tree >/dev/null
 		git -C "$root/$d" checkout -- .
-		git -C "$root/$d" status --short
 	done
+	rm -f ~/demo-projects/shop-api/test_orders.py
+	for d in shop-api shop-web; do git -C "$root/$d" status --short; done
 	echo "ok"
 }
 

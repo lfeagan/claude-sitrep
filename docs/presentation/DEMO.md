@@ -30,11 +30,11 @@ Between takes, empty the demo inbox with `sitrep rm inbox` and run `sitrep prune
 
 Real sessions do what the prompt says, so the demo uses fixed prompts that behave the same on every take. Test each one in the dry run and adjust the wording until it does.
 
-- **api, to start working:** "In `app.py`, add `limit` and `offset` to `list_orders`. Keep the change small."
+- **api, to start working:** "In `app.py`, add `limit` and `offset` to `list_orders`. Then write unittest tests for them in `test_orders.py` next to it and run them with `python3 -m unittest test_orders`. Keep it small. Do not ask, just do it." It is longer than one edit so that `api` is still `working` when the recording starts. `reset` removes the `test_orders.py` it writes.
 - **web, to make it stop and ask:** "Before changing anything, ask me in plain text, without using a question tool, whether dark mode should follow the system setting or a toggle. Then stop and wait for my answer." This is what turns the `web` row pink-red, as `needs_input`.
 
   The cue must end the turn. Sitrep marks a session `waiting` (pink-red) only when the `Stop` hook fires, so a question tool or a permission dialog, which blocks in the middle of a turn, leaves the row at `working`. Type the cues by hand: a paste from a terminal can bring a quote bar (`▎`) into the Objective.
-- **api, to keep working:** add "Do not ask, just make the change." if Claude stops to ask for a go-ahead, since a stopped `api` shows `waiting` and the scene needs it `working`.
+- **api, if it stops to ask:** a stopped `api` shows `waiting`, and the glance needs it `working`. The "Do not ask" in the cue is there for that.
 
 ## Scenes
 
