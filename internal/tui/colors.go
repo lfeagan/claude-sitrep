@@ -64,6 +64,7 @@ type colorsModel struct {
 	dark          bool
 	sel           int
 	edit          *colorEdit
+	tab           int           // the tab the preview draws: the Table, the Cards or the Wall
 	gallery       *colorGallery // the list of themes with a sample of each, while it is open
 	ask           *colorAsk
 	msg           string
@@ -84,7 +85,7 @@ func newColorsModel(opts ColorsOptions) colorsModel {
 // newColorsModelOn is the tool over the sessions snap: made-up ones, or the dashboard's own when it opens the tool.
 func newColorsModelOn(opts ColorsOptions, snap Snapshot) colorsModel {
 	theme, colors := opts.File.Values()
-	m := colorsModel{opts: opts, snap: snap, dark: true, width: 100, height: 30, set: parseColors(colors)}
+	m := colorsModel{opts: opts, snap: snap, tab: tabTable, dark: true, width: 100, height: 30, set: parseColors(colors)}
 	m.theme = strings.ToLower(theme)
 	if _, ok := presets[m.theme]; !ok && m.theme != "mono" {
 		m.theme = "default"
@@ -234,6 +235,8 @@ func (m colorsModel) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.sel = len(colorRows) - 1
 	case "t":
 		m.dark = !m.dark
+	case "tab":
+		m.tab = (m.tab + 1) % tabCount
 	case "h", "left":
 		if m.sel == 0 {
 			m.cycleTheme(-1)
@@ -403,6 +406,16 @@ func (e *colorEdit) step(hue, light, chroma int) {
 	e.from = e.text
 }
 
+// numbers are the lightness, chroma and hue of the colour in the field, which the keys change, as the screen shows it.
+func (e colorEdit) numbers() string {
+	c := normColor(e.text)
+	if c == "" {
+		return ""
+	}
+	k := hexToOKLCH(c)
+	return fmt.Sprintf("  L %.0f  C %.2f  h %.0f", k.l*100, k.c, k.h)
+}
+
 func colorNumber(s string) (int, bool) {
 	c := normColor(s)
 	if c == "" || c[0] == '#' {
@@ -560,7 +573,7 @@ func (m colorsModel) body() string {
 	if m.gallery != nil {
 		return m.galleryBody(w, h, kind)
 	}
-	head := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(fmt.Sprintf(" Colours   theme: %s   preview: %s terminal (t switches)", m.theme, kind), w, "…"))
+	head := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(fmt.Sprintf(" Colours   theme: %s   preview: %s, %s terminal (tab, t switch)", m.theme, tabNames[m.tab], kind), w, "…"))
 
 	list := m.list(w)
 	room := h - 2 - len(list) // the header and the footer
@@ -568,7 +581,7 @@ func (m colorsModel) body() string {
 	if m.ask != nil && m.ask.kind == "write" {
 		middle = m.writeQuestion(room, w)
 	} else {
-		middle = strings.Split(render(m.snap, tabTable, "error: a sample error (showing data from 12s ago)", viewOpts{Width: w, Height: room, Error: true, Theme: m.previewTheme()}), "\n")
+		middle = strings.Split(render(m.snap, m.tab, "error: a sample error (showing data from 12s ago)", viewOpts{Width: w, Height: room, Error: true, Auto: true, Theme: m.previewTheme()}), "\n")
 	}
 	for len(middle) < room {
 		middle = append(middle, "")
@@ -658,7 +671,7 @@ func (m colorsModel) footer(w int) string {
 	case m.edit != nil && m.msg != "": // why the field was refused
 		text = " " + safe(m.msg)
 	case m.edit != nil:
-		text = fmt.Sprintf(" %s (%s terminal): %s▏  h/l hue  j/k light  H/L chroma  enter keeps  esc cancels", m.edit.name, map[bool]string{true: "dark", false: "light"}[m.dark], m.edit.text)
+		text = fmt.Sprintf(" %s (%s terminal): %s▏%s  h/l hue  j/k light  H/L chroma  enter keeps  esc cancels", m.edit.name, map[bool]string{true: "dark", false: "light"}[m.dark], m.edit.text, m.edit.numbers())
 	case m.msg != "": // what just happened, where the eyes are; the next key brings the hints back
 		text = " " + safe(m.msg)
 	default:

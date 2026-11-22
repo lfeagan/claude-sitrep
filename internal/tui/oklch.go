@@ -87,14 +87,14 @@ const (
 	stepHue    = 10.0
 	stepLight  = 0.03
 	stepChroma = 0.02
-	greyChroma = 0.02 // below this a colour is grey and has no hue to turn; the first turn gives it this much more
+	greyChroma = 0.02 // below this a colour is grey and has no hue to turn; the first turn gives it a little, so that a grey stays calm
 )
 
 // stepped moves a colour by whole steps of hue, lightness and chroma. It keeps what the screen cannot show (a chroma too big for its
 // hue), so that turning the hue round and back gives the colour it began with; hex() is where it is cut to fit.
 func (k oklch) stepped(hue, light, chroma int) oklch {
 	if hue != 0 && k.c < greyChroma {
-		k.c = 0.08
+		k.c = 0.04
 	}
 	k.h = math.Mod(k.h+float64(hue)*stepHue+360, 360)
 	k.l = math.Min(math.Max(k.l+float64(light)*stepLight, 0), 1)

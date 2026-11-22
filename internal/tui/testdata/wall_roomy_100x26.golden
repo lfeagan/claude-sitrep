@@ -1,6 +1,6 @@
  Cards   Table  [Wall] 
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-● 6 need you   11 running: 3 working, 8 waiting, 0 idle?, 0 ended   inbox 2 items   size: roomy
+● 6 need you   11 running: 3 working, 8 waiting   inbox 2 items   size: roomy
   s000  ● waiting 3m               s002  ● waiting 40m              s004  ● waiting 3m            
   Objective 0: a goal that is r…   Objective 2: a goal that is r…   Objective 4: a goal that is r…
   progress 0                       progress 2                       progress 4                    
@@ -23,4 +23,4 @@
   project-1                  38%   project-5                  38%   project-9                  38%
 +2 more
 
- ● 6 need you   11 running, 0 ended       q quit  enter jump  tab switch  hjkl move  s size  ? help 
+ ● 6 need you   11 running      q quit  enter jump  tab switch  hjkl move  s size  / filter  ? help 

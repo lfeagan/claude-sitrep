@@ -1,6 +1,6 @@
  Cards   Table  [Wall] 
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-● 6 need you   11 running: 3 working, 8 waiting, 0 idle?, 0 ended   inbox 2 items   size: standard
+● 6 need you   11 running: 3 working, 8 waiting   inbox 2 items   size: standard
   s000  ● waiting 3m               s002  ● waiting 40m              s004  ● waiting 3m            
   now 0 日本語のテキスト           now 2 日本語のテキスト           now 4 日本語のテキスト        
   no queue                         3 queued: the next item of 2,…   5 queued: the next item of 4,…
@@ -23,4 +23,4 @@
 
 
 
- ● 6 need you   11 running, 0 ended       q quit  enter jump  tab switch  hjkl move  s size  ? help 
+ ● 6 need you   11 running      q quit  enter jump  tab switch  hjkl move  s size  / filter  ? help 

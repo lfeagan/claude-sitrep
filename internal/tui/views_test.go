@@ -244,6 +244,16 @@ func TestNeedsInputIsMarkedAndColoured(t *testing.T) {
 	}
 }
 
+func TestSummaryLeavesOutCountsOfZero(t *testing.T) {
+	if got := summary(Snapshot{}); got != "0 running" {
+		t.Errorf("empty: %q", got)
+	}
+	s := Snapshot{Sessions: []Session{{ID: "a", Running: true, State: "working"}}}
+	if got := summary(s); got != "1 running: 1 working" {
+		t.Errorf("one working: %q", got)
+	}
+}
+
 func TestNeedsInputBeatsRecentActivity(t *testing.T) {
 	s := loadFixture(t)
 	s.Sessions[2].Highlight = true // recent as well as waiting
@@ -992,4 +1002,18 @@ func TestPreviewOfTheColourToolShowsTheErrorColour(t *testing.T) {
 		}
 	}
 	t.Error("no sample error in the preview")
+}
+
+func TestHeaderNotesAreLeftOutNotCutInHalf(t *testing.T) {
+	s := loadFixture(t)
+	for _, w := range []int{50, 60, 80} {
+		for _, tab := range []int{tabTable, tabWall} {
+			out := ansi.Strip(render(s, tab, "", viewOpts{Width: w, Height: 20}))
+			for _, l := range strings.Split(out, "\n")[:4] {
+				if strings.Contains(l, "…") && !strings.Contains(l, "NOW") && !strings.HasPrefix(strings.TrimSpace(l), "15f1") {
+					t.Errorf("tab %d width %d cuts a header line: %q", tab, w, l)
+				}
+			}
+		}
+	}
 }

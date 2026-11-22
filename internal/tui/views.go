@@ -225,6 +225,20 @@ func noMatch(s Snapshot, o viewOpts) string {
 	return msg
 }
 
+// withInbox adds the inbox to a summary line: in words when they fit in w columns, as a bare count when only that fits, else not at all, so a
+// word is never cut in half.
+func withInbox(line string, s Snapshot, w int) string {
+	if s.Inbox.Count == 0 {
+		return line
+	}
+	for _, tail := range []string{"   inbox " + queueWord(s.Inbox.Count), fmt.Sprintf("   inbox %d", s.Inbox.Count)} {
+		if w <= 0 || ansi.StringWidth(line+tail) <= w {
+			return line + tail
+		}
+	}
+	return line
+}
+
 func queueWord(n int) string {
 	switch n {
 	case 0:
@@ -544,17 +558,40 @@ func counts(s Snapshot) (running, working, waiting, idle, ended int) {
 
 func summary(s Snapshot) string {
 	r, w, a, i, e := counts(s)
-	out := fmt.Sprintf("%d running: %d working, %d waiting, %d idle?, %d ended", r, w, a, i, e)
+	var parts []string // a count of zero is left out
+	for _, c := range []struct {
+		n    int
+		word string
+	}{{w, "working"}, {a, "waiting"}, {i, "idle?"}, {e, "ended"}} {
+		if c.n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", c.n, c.word))
+		}
+	}
+	out := fmt.Sprintf("%d running", r)
+	if len(parts) > 0 {
+		out += ": " + strings.Join(parts, ", ")
+	}
 	if n := needYou(s); n > 0 {
 		out = fmt.Sprintf("● %d need you   ", n) + out
 	}
 	return out
 }
 
+// fitSummary is the full summary, or the short one when the full one does not fit in w columns.
+func fitSummary(s Snapshot, w int) string {
+	if full := summary(s); w <= 0 || ansi.StringWidth(full) <= w {
+		return full
+	}
+	return shortSummary(s)
+}
+
 // shortSummary is the status bar's version: short enough to leave room for the key hints.
 func shortSummary(s Snapshot) string {
 	r, _, _, _, e := counts(s)
-	out := fmt.Sprintf("%d running, %d ended", r, e)
+	out := fmt.Sprintf("%d running", r)
+	if e > 0 {
+		out += fmt.Sprintf(", %d ended", e)
+	}
 	if n := needYou(s); n > 0 {
 		out = fmt.Sprintf("● %d need you   ", n) + out
 	}
@@ -566,10 +603,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 	list, ended := shown(s, o.ShowEnded)
 	every := list // column widths follow every listed session, so the layout does not change with the filter
 	list = sorted(filterSessions(list, o.Filter), o.Sort)
-	head := []string{summary(s)}
-	if s.Inbox.Count > 0 {
-		head[0] += "   inbox " + queueWord(s.Inbox.Count)
-	}
+	head := []string{withInbox(fitSummary(s, o.Width), s, o.Width)}
 
 	dw, sw := 9, 5
 	for _, x := range every {
@@ -587,7 +621,11 @@ func topBody(s Snapshot, o viewOpts) []string {
 	if showCtx {
 		ctxHead = padRight("CTX", ctxWidth) + "  "
 	}
-	head = append(head, o.Theme.Label.Render(gutter("", o)+fmt.Sprintf("%s  %s  %s  %-5s  %s%s", idCell("ID", iw), padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", ctxHead, "NOW   sort: "+sortNames[o.Sort])))
+	cols := gutter("", o) + fmt.Sprintf("%s  %s  %s  %-5s  %s%s", idCell("ID", iw), padRight("DIRECTORY", dw), padRight("STATE", sw), "QUEUE", ctxHead, "NOW")
+	if sortNote := "   sort: " + sortNames[o.Sort]; ansi.StringWidth(cols+sortNote) <= o.Width { // a note that does not fit is left out, not cut
+		cols += sortNote
+	}
+	head = append(head, o.Theme.Label.Render(cols))
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
 		head = append(head, noMatch(s, o))
 	}

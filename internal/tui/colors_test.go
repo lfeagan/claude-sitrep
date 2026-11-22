@@ -713,3 +713,31 @@ func TestColorsWriteQuestionWrapsALongLineInsteadOfCuttingIt(t *testing.T) {
 		t.Errorf("the order of a/b is explained:\n%s", q)
 	}
 }
+
+func TestColorsEditShowsLightnessChromaAndHue(t *testing.T) {
+	m, _ := newColors(t, "")
+	m = ckey(t, m, "j", "j", "j", "j", "enter")
+	m = ckey(t, m, "h")
+	f := ansi.Strip(m.footer(120))
+	if !strings.Contains(f, "L ") || !strings.Contains(f, "C 0.") || !strings.Contains(f, "h ") {
+		t.Errorf("the field shows the numbers the keys change: %q", f)
+	}
+}
+
+func TestColorsTabSwitchesThePreview(t *testing.T) {
+	m, _ := newColors(t, "")
+	m.width, m.height = 110, 34
+	table := ansi.Strip(m.body())
+	if !strings.Contains(table, "preview: Table") || !strings.Contains(table, "STATE") {
+		t.Fatalf("the preview starts on the Table:\n%s", table)
+	}
+	m = ckey(t, m, "tab")
+	cards := ansi.Strip(m.body())
+	if !strings.Contains(cards, "preview: Wall") || strings.Contains(cards, "STATE") {
+		t.Errorf("tab moves on to the Wall, which has no columns:\n%s", cards)
+	}
+	m = ckey(t, m, "tab")
+	if got := ansi.Strip(m.body()); !strings.Contains(got, "preview: Cards") || !strings.Contains(got, "Objective:") {
+		t.Errorf("then the Cards:\n%s", got)
+	}
+}

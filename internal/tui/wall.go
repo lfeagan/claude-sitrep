@@ -129,12 +129,11 @@ func wallSizeFor(s Snapshot, o viewOpts) int {
 func wallBody(s Snapshot, o viewOpts) []string {
 	list, ended := shown(s, o.ShowEnded)
 	list = sorted(filterSessions(list, o.Filter), sortState)
-	head := summary(s)
-	if s.Inbox.Count > 0 {
-		head += "   inbox " + queueWord(s.Inbox.Count)
-	}
+	head := withInbox(fitSummary(s, o.Width), s, o.Width)
 	size := wallSizeFor(s, o)
-	head += "   size: " + wallSizeNames[size]
+	if sizeNote := "   size: " + wallSizeNames[size]; o.Width <= 0 || ansi.StringWidth(head+sizeNote) <= o.Width {
+		head += sizeNote
+	}
 	if len(list) == 0 && strings.TrimSpace(o.Filter) != "" {
 		head += "   " + noMatch(s, o)
 	}

@@ -1,6 +1,6 @@
 # The colour tool
 
-Design note. Built as described, except that the preview is the Table tab.
+Design note. Built as described, except that the preview starts on the Table tab and `tab` moves it to the Wall and the Cards.
 
 ## What it is
 
@@ -34,11 +34,11 @@ The `C` key of `sitrep dash` opens the same model over the dashboard's own sessi
 - Values are shown for the terminal kind on screen. A colour has a light and a dark value. Editing one side writes `light/dark`, with the other side being the value it has now. When the two sides end up equal, one value is written.
 - Under the `mono` theme the colour rows are greyed with the line `mono has no colours; pick another theme`, because `themeFor` ignores `SITREP_COLORS` there. Under `NO_COLOR` the tool starts with `NO_COLOR is set: the preview shows no colour`, and the editing still works.
 - When `SITREP_THEME` or `SITREP_COLORS` is set in the environment, the tool starts with a warning that the environment beats the file (`conf.Get` reads it first), so what it writes will not show until the variable is unset. The tool starts from the values the file holds (`FromFile`), never from the environment's, so it never writes the shell's values into the file.
-- On a short screen the preview gives way first: the preview is the Table tab, which shows every kind of row in the fewest lines, and it takes what the list and the footer leave. Below 16 rows the tool says the screen is too small.
+- On a short screen the preview gives way first: the preview starts on the Table tab, which shows every kind of row in the fewest lines (`tab` switches it to the Wall and the Cards), and it takes what the list and the footer leave. Below 16 rows the tool says the screen is too small.
 
 ## The editor
 
-`enter` on a colour opens a one-line field under the list. It takes `#rrggbb` or a terminal colour number from 0 to 255 (the two forms `parseColors` reads), with `ctrl+u` and `ctrl+w` as in the other prompts. The candidate shows in the preview while it is typed, and an entry that is not a colour is shown as it is and refused at `enter`. `up` and `down` step a number by one, so a colour can be found by walking. For a colour in hex, `h`/`l` turn the hue, `j`/`k` change the lightness and `H`/`L` the chroma, in the OKLCH model (`internal/tui/oklch.go`): turning the hue keeps the lightness, which HSL does not. A chroma the screen cannot show is kept in the field's state and cut only when drawn, so turning the hue round and back returns the colour. The candidate shows in the preview while the field is open. `enter` accepts and `esc` cancels.
+`enter` on a colour opens a one-line field under the list. It takes `#rrggbb` or a terminal colour number from 0 to 255 (the two forms `parseColors` reads), with `ctrl+u` and `ctrl+w` as in the other prompts. The candidate shows in the preview while it is typed, and an entry that is not a colour is shown as it is and refused at `enter`. `up` and `down` step a number by one, so a colour can be found by walking. The footer shows the lightness, chroma and hue of the colour in the field (`L 65  C 0.04  h 210`); the first hue turn of a grey gives it only a little chroma, so it stays calm. For a colour in hex, `h`/`l` turn the hue, `j`/`k` change the lightness and `H`/`L` the chroma, in the OKLCH model (`internal/tui/oklch.go`): turning the hue keeps the lightness, which HSL does not. A chroma the screen cannot show is kept in the field's state and cut only when drawn, so turning the hue round and back returns the colour. The candidate shows in the preview while the field is open. `enter` accepts and `esc` cancels.
 
 `enter` on the theme row opens a gallery of the themes (`ThemeNames`), one line each in its own colours: the bar, recent activity, a session that needs you, a snoozed one, dim text and an error. `j`/`k` move, `enter` chooses, `t` switches between a dark and a light terminal, `esc` goes back. `h` and `l` on the theme row still step through the themes without it. Choosing a theme keeps the user's colours as overrides on top of it.
 
@@ -84,7 +84,7 @@ Every snapshot builds a fresh `Conf` and reads `sitrep.conf` again, and the dash
 
 ## Keys
 
-`j`/`k` move, `enter` edits, `r` resets this one to the theme's own, `t` switches the preview between a dark and a light terminal, `w` writes (asks), `q` quits (asks when something is unwritten), `h`/`l` on the theme row change the theme.
+`j`/`k` move, `tab` changes the tab the preview draws, `enter` edits, `r` resets this one to the theme's own, `t` switches the preview between a dark and a light terminal, `w` writes (asks), `q` quits (asks when something is unwritten), `h`/`l` on the theme row change the theme.
 
 ## Risks
 

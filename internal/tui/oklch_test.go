@@ -105,3 +105,10 @@ func TestOKLCHTerminalNumbersConvert(t *testing.T) {
 		t.Errorf("%q", got)
 	}
 }
+
+func TestOKLCHFirstTurnFromAGreyStaysQuiet(t *testing.T) {
+	k := hexToOKLCH(stepColor("#8b8b96", 1, 0, 0))
+	if k.c > 0.06 {
+		t.Errorf("a grey turned to a loud colour: chroma %.3f", k.c)
+	}
+}

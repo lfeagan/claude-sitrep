@@ -1,7 +1,7 @@
- Colours   theme: default   preview: dark terminal (t switches)
+ Colours   theme: default   preview: Table, dark terminal (tab, t switch)
  Cards  Table  Wall 
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-● 1 need you   2 running: 1 working, 1 waiting, 0 idle?, 0 ended
+● 1 need you   2 running: 1 working, 1 waiting
   ID    DIRECTORY  STATE      QUEUE  CTX   NOW   sort: activity
   aaaa  web        ● waiting  0      -     n                                                        
   bbbb  web        working    0      -     n
