@@ -67,11 +67,18 @@ type colorsModel struct {
 	lastBackup    string
 	savedTheme    string
 	savedColors   string
+	embedded      bool // opened from the dashboard: q returns to it instead of quitting
+	done          bool
 }
 
 func newColorsModel(opts ColorsOptions) colorsModel {
+	return newColorsModelOn(opts, FromSnapshot(opts.Sessions))
+}
+
+// newColorsModelOn is the tool over the sessions snap: made-up ones, or the dashboard's own when it opens the tool.
+func newColorsModelOn(opts ColorsOptions, snap Snapshot) colorsModel {
 	theme, colors := opts.File.Values()
-	m := colorsModel{opts: opts, snap: FromSnapshot(opts.Sessions), dark: true, width: 100, height: 30, set: parseColors(colors)}
+	m := colorsModel{opts: opts, snap: snap, dark: true, width: 100, height: 30, set: parseColors(colors)}
 	m.theme = strings.ToLower(theme)
 	if _, ok := presets[m.theme]; !ok && m.theme != "mono" {
 		m.theme = "default"
@@ -208,7 +215,7 @@ func (m colorsModel) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.ask = &colorAsk{kind: "quit"}
 			return m, nil
 		}
-		return m, tea.Quit
+		return m.leave()
 	case "j", "down":
 		m.sel = min(m.sel+1, len(colorRows)-1)
 	case "k", "up":
@@ -415,12 +422,21 @@ func orNone(s string) string {
 	return s
 }
 
+// leave ends the tool: the program quits, or, opened from the dashboard, the dashboard comes back.
+func (m colorsModel) leave() (tea.Model, tea.Cmd) {
+	if m.embedded {
+		m.done = true
+		return m, nil
+	}
+	return m, tea.Quit
+}
+
 func (m colorsModel) askKey(k string) (tea.Model, tea.Cmd) {
 	a := m.ask
 	switch k {
 	case "y":
 		if a.kind == "quit" {
-			return m, tea.Quit
+			return m.leave()
 		}
 		return m.write()
 	case "n", "esc", "q":
@@ -580,4 +596,47 @@ func (m colorsModel) writeQuestion(room, w int) []string {
 		out[i] = ansi.Truncate(l, w, "…")
 	}
 	return out
+}
+
+// colorsOpen opens the colour tool over the dashboard, on the sessions it shows.
+func (m model) colorsOpen() (tea.Model, tea.Cmd) {
+	if m.colorsOpts == nil {
+		m.say("colours: not on offer here; run sitrep colors")
+		return m, nil
+	}
+	opts := *m.colorsOpts
+	opts.ReadOnly = opts.ReadOnly || m.readOnly
+	dark := m.isDark
+	opts.Dark = &dark
+	c := newColorsModelOn(opts, m.snap)
+	c.embedded, c.width, c.height = true, m.width, m.height
+	m.colors = &c
+	return m, nil
+}
+
+// colorsUpdate gives the keys to the colour tool while it is open, and the size and background to both. It reports whether the dashboard
+// has nothing more to do with the message. When the tool ends, the dashboard fetches again, so a colour that was written shows at once.
+func (m model) colorsUpdate(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		next, cmd := m.colors.Update(msg)
+		c := next.(colorsModel)
+		if !c.done {
+			m.colors = &c
+			return m, cmd, true
+		}
+		m.colors = nil
+		if !m.fetching {
+			m.fetching, m.started = true, m.started+1
+			return m, m.fetchCmd(), true
+		}
+		return m, nil, true
+	case tea.MouseMsg:
+		return m, nil, true
+	case tea.WindowSizeMsg:
+		next, _ := m.colors.Update(msg)
+		c := next.(colorsModel)
+		m.colors = &c
+	}
+	return m, nil, false
 }

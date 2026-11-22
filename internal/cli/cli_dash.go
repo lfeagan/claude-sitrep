@@ -112,7 +112,11 @@ func cmdDash(e Env, args []string) error {
 	if *once || !e.isTerminal() {
 		return e.printFrame(eng, *tab, *width, false)
 	}
-	err := tui.Run(tui.Options{Tab: *tab, Interval: *interval, ReadOnly: *readOnly, NoBell: *noBell, Mouse: *mouse, QuitOnJump: *quitOnJump}, eng)
+	opts := tui.Options{Tab: *tab, Interval: *interval, ReadOnly: *readOnly, NoBell: *noBell, Mouse: *mouse, QuitOnJump: *quitOnJump}
+	if !*demo { // the demo reads no file, so it has no colours to change
+		opts.Colors = &tui.ColorsOptions{File: colorsFile{e.conf(), e.Clock.Now}, Notes: e.colorNotes()}
+	}
+	err := tui.Run(opts, eng)
 	if err != nil {
 		return err
 	}

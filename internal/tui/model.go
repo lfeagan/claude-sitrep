@@ -43,55 +43,57 @@ func (m *model) say(text string) {
 }
 
 type model struct {
-	bin       string
-	interval  time.Duration
-	snap      Snapshot
-	haveSnap  bool
-	err       error
-	lastOK    time.Time
-	fetching  bool
-	started   int // fetches started, so tests can check that none overlap
-	width     int
-	height    int
-	tab       int
-	showEnded bool
-	selID     string                                      // the selected session, by id, so a refresh or a re-sort does not move it
-	filter    string                                      // only sessions that contain this text are listed
-	filtering bool                                        // keys type into the filter
-	run       runner                                      // runs tmux, ps, cmux and sitrep; tests replace it
-	fetcher   func(ctx context.Context) (Snapshot, error) // reads the sessions
-	readOnly  bool                                        // no key changes any state
-	bell      bool                                        // ring the terminal bell when a session starts needing the user
-	prune     int                                         // the phase of the prune screen
-	pruneText []string
-	acting    bool   // a jump is running, so another is ignored
-	quitJump  bool   // leave the dashboard after a good jump, for a popup
-	msg       string // the last thing an action said
-	msgAt     time.Time
-	detail    bool         // the detail pane is open for the selected session
-	queue     bool         // the queue view is open
-	qKind     int          // qInbox or qSession
-	qTo       string       // the session it shows, or for the inbox the one `t` hands items to
-	qSel      int          // the selected item, by position,
-	qText     string       // and by text, so it stays on the same item when the list changes
-	pendSel   int          // the item to select when the running change worked, or -1
-	refetch   bool         // a change finished while a fetch was running: that fetch is stale
-	settling  bool         // a change finished and its snapshot has not arrived, so the list may be old
-	ask       *askState    // the open question, if any
-	prompt    *promptState // the open line of typing, if any
-	mover     *moverState  // the open list of places to send an item to, if any
-	scroll    int          // the top line of the detail pane
-	sortBy    int
-	help      bool
-	helpAt    int    // the first line of the key list that is shown
-	pending   string // the first key of a two-key command that waits for its second: g (gg, the first row) or d (dd, remove an item)
-	isDark    bool
-	now       func() time.Time
-	wallSize  int // the tile size of the Wall tab, once s has chosen one
-	wallSet   bool
-	mouse     bool      // clicks select a row or open a tab, and a double click jumps
-	clickID   string    // the session of the last click, and when it came,
-	clickAt   time.Time // for the double click
+	bin        string
+	interval   time.Duration
+	snap       Snapshot
+	haveSnap   bool
+	err        error
+	lastOK     time.Time
+	fetching   bool
+	started    int // fetches started, so tests can check that none overlap
+	width      int
+	height     int
+	tab        int
+	showEnded  bool
+	selID      string                                      // the selected session, by id, so a refresh or a re-sort does not move it
+	filter     string                                      // only sessions that contain this text are listed
+	filtering  bool                                        // keys type into the filter
+	run        runner                                      // runs tmux, ps, cmux and sitrep; tests replace it
+	fetcher    func(ctx context.Context) (Snapshot, error) // reads the sessions
+	readOnly   bool                                        // no key changes any state
+	bell       bool                                        // ring the terminal bell when a session starts needing the user
+	prune      int                                         // the phase of the prune screen
+	pruneText  []string
+	acting     bool   // a jump is running, so another is ignored
+	quitJump   bool   // leave the dashboard after a good jump, for a popup
+	msg        string // the last thing an action said
+	msgAt      time.Time
+	detail     bool         // the detail pane is open for the selected session
+	queue      bool         // the queue view is open
+	qKind      int          // qInbox or qSession
+	qTo        string       // the session it shows, or for the inbox the one `t` hands items to
+	qSel       int          // the selected item, by position,
+	qText      string       // and by text, so it stays on the same item when the list changes
+	pendSel    int          // the item to select when the running change worked, or -1
+	refetch    bool         // a change finished while a fetch was running: that fetch is stale
+	settling   bool         // a change finished and its snapshot has not arrived, so the list may be old
+	ask        *askState    // the open question, if any
+	prompt     *promptState // the open line of typing, if any
+	mover      *moverState  // the open list of places to send an item to, if any
+	scroll     int          // the top line of the detail pane
+	sortBy     int
+	help       bool
+	helpAt     int    // the first line of the key list that is shown
+	pending    string // the first key of a two-key command that waits for its second: g (gg, the first row) or d (dd, remove an item)
+	isDark     bool
+	now        func() time.Time
+	wallSize   int // the tile size of the Wall tab, once s has chosen one
+	wallSet    bool
+	colorsOpts *ColorsOptions // what C opens, or nil
+	colors     *colorsModel   // the colour tool, while it is open over the dashboard
+	mouse      bool           // clicks select a row or open a tab, and a double click jumps
+	clickID    string         // the session of the last click, and when it came,
+	clickAt    time.Time      // for the double click
 }
 
 // doubleClick is the longest gap between two clicks on one row that counts as a double click.
@@ -493,6 +495,11 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.colors != nil {
+		if next, cmd, handled := m.colorsUpdate(msg); handled {
+			return next, cmd
+		}
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(msg.Width, 1), max(msg.Height, 1) // 0 would mean "no limit"
@@ -675,6 +682,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.filter = ""
 				m.fixSel()
 			}
+		case "C":
+			return m.colorsOpen()
 		case "p":
 			return m.pruneStart()
 		case "v", "space", " ":
@@ -783,9 +792,12 @@ func (m model) View() tea.View {
 		}
 		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Theme: theme})
 	}
+	if m.colors != nil {
+		body = m.colors.body()
+	}
 	v := tea.NewView(body)
 	v.AltScreen = true
-	if m.mouse {
+	if m.mouse && m.colors == nil {
 		v.MouseMode = tea.MouseModeCellMotion
 	}
 	return v

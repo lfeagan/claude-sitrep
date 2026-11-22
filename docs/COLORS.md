@@ -8,7 +8,7 @@ Design note. Built as described, except that the preview is the Table tab.
 
 It is one Bubble Tea model (`internal/tui/colors.go`). The preview is made by building the `SITREP_COLORS` string the tool would write and passing it, with the theme name, to the dashboard's own `themeFor` and `render`, so there is one path and the preview cannot drift from the dashboard. The preview data is the made-up `--demo` sessions. The command needs no sessions and no install.
 
-First version only: the standalone command. A `C` key inside `dash`, over the real sessions, comes later.
+The `C` key of `sitrep dash` opens the same model over the dashboard's own sessions, and `q` returns to it.
 
 ## The screen
 

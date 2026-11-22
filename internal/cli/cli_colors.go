@@ -54,16 +54,24 @@ func cmdColors(e Env, args []string) error {
 		t := true
 		opts.Dark = &t
 	}
+	opts.Notes = e.colorNotes()
+	return tui.RunColors(opts)
+}
+
+// colorNotes are what the colour tool says when it opens: a setting that the environment overrides, a value in the file that the dashboard
+// ignores, NO_COLOR.
+func (e Env) colorNotes() []string {
+	var notes []string
 	for _, n := range conf.Editable {
 		if e.Getenv(n) != "" {
-			opts.Notes = append(opts.Notes, n+" is set in the environment, which beats sitrep.conf: a change here shows only where it is unset.")
+			notes = append(notes, n+" is set in the environment, which beats sitrep.conf: a change here shows only where it is unset.")
 		}
 	}
 	if f := e.conf(); !conf.ValidColors(f.FromFile("SITREP_COLORS")) || !conf.ValidTheme(strings.ToLower(f.FromFile("SITREP_THEME"))) {
-		opts.Notes = append(opts.Notes, "sitrep.conf has a theme or colours the dashboard ignores (too long, or a character it does not read): they are not shown here.")
+		notes = append(notes, "sitrep.conf has a theme or colours the dashboard ignores (too long, or a character it does not read): they are not shown here.")
 	}
 	if e.Getenv("NO_COLOR") != "" {
-		opts.Notes = append(opts.Notes, "NO_COLOR is set: the terminal may show no colour.")
+		notes = append(notes, "NO_COLOR is set: the terminal may show no colour.")
 	}
-	return tui.RunColors(opts)
+	return notes
 }

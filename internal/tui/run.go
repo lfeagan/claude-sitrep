@@ -34,6 +34,7 @@ type Options struct {
 	NoBell     bool
 	Mouse      bool // a click selects a row and a double click jumps
 	QuitOnJump bool
+	Colors     *ColorsOptions // what the C key opens; nil when the colour tool is not on offer here
 }
 
 func tabByName(name string) (int, error) {
@@ -126,6 +127,7 @@ func Run(opts Options, eng Engine) error {
 	m := newModel(engineName, max(opts.Interval, time.Second), t)
 	m.fetcher, m.run = fetcher(eng), routed(eng)
 	m.quitJump, m.readOnly, m.bell, m.mouse = opts.QuitOnJump, opts.ReadOnly, !opts.NoBell, opts.Mouse
+	m.colorsOpts = opts.Colors
 	_, err = tea.NewProgram(m).Run()
 	return err
 }

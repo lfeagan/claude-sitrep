@@ -732,6 +732,7 @@ func helpLines(width int, readOnly bool) []string {
 		"  t, P, U, m                     take an inbox item; pin, unpin; m sends it on",
 		"  n                              name the selected session (an alias); empty clears it",
 		"  z                              snooze it until it changes; z again ends it",
+		"  C                              choose the colours: a preview, a picker, and a write to sitrep.conf",
 		"  p                              prune the sessions that are gone (asks first)",
 		"  r                              refresh now",
 		"  ?                              this list, from any screen",

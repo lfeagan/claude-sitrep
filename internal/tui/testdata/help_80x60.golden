@@ -23,6 +23,8 @@ Keys
   n                              name the selected session (an alias); empty
                                  clears it
   z                              snooze it until it changes; z again ends it
+  C                              choose the colours: a preview, a picker, and a
+                                 write to sitrep.conf
   p                              prune the sessions that are gone (asks first)
   r                              refresh now
   ?                              this list, from any screen
@@ -42,8 +44,6 @@ Colours
   ○            snoozed: waiting, but you said it can wait
   purple       the session changed in the last minute
   idle?        working, but quiet for 10 minutes: it may have been interrupted
-
-
 
 
 

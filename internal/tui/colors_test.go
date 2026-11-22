@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"math"
 	"os"
@@ -462,5 +463,75 @@ func TestColorsFieldTurnsRoundAndBackToTheSameColour(t *testing.T) {
 	m = ckey(t, m, "k")
 	if k := hexToOKLCH(m.edit.text); math.Abs(k.h-hexToOKLCH("#00ff00").h) > 3 {
 		t.Errorf("a typed colour is the new start: %s", m.edit.text)
+	}
+}
+
+func colorsDash(t *testing.T, readOnly bool) (model, *memFile) {
+	t.Helper()
+	f := &memFile{body: "A=1\n"}
+	m := loaded(t, tabTable)
+	m.colorsOpts = &ColorsOptions{File: f}
+	m.readOnly = readOnly
+	m.run = func(context.Context, string, ...string) (string, error) { return "", nil }
+	return m, f
+}
+
+func TestCKeyOpensTheColourToolOverTheDashboardAndReturns(t *testing.T) {
+	m, f := colorsDash(t, false)
+	m, _ = press(t, m, "C")
+	if m.colors == nil {
+		t.Fatal("C opens the tool")
+	}
+	if m.colors.snap.Sessions[0].ID != m.snap.Sessions[0].ID {
+		t.Error("the preview is made of the dashboard's own sessions")
+	}
+	if !strings.Contains(m.View().Content, "Colours") {
+		t.Error("the tool is on screen")
+	}
+	sel := m.selID
+	m, _ = press(t, m, "j") // goes to the tool, not to the dashboard
+	if m.selID != sel || m.colors.sel != 1 {
+		t.Errorf("keys go to the tool: dashboard %q tool row %d", m.selID, m.colors.sel)
+	}
+	m, _ = press(t, m, "g") // the theme row
+	m, _ = press(t, m, "l")
+	m, _ = press(t, m, "w")
+	m, _ = press(t, m, "y")
+	if f.body != "A=1\nSITREP_THEME=pastel\n" {
+		t.Fatalf("the write works from the dashboard: %q", f.body)
+	}
+	m, cmd := press(t, m, "q")
+	if m.colors != nil || cmd == nil {
+		t.Errorf("q returns to the dashboard and fetches again: tool %v cmd %v", m.colors != nil, cmd != nil)
+	}
+	if m.tab != tabTable {
+		t.Error("the dashboard is where it was")
+	}
+}
+
+func TestCKeyInAReadOnlyDashboardOpensAReadOnlyTool(t *testing.T) {
+	m, f := colorsDash(t, true)
+	m, _ = press(t, m, "C")
+	m, _ = press(t, m, "l")
+	m, _ = press(t, m, "w")
+	if f.writes != 0 || !strings.Contains(m.colors.msg, "read-only") {
+		t.Errorf("w is off: %q", m.colors.msg)
+	}
+}
+
+func TestCKeyWithoutAToolSaysSo(t *testing.T) {
+	m := loaded(t, tabCards)
+	m, _ = press(t, m, "C")
+	if m.colors != nil || !strings.Contains(m.statusText(), "sitrep colors") {
+		t.Errorf("%q", m.statusText())
+	}
+}
+
+func TestCKeyIsTextInAPrompt(t *testing.T) {
+	m, _ := colorsDash(t, false)
+	m, _ = press(t, m, "/")
+	m, _ = press(t, m, "C")
+	if m.colors != nil || m.filter != "C" {
+		t.Errorf("a typed C is part of the filter: %q", m.filter)
 	}
 }
