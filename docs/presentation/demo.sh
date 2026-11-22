@@ -23,7 +23,10 @@ API_CUE='In `app.py`, add `limit` and `offset` to `list_orders`. Then write unit
 WEB_CUE='Before changing anything, ask me in plain text, without using a question tool, whether dark mode should follow the system setting or a toggle. Then stop and wait for my answer.'
 
 say() { printf '\n== %s\n' "$*"; }
-pause() { [ -n "${DEMO_AUTO:-}" ] || read -r -p "-- $* (enter to go on) " _; }
+# With DEMO_AUTO the script waits DEMO_GAP seconds where it would wait for you, so a recording has time to breathe.
+pause() {
+	if [ -n "${DEMO_AUTO:-}" ]; then sleep "${DEMO_GAP:-4}"; else read -r -p "-- $* (enter to go on) " _; fi
+}
 
 # at_prompt: the recorded shell's last line is a bare prompt, with no draft and no program
 # (such as `sitrep watch`) that would take the typing as keys. DEMO_PROMPT_RE matches that line.
@@ -65,7 +68,7 @@ type_into() {
 	cmux send --surface "$1" -- "$2"
 	cmux send-key --surface "$1" enter
 	# Lets the screen redraw before the next prompt check, and gives a viewer time to read.
-	[ "$1" != "$DEMO_SHELL" ] || sleep "${DEMO_BEAT:-1.5}"
+	[ "$1" != "$DEMO_SHELL" ] || sleep "${DEMO_BEAT:-3}"
 }
 
 snapshot() { sitrep ls --json; }
@@ -233,6 +236,7 @@ all)
 		pause "next: $s"
 		"$s"
 	done
+	pause "end"
 	;;
 *) echo "usage: demo.sh check | reset | cue | cue-api | cue-web | scene1..scene6 | all" >&2; exit 2 ;;
 esac
