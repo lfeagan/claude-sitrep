@@ -18,7 +18,7 @@ The demo needs a state folder of its own. Otherwise the dashboard would show you
 
 1. Make the demo state folder and set it for every demo terminal, before `claude` starts: `export SITREP_STATE_DIR=~/demo-state`. The hooks, the status line and the summarizer take it from the shell that starts `claude`, and so do your own `sitrep` commands.
 2. Check that sitrep 0.9.0 or newer is installed (`sitrep version`), since the setting does not exist before it. Nothing else needs installing: the program and the plugin are the ones you already have.
-3. Make the two projects under `~/demo-projects`, each small enough that a task takes one turn:
+3. Run `./demo-setup.sh`. It makes the two projects under `~/demo-projects` as git repos, each small enough that a task takes one turn, and stops if the folder already exists:
    - `shop-api`: a few files with a `list_orders` function and a flaky test.
    - `shop-web`: a few files with a settings page and a stylesheet.
 4. Set up cmux for the screen: a large font, a theme with good contrast, a short prompt, and a window size that records well. Allow screen recording if cmux asks.
