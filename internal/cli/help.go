@@ -172,7 +172,7 @@ A full-screen tool for choosing the dashboard's colours. It draws a preview of e
 is used (the tabs and status bar, a session that needs you, one that was faded, recent activity,
 a snoozed one, dim text, an error), on made-up sessions, and a list of the settings: the theme and
 the colours accent, dim, hot, attn, error and snoozed. j and k move, enter edits a colour or, on the
-theme row, picks the next theme. In the field, type #rrggbb or a number from 0 to 255, or step: h and l
+theme row, opens a gallery of the 16 themes, each in its own colours (h and l move to the next theme without it). In the field, type #rrggbb or a number from 0 to 255, or step: h and l
 turn the hue, j and k change the lightness, H and L the chroma (OKLCH, so a hue turn keeps the
 lightness); up and down walk the 256 numbers when the field holds one. r resets a setting to the theme's own, t switches the preview between a dark and a
 light terminal, and w writes.

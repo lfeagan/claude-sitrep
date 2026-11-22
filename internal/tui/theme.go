@@ -45,13 +45,59 @@ var presets = map[string]palette{
 		accent: [2]string{"#0000b3", "#ffd400"}, dim: [2]string{"#3a3a3a", "#c8c8c8"}, hot: [2]string{"#c8c8c8", "#505050"},
 		attn: [2]string{"#ff9a9a", "#a40000"}, errc: [2]string{"#a00000", "#ff7070"}, snooze: [2]string{"#0033cc", "#6ea8ff"},
 	},
+	// the themes below are moods, not copies of any terminal's colours: sitrep draws bars, rows and marks, and the terminal keeps its own background
+	"ocean": {
+		accent: [2]string{"#1f5fa8", "#6cb0f0"}, dim: [2]string{"#5b6f85", "#8aa0b8"}, hot: [2]string{"#dcecfa", "#1d3550"},
+		attn: [2]string{"#ffe0b8", "#5a2350"}, errc: [2]string{"#c0392b", "#ff8f80"}, snooze: [2]string{"#2b7a9e", "#7fc8e8"},
+	},
+	"forest": {
+		accent: [2]string{"#2e6b3a", "#7fd18f"}, dim: [2]string{"#5f7466", "#8fa596"}, hot: [2]string{"#dff0e0", "#1f3a27"},
+		attn: [2]string{"#ffe9a8", "#5e1f2a"}, errc: [2]string{"#b3261e", "#ff8a80"}, snooze: [2]string{"#3a7f7a", "#7fcfc7"},
+	},
+	"homebrew": {
+		accent: [2]string{"#1a7f1a", "#33ff66"}, dim: [2]string{"#4a6a4a", "#6fae6f"}, hot: [2]string{"#d8f5d8", "#0f3a14"},
+		attn: [2]string{"#fff0a0", "#5a1e1e"}, errc: [2]string{"#b00020", "#ff5555"}, snooze: [2]string{"#1a7f7f", "#55dddd"},
+	},
+	"red-sands": {
+		accent: [2]string{"#a5472f", "#e8967a"}, dim: [2]string{"#8a6f62", "#b59a8c"}, hot: [2]string{"#f6e3d8", "#4a2a22"},
+		attn: [2]string{"#ffcfb0", "#7a2a3a"}, errc: [2]string{"#8e1b1b", "#ff7b6b"}, snooze: [2]string{"#7a6a8f", "#b7a6d0"},
+	},
+	"novel": {
+		accent: [2]string{"#7a5a2e", "#d2b078"}, dim: [2]string{"#8a7a62", "#b0a088"}, hot: [2]string{"#efe6cf", "#3d3626"},
+		attn: [2]string{"#f5d9a0", "#4a2f3a"}, errc: [2]string{"#9b2c1f", "#ff8f7a"}, snooze: [2]string{"#5c7a6a", "#9cc0ac"},
+	},
+	"nord": {
+		accent: [2]string{"#4a6f9c", "#88c0d0"}, dim: [2]string{"#4c566a", "#8b95a8"}, hot: [2]string{"#e5e9f0", "#3b4252"},
+		attn: [2]string{"#f3e3b8", "#5a3040"}, errc: [2]string{"#bf616a", "#e08a93"}, snooze: [2]string{"#4a8a89", "#8fbcbb"},
+	},
+	"solarized": {
+		accent: [2]string{"#1f78b8", "#40b0a5"}, dim: [2]string{"#657b83", "#839496"}, hot: [2]string{"#eee8d5", "#073642"},
+		attn: [2]string{"#f5e3a3", "#4a1d3a"}, errc: [2]string{"#dc322f", "#ff6b66"}, snooze: [2]string{"#6c71c4", "#9aa0f0"},
+	},
+	// the seasons
+	"winter": {
+		accent: [2]string{"#3b6ea5", "#a9d2f5"}, dim: [2]string{"#62788f", "#93a9bf"}, hot: [2]string{"#e3f0fb", "#1c2f45"},
+		attn: [2]string{"#e7e0fa", "#3b2a5e"}, errc: [2]string{"#b8323f", "#ff9aa0"}, snooze: [2]string{"#4f8fb5", "#a8d8ee"},
+	},
+	"spring": {
+		accent: [2]string{"#2f7d3e", "#a6e39a"}, dim: [2]string{"#67806a", "#95b09a"}, hot: [2]string{"#e4f5dc", "#27402a"},
+		attn: [2]string{"#ffd9ec", "#5a2547"}, errc: [2]string{"#c2403d", "#ff938c"}, snooze: [2]string{"#6a7fc0", "#b3c3f5"},
+	},
+	"summer": {
+		accent: [2]string{"#b4520a", "#ffc15a"}, dim: [2]string{"#7a6a50", "#b5a589"}, hot: [2]string{"#fdf0c8", "#3a3520"},
+		attn: [2]string{"#ffd3c2", "#6a2230"}, errc: [2]string{"#b3261e", "#ff8a7a"}, snooze: [2]string{"#1f8fb0", "#6fcbe8"},
+	},
+	"fall": {
+		accent: [2]string{"#9a4a1a", "#e0a060"}, dim: [2]string{"#86705c", "#b8a28c"}, hot: [2]string{"#f3e2c8", "#40301f"},
+		attn: [2]string{"#f4b896", "#6b2a1e"}, errc: [2]string{"#a52a1a", "#ff8a70"}, snooze: [2]string{"#6b7f4a", "#b0c488"},
+	},
 }
 
 // solidThemes have backgrounds that are light on a dark terminal too, so their text is chosen to read on them.
 var solidThemes = map[string]bool{"rainbow": true}
 
 // ThemeNames are the themes SITREP_THEME may name. "mono" uses no colours, only bold, faint and reverse.
-var ThemeNames = []string{"default", "pastel", "rainbow", "high-contrast", "mono"}
+var ThemeNames = []string{"default", "pastel", "rainbow", "high-contrast", "ocean", "forest", "homebrew", "red-sands", "novel", "nord", "solarized", "winter", "spring", "summer", "fall", "mono"}
 
 // colorNames are the entries of SITREP_COLORS.
 var colorNames = []string{"accent", "dim", "hot", "attn", "error", "snoozed"}

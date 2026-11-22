@@ -617,3 +617,75 @@ func TestColorsTooSmallSaysHowToQuit(t *testing.T) {
 		t.Errorf("%q", got)
 	}
 }
+
+func TestColorsThemeGallery(t *testing.T) {
+	m, _ := newColors(t, "")
+	m = ckey(t, m, "enter") // the theme row
+	if m.gallery == nil || m.gallery.sel != 0 {
+		t.Fatal("enter on the theme row opens the gallery")
+	}
+	body := ansi.Strip(m.body())
+	for _, name := range ThemeNames {
+		if !strings.Contains(body, name) {
+			t.Errorf("the gallery lacks %s", name)
+		}
+	}
+	if !strings.Contains(body, "needs you") || !strings.Contains(body, "✓") {
+		t.Errorf("a sample of each, and the theme now marked:\n%s", body)
+	}
+	m = ckey(t, m, "j", "j")
+	if m.theme != "default" || ThemeNames[m.gallery.sel] != "rainbow" {
+		t.Errorf("moving changes nothing until enter: theme %q on %q", m.theme, ThemeNames[m.gallery.sel])
+	}
+	m = ckey(t, m, "esc")
+	if m.gallery != nil || m.theme != "default" || m.dirty() {
+		t.Error("esc leaves the theme as it was")
+	}
+	m = ckey(t, m, "enter", "G", "enter")
+	if m.gallery != nil || m.theme != "mono" || !m.dirty() {
+		t.Errorf("enter chooses: %q", m.theme)
+	}
+	m = ckey(t, m, "enter", "g", "j", "enter")
+	if m.theme != ThemeNames[1] {
+		t.Errorf("the gallery opens on the theme now and g goes to the first: %q", m.theme)
+	}
+}
+
+func TestColorsGalleryShowsEachThemeInItsOwnColours(t *testing.T) {
+	m, _ := newColors(t, "SITREP_COLORS=attn=#00ff00\n")
+	m = ckey(t, m, "enter")
+	raw := m.body()
+	if strings.Contains(raw, "48;2;0;255;0") {
+		t.Error("a colour you set is not part of a theme's sample")
+	}
+	lines := strings.Split(raw, "\n")
+	if len(lines) != m.height || lines[1] == lines[2] {
+		t.Errorf("one line each, in different colours: %d lines", len(lines))
+	}
+	before := raw
+	m = ckey(t, m, "t")
+	if m.body() == before {
+		t.Error("t switches the samples between a dark and a light terminal")
+	}
+}
+
+func TestColorsGalleryFitsTheSmallestScreen(t *testing.T) {
+	m, _ := newColors(t, "")
+	m = ckey(t, m, "enter")
+	for _, w := range []int{20, 40, 80, 150} {
+		m.width, m.height = w, minColorsHeight
+		out := strings.Split(m.body(), "\n")
+		if len(out) != minColorsHeight {
+			t.Fatalf("%d wide: %d lines", w, len(out))
+		}
+		for _, l := range out {
+			if ansi.StringWidth(l) > w {
+				t.Fatalf("%d wide: %q", w, l)
+			}
+		}
+		if !strings.Contains(ansi.Strip(m.body()), ThemeNames[len(ThemeNames)-1]) && w >= 40 {
+			t.Errorf("%d wide: the last theme is cut off", w)
+		}
+	}
+	golden(t, "colors_gallery_100x24", func() string { m.width, m.height = 100, 24; return ansi.Strip(m.body()) }())
+}

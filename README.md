@@ -124,7 +124,7 @@ The dashboard rings the terminal bell once when a session starts needing you; `s
 
 Defaults live in `~/.claude/sitrep/sitrep.conf` or the environment, and the environment wins. `sitrep setup` keeps a block of commented examples at the end of the file. The ones most people want:
 
-1. `SITREP_THEME=<name>` picks the dashboard's colours: `default`, `pastel`, `rainbow`, `high-contrast` or `mono`.
+1. `SITREP_THEME=<name>` picks the dashboard's colours: `default`, `pastel`, `rainbow`, `high-contrast`, `mono`, or one of eleven more (`ocean`, `forest`, `homebrew`, `red-sands`, `novel`, `nord`, `solarized`, `winter`, `spring`, `summer`, `fall`); `sitrep colors` shows them all.
 2. `SITREP_STATUS_LINES=<names>` chooses which lines of the status line show: any of `objective`, `progress`, `now` and `queue` (default all four).
 3. `SITREP_QUEUE_ITEMS=<items>` is the queue list limit (default 5).
 4. `SITREP_CHECK_UPDATES=<0|1>` lets sitrep look once a day for a newer release (default on). It is the only setting that uses the network, and 0 turns it off.

@@ -45,6 +45,9 @@ type colorEdit struct {
 	from string // the text lch was made for: when the text is not this, it was typed, and lch is made again
 }
 
+// colorGallery is the list of themes, each drawn in its own colours.
+type colorGallery struct{ sel int }
+
 type colorAsk struct {
 	kind     string // "write" or "quit"
 	body     string // what the file held when the question was made
@@ -61,6 +64,7 @@ type colorsModel struct {
 	dark          bool
 	sel           int
 	edit          *colorEdit
+	gallery       *colorGallery // the list of themes with a sample of each, while it is open
 	ask           *colorAsk
 	msg           string
 	width, height int
@@ -207,6 +211,8 @@ func (m colorsModel) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case m.ask != nil:
 		return m.askKey(k)
+	case m.gallery != nil:
+		return m.galleryKey(k)
 	case m.edit != nil:
 		return m.editKey(msg)
 	}
@@ -269,10 +275,16 @@ func (m *colorsModel) cycleTheme(d int) {
 	m.theme = ThemeNames[(i+d+len(ThemeNames))%len(ThemeNames)]
 }
 
-// open starts editing the selected colour, or moves the theme on.
+// open starts editing the selected colour, or opens the list of themes.
 func (m colorsModel) open() (tea.Model, tea.Cmd) {
 	if m.sel == 0 {
-		m.cycleTheme(1)
+		g := colorGallery{}
+		for i, n := range ThemeNames {
+			if n == m.theme {
+				g.sel = i
+			}
+		}
+		m.gallery = &g
 		return m, nil
 	}
 	if m.theme == "mono" {
@@ -281,6 +293,31 @@ func (m colorsModel) open() (tea.Model, tea.Cmd) {
 	}
 	name := colorRows[m.sel]
 	m.edit = &colorEdit{name: name, text: m.value(name)[m.side()]}
+	return m, nil
+}
+
+func (m colorsModel) galleryKey(k string) (tea.Model, tea.Cmd) {
+	g := *m.gallery
+	last := len(ThemeNames) - 1
+	switch k {
+	case "j", "down":
+		g.sel = min(g.sel+1, last)
+	case "k", "up":
+		g.sel = max(g.sel-1, 0)
+	case "g", "home":
+		g.sel = 0
+	case "G", "end":
+		g.sel = last
+	case "t":
+		m.dark = !m.dark
+	case "enter":
+		m.theme, m.gallery = ThemeNames[g.sel], nil
+		return m, nil
+	case "esc", "q":
+		m.gallery = nil
+		return m, nil
+	}
+	m.gallery = &g
 	return m, nil
 }
 
@@ -520,6 +557,9 @@ func (m colorsModel) body() string {
 	if m.dark {
 		kind = "dark"
 	}
+	if m.gallery != nil {
+		return m.galleryBody(w, h, kind)
+	}
 	head := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(fmt.Sprintf(" Colours   theme: %s   preview: %s terminal (t switches)", m.theme, kind), w, "…"))
 
 	list := m.list(w)
@@ -536,6 +576,31 @@ func (m colorsModel) body() string {
 	out := append([]string{head}, middle[:room]...)
 	out = append(out, list...)
 	out = append(out, m.footer(w))
+	return strings.Join(out, "\n")
+}
+
+// galleryBody is every theme in its own colours, one to a line: the bar, recent activity, a session that needs you, a snoozed one, dim
+// text and an error, as the dashboard draws them.
+func (m colorsModel) galleryBody(w, h int, kind string) string {
+	out := []string{lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(fmt.Sprintf(" Themes   preview: %s terminal (t switches)", kind), w, "…"))}
+	for i, name := range ThemeNames {
+		cur := "  "
+		if i == m.gallery.sel {
+			cur = "▶ "
+		}
+		mark := " "
+		if name == m.theme {
+			mark = "✓"
+		}
+		th := themeFor(m.dark, Settings{Theme: name})
+		strip := th.Status.Render(" accent ") + " " + th.Hot.Render(" recent ") + " " + th.Attn.Render(" ● needs you ") + " " +
+			th.Snooze.Render("○ snoozed") + " " + th.Dim.Render("dim") + " " + th.Err.Render(" error ")
+		out = append(out, ansi.Truncate(fmt.Sprintf("%s%-14s%s %s", cur, name, mark, strip), w, "…"))
+	}
+	for len(out) < h-1 {
+		out = append(out, "")
+	}
+	out = append(out[:min(len(out), h-1)], lipgloss.NewStyle().Reverse(true).Width(w).Render(ansi.Truncate(" j/k move  enter choose  t light/dark  esc back   ✓ is the theme now", w, "")))
 	return strings.Join(out, "\n")
 }
 
@@ -599,7 +664,7 @@ func (m colorsModel) footer(w int) string {
 	default:
 		text = " j/k move  enter edit  r reset  t light/dark  w write  q quit"
 		if m.sel == 0 {
-			text = " j/k move  h/l theme  r reset  t light/dark  w write  q quit"
+			text = " j/k move  enter themes  h/l next theme  r reset  t light/dark  w write  q quit"
 		}
 	}
 	return bar.Render(ansi.Truncate(text, w, ""))

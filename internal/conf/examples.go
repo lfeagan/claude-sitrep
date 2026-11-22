@@ -46,7 +46,8 @@ const Examples = `# Uncomment a line and change it to use it. The environment wi
 # The dashboard's colours: a theme, and changes to single colours. The themes are default (purple, with a
 # pink-red for what needs you), pastel (soft lavender, mint and peach), rainbow (a colour of the spectrum
 # for each role: green accent, blue text, orange for recent activity, yellow for what needs you, red for
-# errors), high-contrast and mono (no colour).
+# errors), high-contrast, mono (no colour), and ocean, forest, homebrew, red-sands, novel, nord, solarized, winter,
+# spring, summer and fall (see sitrep colors, which shows each).
 # A colour is #rrggbb or a terminal colour number from 0 to 255, or light/dark for each kind of terminal.
 # The names are accent, dim, hot (recent activity), attn (needs you), error and snoozed (the ○ mark).
 # SITREP_THEME=default
