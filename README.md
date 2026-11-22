@@ -17,7 +17,7 @@ When you run several Claude Code sessions, you think of the next thing to ask on
 Other tools, including Claude Code's own Agent View, show which sessions are working and which are waiting. sitrep also keeps your own list of what comes next, for each session, and shows it under the prompt.
 
 1. **A queue for each session.** Type `+ <text>` in a prompt to queue an item without sending anything to Claude. The queue is yours: nothing in it goes to Claude unless you ask, and the next item shows under the prompt.
-2. **An inbox for work that has no session yet.** Write it down now, and take the item into a session when you know where it belongs.
+2. **An inbox for work that has no session yet.** Type `+inbox <text>` in a prompt to write it down without sending anything to Claude. The inbox is yours too, and you take an item into a session when you know where it belongs: press `1` to `9` in the dashboard, or run `sitrep move inbox <id>`.
 3. **A report for each session.** The Objective, the Progress and what it is doing Now show under each prompt. A short Haiku call rewrites them after each turn (see Privacy And Safety for the cost cap and what is sent).
 4. **A dashboard that puts the sessions that need you first.** A session that has stopped and waits for you has a `●`, and the terminal bell rings when one newly does.
 5. **Nothing to run.** It is one Go program with plain files, so the status line renders at once and there is no server.
