@@ -5,7 +5,11 @@
 --- stdout
 {
   "decision": "block",
-  "reason": "Objective pinned: keep this goal"
+  "reason": "Objective pinned: keep this goal (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 2: exit 0

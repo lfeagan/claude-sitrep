@@ -5,21 +5,33 @@
 --- stdout
 {
   "decision": "block",
-  "reason": "Queued (1): q[0m  item"
+  "reason": "Queued (1): q[0m  item (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 2: exit 0
 --- stdout
 {
   "decision": "block",
-  "reason": "Objective pinned: pin[0m text"
+  "reason": "Objective pinned: pin[0m text (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 3: exit 0
 --- stdout
 {
   "decision": "block",
-  "reason": "Inbox (1): inbox"
+  "reason": "Inbox (1): inbox (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 4: exit 0

@@ -5,49 +5,77 @@
 --- stdout
 {
   "decision": "block",
-  "reason": "Queued (1): write the docs"
+  "reason": "Queued (1): write the docs (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 2: exit 0
 --- stdout
 {
   "decision": "block",
-  "reason": "Queued (2): second item"
+  "reason": "Queued (2): second item (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 3: exit 0
 --- stdout
 {
   "decision": "block",
-  "reason": "Objective pinned: The pinned goal"
+  "reason": "Objective pinned: The pinned goal (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 4: exit 0
 --- stdout
 {
   "decision": "block",
-  "reason": "Inbox (1): look at nightly job"
+  "reason": "Inbox (1): look at nightly job (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 5: exit 0
 --- stdout
 {
   "decision": "block",
-  "reason": "Inbox (2): another"
+  "reason": "Inbox (2): another (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 6: exit 0
 --- stdout
 {
   "decision": "block",
-  "reason": "Took from the inbox: look at nightly job"
+  "reason": "Took from the inbox: look at nightly job (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 7: exit 0
 --- stdout
 {
   "decision": "block",
-  "reason": "Took from the inbox: another"
+  "reason": "Took from the inbox: another (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 8: exit 0
@@ -66,7 +94,11 @@
 --- stdout
 {
   "decision": "block",
-  "reason": "Queued (1): first thing in a fresh session"
+  "reason": "Queued (1): first thing in a fresh session (not sent to Claude)",
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "suppressOriginalPrompt": true
+  }
 }
 --- stderr
 == step 13: exit 0

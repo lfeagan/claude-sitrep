@@ -92,15 +92,27 @@ func (s *session) setState(word string) {
 	_ = s.Store.WriteFile(s.Store.Path(s.id, "state"), []byte(word+"\n")) // a hook never fails
 }
 
+// notSent ends what a command prompt answers. Claude Code shows the answer under its own "blocked by hook" heading, which reads like a
+// failure, so the answer itself says that it worked and that Claude never saw the prompt.
+const notSent = " (not sent to Claude)"
+
 // block answers a prompt without sending it to Claude.
 func (s *session) block(reason string) {
 	enc := json.NewEncoder(s.Out)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
+	// suppressOriginalPrompt leaves out the "Original prompt:" line that Claude Code adds to a block message: the user has just typed it
 	_ = enc.Encode(struct {
 		Decision string `json:"decision"`
 		Reason   string `json:"reason"`
-	}{"block", reason})
+		Specific struct {
+			Event    string `json:"hookEventName"`
+			Suppress bool   `json:"suppressOriginalPrompt"`
+		} `json:"hookSpecificOutput"`
+	}{"block", reason, struct {
+		Event    string `json:"hookEventName"`
+		Suppress bool   `json:"suppressOriginalPrompt"`
+	}{"UserPromptSubmit", true}})
 }
 
 // placeholder says an Objective is not a real one: a dash, or a command wrapper such as the one /clear leaves.
@@ -274,7 +286,7 @@ func (s *session) plus(prompt string) bool {
 			item := textsafe.Sane(text, 200)
 			if s.pin() == nil && s.write(item.String(), orDash(s.prog), orDash(s.now)) == nil {
 				s.Log.Record(histlog.Entry{Op: histlog.Pin, ID: s.id, Text: item})
-				s.block("Objective pinned: " + item.String())
+				s.block("Objective pinned: " + item.String() + notSent)
 				return true
 			}
 		}
@@ -282,14 +294,14 @@ func (s *session) plus(prompt string) bool {
 		if text := strings.TrimPrefix(prompt, "+ "); short(text) {
 			if n, err := s.queue().Add(s.id, textsafe.Sane(text, 200)); err == nil {
 				s.ensureNotes()
-				s.block("Queued (" + strconv.Itoa(n) + "): " + textsafe.Sane(text, 200).String())
+				s.block("Queued (" + strconv.Itoa(n) + "): " + textsafe.Sane(text, 200).String() + notSent)
 				return true
 			}
 		}
 	case strings.HasPrefix(prompt, "+inbox "):
 		if text := strings.TrimLeft(strings.TrimPrefix(prompt, "+inbox "), " \t\n\r\f\v"); short(text) {
 			if n, err := s.queue().Add(state.Inbox, textsafe.Sane(text, 200)); err == nil {
-				s.block("Inbox (" + strconv.Itoa(n) + "): " + textsafe.Sane(text, 200).String())
+				s.block("Inbox (" + strconv.Itoa(n) + "): " + textsafe.Sane(text, 200).String() + notSent)
 				return true
 			}
 		}
@@ -301,7 +313,7 @@ func (s *session) plus(prompt string) bool {
 		if no, err := strconv.Atoi(n); err == nil && no >= 1 && n[0] != '+' && n[0] != '0' {
 			s.ensureNotes()
 			if item, err := s.queue().Move(state.Inbox, s.id, no, nil); err == nil {
-				s.block("Took from the inbox: " + textsafe.Sane(item.String(), 200).String())
+				s.block("Took from the inbox: " + textsafe.Sane(item.String(), 200).String() + notSent)
 				return true
 			}
 		}

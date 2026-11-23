@@ -3,6 +3,7 @@ package hook
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -943,5 +944,24 @@ func TestDebounceWindowIsClamped(t *testing.T) {
 		if got := debounceWindow(in); got != want {
 			t.Errorf("SITREP_DEBOUNCE=%q: %d, want %d", in, got, want)
 		}
+	}
+}
+
+func TestACommandPromptAnswerReadsAsDoneAndDropsTheOriginalPromptLine(t *testing.T) {
+	r := newRig(t)
+	r.fire(`{"session_id":"sess7","hook_event_name":"UserPromptSubmit","prompt":"+ item"}`)
+	var got struct {
+		Decision string `json:"decision"`
+		Reason   string `json:"reason"`
+		Specific struct {
+			Event    string `json:"hookEventName"`
+			Suppress bool   `json:"suppressOriginalPrompt"`
+		} `json:"hookSpecificOutput"`
+	}
+	if err := json.Unmarshal(r.out.Bytes(), &got); err != nil {
+		t.Fatalf("the answer is not JSON: %v\n%s", err, r.out.String())
+	}
+	if got.Decision != "block" || got.Reason != "Queued (1): item (not sent to Claude)" || got.Specific.Event != "UserPromptSubmit" || !got.Specific.Suppress {
+		t.Errorf("%+v", got)
 	}
 }
