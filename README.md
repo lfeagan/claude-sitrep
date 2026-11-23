@@ -4,7 +4,7 @@
 
 A to-do list for each of your Claude Code sessions, and a dashboard that shows which one is waiting for you.
 
-![The sitrep dashboard on the Cards tab: two sessions that need you in pink, one working, one snoozed](docs/img/hero-cards.png)
+![The sitrep dashboard on the Cards tab: two sessions that need you in pink (one waiting, one blocked at a permission dialog), one working, one snoozed](docs/img/hero-cards.png)
 
 *`sitrep dash --demo`, on made-up sessions.*
 
@@ -12,7 +12,7 @@ When you run several Claude Code sessions, you think of the next thing to ask on
 
 In the picture:
 
-- Queue is your own list of what comes next for that session, and Inbox is your list for work that has no session yet. Nothing in them goes to Claude unless you ask.
+- Queue is your own list of what comes next for that session, and Inbox is your list for work that has no session yet.
 - Objective, Progress and Now say what a session is for, how far it has got and what it is doing right now.
 - `●` the session needs you, `○` it is snoozed, and `▶` marks the selected row.
 
@@ -20,22 +20,22 @@ In the picture:
 
 Other tools, including Claude Code's own Agent View, show which sessions are working and which are waiting. sitrep also keeps your own list of what comes next, for each session, and shows it under the prompt.
 
-1. **A queue for each session.** In a Claude Code session, type `+ call Sam` and press enter: the text goes on this session's queue, and nothing is sent to Claude. The queue is yours: nothing in it goes to Claude unless you ask, and the next item shows under the prompt.
+1. **A queue for each session.** In a Claude Code session, type `+ call Sam` and press enter: the text goes on this session's queue, and nothing is sent to Claude. The queue is yours, and the next item shows under the prompt.
 2. **An inbox for work that has no session yet.** Type `+inbox <text>` in a prompt to write it down without sending anything to Claude. The inbox is yours too, and you take an item into a session when you know where it belongs: press `1` to `9` in the dashboard, or run `sitrep move inbox <id>`.
-3. **A report for each session.** The Objective, the Progress and what it is doing Now show under each prompt. A short Haiku call rewrites them after each turn (see Privacy And Safety for the cost cap and what is sent).
+3. **A report for each session.** The Objective, the Progress and what it is doing Now show under each prompt. A short Haiku call rewrites them after each turn. It uses a little of your Claude usage, capped at $0.05 a call (see Privacy And Safety for what is sent).
 4. **A dashboard that puts the sessions that need you first.** A session that has stopped and waits for you has a `●`, and the terminal bell rings when one newly does.
-5. **Nothing to run.** It is one Go program with plain files, so the status line renders at once and there is no server.
+5. **No server and no runtime.** Once built, it is one program with plain files, so the status line renders at once.
 6. **A full command-line tool, and yours to script.** Every action is a command (`sitrep add`, `rm`, `move`, `top`, `snooze`, `pin` and more), each with `--help`, and completion fills in commands, flags and session ids (`eval "$(sitrep completion bash)"`). If you use the Modular Bash Environment, [its sitrep module](https://github.com/lfeagan/MBE/blob/master/modules/sitrep/sitrep) puts sitrep on your `PATH`, turns the completion on and adds `sr` as a short form. `sitrep ls --json` is a stable JSON format for your own tools.
 
 Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts. [docs/COMPARISON.md](docs/COMPARISON.md) compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
-**Look around first**, with nothing installed: run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@latest dash --demo`. It shows made-up sessions and needs Go 1.26 or newer. It runs the newest release as you, so it trusts this repository and its owner; put a version in place of `@latest` (for example `@v1.0.1`) to run one fixed release, which the Go checksum database also vouches for.
+**Try it with no install** (it needs Go 1.26 or newer): `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@latest dash --demo` shows made-up sessions. It runs the newest release as you, so it trusts this repository and its owner; put a version in place of `@latest` (for example `@v1.0.1`) to run one fixed release, which the Go checksum database also vouches for.
 
 **Install:** run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup`. It needs Go 1.26 or newer and the `claude` CLI, and the details are in [Install](#install).
 
 ## Contents
 
-[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Install](#install) · [The Queue](#the-queue) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
+[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Install](#install) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
 
 More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [the themes](docs/THEMES.md), [what is not built yet](docs/ROADMAP.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md), [remote machines](docs/REMOTE.md) and [changing the code](CONTRIBUTING.md).
 
@@ -49,7 +49,7 @@ The status line works as follows:
 
 1. Objective starts as the first prompt (a resumed session is seeded from its transcript), so the raw prompt shows until the first turn finishes. A short title written by the same Haiku call that writes Progress and Now then replaces it. A pinned Objective (`+pin` or `sitrep pin`) stays until you run `sitrep unpin`.
 2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
-3. Queue shows how many items are waiting, the next item and the first four characters of the session id, which is how `sitrep` addresses the session (`sitrep add a1b2 ...`).
+3. Queue shows how many items are waiting, the next item and the first four characters of the session id, which is how `sitrep` addresses the session (`sitrep add a1b2 ...`). `Inbox: 2` is how many items are in your inbox, the list that belongs to no session.
 
 `sitrep dash` is a full-screen dashboard of every session, with three tabs, and `tab` switches between them. Cards shows the detail of a few sessions, as above. Table is a quick scan of many. `CTX` is the share of the context window left, so a low number is a warning, and it is bold when it is low. `idle?` marks a working session that has been quiet for a while:
 
@@ -74,7 +74,7 @@ You need Go 1.26 or newer (`go version`) and the `claude` CLI. Go is needed only
 
    The first line installs the plugin (the program's source, the hooks and two skills). A plugin cannot build a program or declare a status line, so `/sitrep:setup` builds the program into `~/.claude/sitrep/bin/sitrep`, points the status line at it (an existing status line, such as Claude HUD, is saved and runs first), and links `sitrep` into `~/bin`. Claude Code asks before it changes `~/.claude/settings.json`, which setup backs up first.
 2. Restart your Claude Code sessions, and send a prompt in one. The status block shows under the prompt, and the session appears in the dashboard. With no sessions the dashboard shows only the tabs and `0 running, 0 ended`, and fills in as sessions start.
-3. In any terminal, run `sitrep dash` (`sitrep dash --demo` shows made-up sessions, if you want to look around first). Press `?` for the keys and `q` to quit. Setup links `sitrep` into `~/bin`, so that folder must be on your `PATH`; if the shell says `sitrep: command not found`, add it, or run `~/.claude/sitrep/bin/sitrep dash`.
+3. In any terminal, run `sitrep dash`. Press `?` for the keys and `q` to quit. Setup links `sitrep` into `~/bin`, so that folder must be on your `PATH`; if the shell says `sitrep: command not found`, add it, or run `~/.claude/sitrep/bin/sitrep dash`.
 
 A session "needs you" when Claude has stopped and the next move is yours, or when it waits at a permission dialog. It has a `●` before its state, and the dashboard puts it first.
 
