@@ -8,7 +8,9 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/lfeagan/claude-sitrep/internal/histlog"
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -332,5 +334,48 @@ func TestLogRecordsOnlyWhatSucceeded(t *testing.T) {
 	}
 	if got := len(histlog.Read(st.Dir, histlog.Query{})); got != 3 {
 		t.Fatalf("%d entries", got)
+	}
+}
+
+func TestAddRefusesALinkAndAPipeInPlaceOfTheQueue(t *testing.T) {
+	q := newQueue(t, "abc123", "")
+	victim := q.Store.Dir + "/victim"
+	os.WriteFile(victim, []byte("keep\n"), 0o600)
+	if err := os.Symlink(victim, q.file("abc123")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.Add("abc123", textsafe.Clean("hello", 0)); err == nil {
+		t.Error("an item was added through a link")
+	}
+	if b, _ := os.ReadFile(victim); string(b) != "keep\n" {
+		t.Errorf("the target of the link changed: %q", b)
+	}
+	os.Remove(q.file("abc123"))
+	if err := syscall.Mkfifo(q.file("abc123"), 0o600); err != nil {
+		t.Skip("no fifo here")
+	}
+	done := make(chan error, 1)
+	go func() { _, err := q.Add("abc123", textsafe.Clean("hello", 0)); done <- err }()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("an item was added to a pipe")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("adding to a pipe blocked while holding the queue lock")
+	}
+	// the lock is free again, so another change goes through
+	if _, err := q.Add("inbox", textsafe.Clean("other", 0)); err != nil {
+		t.Errorf("the lock stayed held: %v", err)
+	}
+}
+
+func TestAddStopsAtTheSizeCap(t *testing.T) {
+	q := newQueue(t, "abc123", "")
+	if err := os.WriteFile(q.file("abc123"), make([]byte, MaxFileBytes), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.Add("abc123", textsafe.Clean("one more", 0)); !errors.Is(err, ErrFull) {
+		t.Errorf("a full queue file takes no more: %v", err)
 	}
 }

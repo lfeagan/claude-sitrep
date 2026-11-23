@@ -61,6 +61,13 @@ var ErrEmpty = errors.New("queue empty")
 // ErrBlank says the text to queue holds nothing.
 var ErrBlank = errors.New("nothing to queue")
 
+// MaxFileBytes is how large a queue file may grow by adding: the reader keeps 8 MiB, and a file past that would lose its end the next time
+// it is rewritten.
+const MaxFileBytes = 4 << 20
+
+// ErrFull says a queue file has reached MaxFileBytes.
+var ErrFull = errors.New("queue full: remove some items first")
+
 // Queue is the set of queues in a state folder. Log records each change once it has succeeded; the zero Log is off.
 type Queue struct {
 	Store state.Store
@@ -150,9 +157,14 @@ func (q Queue) append(id state.ID, item string) error {
 	if err := q.Store.EnsureSession(id); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(q.file(id), os.O_WRONLY|os.O_APPEND|os.O_CREATE, state.FileMode)
+	f, err := state.OpenRegular(q.file(id), os.O_WRONLY|os.O_APPEND|os.O_CREATE, state.FileMode)
 	if err != nil {
 		return err
+	}
+	// the reader keeps at most 8 MiB, so a longer file would lose its end at the next rewrite
+	if fi, err := f.Stat(); err == nil && fi.Size() >= MaxFileBytes {
+		f.Close()
+		return ErrFull
 	}
 	if _, err := f.WriteString(item + "\n"); err != nil {
 		f.Close()

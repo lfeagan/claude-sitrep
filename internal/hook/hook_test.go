@@ -908,3 +908,23 @@ func TestQueueNudgeNeverFailsTheHook(t *testing.T) {
 type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("closed pipe") }
+
+func TestThePinMarkerIsNotWrittenThroughALink(t *testing.T) {
+	st := state.Open(t.TempDir())
+	if err := st.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	s := &session{Hook: Hook{Store: st}, id: "sess9"}
+	if err := st.EnsureSession(s.id); err != nil {
+		t.Fatal(err)
+	}
+	victim := filepath.Join(st.Dir, "victim")
+	os.WriteFile(victim, []byte("keep"), 0o600)
+	os.Symlink(victim, st.Path(s.id, "pinned"))
+	if err := s.pin(); err == nil {
+		t.Error("the marker was written through a link")
+	}
+	if b, _ := os.ReadFile(victim); string(b) != "keep" {
+		t.Errorf("the target of the link was truncated or changed: %q", b)
+	}
+}

@@ -457,3 +457,57 @@ func TestResolveListsWhatAnAmbiguousPrefixMatches(t *testing.T) {
 		t.Errorf("the error names the sessions: %v", err)
 	}
 }
+
+func TestOpenRegularRefusesLinksAndPipesWithoutBlocking(t *testing.T) {
+	dir := t.TempDir()
+	victim := filepath.Join(dir, "victim")
+	os.WriteFile(victim, []byte("keep"), 0o600)
+	link := filepath.Join(dir, "link")
+	os.Symlink(victim, link)
+	if f, err := OpenRegular(link, os.O_WRONLY|os.O_APPEND|os.O_CREATE, FileMode); err == nil {
+		f.Close()
+		t.Error("a link was opened for writing")
+	}
+	dangling := filepath.Join(dir, "dangling")
+	os.Symlink(filepath.Join(dir, "target-that-does-not-exist"), dangling)
+	if f, err := OpenRegular(dangling, os.O_WRONLY|os.O_CREATE, FileMode); err == nil {
+		f.Close()
+		t.Error("a dangling link made its target")
+	}
+	if _, err := os.Lstat(filepath.Join(dir, "target-that-does-not-exist")); err == nil {
+		t.Error("the target of a dangling link was created")
+	}
+	pipe := filepath.Join(dir, "pipe")
+	if err := syscall.Mkfifo(pipe, 0o600); err != nil {
+		t.Skip("no fifo here")
+	}
+	done := make(chan error, 1)
+	go func() {
+		f, err := OpenRegular(pipe, os.O_WRONLY|os.O_APPEND|os.O_CREATE, FileMode)
+		if err == nil {
+			f.Close()
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("a pipe was opened")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("opening a pipe blocked")
+	}
+	if b, _ := os.ReadFile(victim); string(b) != "keep" {
+		t.Errorf("the target of a link changed: %q", b)
+	}
+	// the lock refuses them too, and does not make the target of a dangling link
+	if _, err := Lock(dangling); err == nil {
+		t.Error("Lock followed a dangling link")
+	}
+	if _, err := os.Lstat(filepath.Join(dir, "target-that-does-not-exist")); err == nil {
+		t.Error("Lock made the target of a link")
+	}
+	if _, err := Lock(pipe); err == nil {
+		t.Error("Lock took a pipe")
+	}
+}

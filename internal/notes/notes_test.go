@@ -42,3 +42,20 @@ func TestPinAndUnpin(t *testing.T) {
 		t.Errorf("unpin twice: %v", err)
 	}
 }
+
+func TestPinRefusesALinkInPlaceOfTheMarker(t *testing.T) {
+	s := state.Open(t.TempDir())
+	n := Notes{Store: s}
+	if err := s.EnsureSession("s1"); err != nil {
+		t.Fatal(err)
+	}
+	victim := s.Dir + "/victim"
+	os.WriteFile(victim, []byte("keep"), 0o600)
+	os.Symlink(victim, s.Path("s1", "pinned"))
+	if err := n.Pin("s1", textsafe.Clean("goal", 0)); err == nil {
+		t.Error("the marker was written through a link")
+	}
+	if b, _ := os.ReadFile(victim); string(b) != "keep" {
+		t.Errorf("the target of the link changed: %q", b)
+	}
+}

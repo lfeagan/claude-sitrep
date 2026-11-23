@@ -40,7 +40,7 @@ func (n Notes) Pin(id state.ID, text textsafe.Text) error {
 	if err := n.Store.EnsureSession(id); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(n.Store.Path(id, "pinned"), os.O_WRONLY|os.O_CREATE, state.FileMode)
+	f, err := state.OpenRegular(n.Store.Path(id, "pinned"), os.O_WRONLY|os.O_CREATE, state.FileMode)
 	if err != nil {
 		return err
 	}

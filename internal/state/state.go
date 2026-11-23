@@ -328,13 +328,31 @@ func IsRegular(path string) bool {
 	return err == nil && fi.Mode().IsRegular()
 }
 
+// ErrNotRegular says a state file is not a regular file: a link, a pipe, a device or a folder.
+var ErrNotRegular = errors.New("not a regular file")
+
+// OpenRegular opens a state file for writing (or reading and writing). It never follows a link in the last place of the path and never blocks
+// on a pipe, and it refuses what is not a regular file, as ReadFile does for reading: a planted link or pipe cannot make sitrep write
+// elsewhere or hang while it holds a lock.
+func OpenRegular(path string, flag int, perm os.FileMode) (*os.File, error) {
+	f, err := os.OpenFile(path, flag|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, perm)
+	if err != nil {
+		return nil, err
+	}
+	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() {
+		f.Close()
+		return nil, ErrNotRegular
+	}
+	return f, nil
+}
+
 // ErrBusy says a lock could not be taken in time.
 var ErrBusy = errors.New("busy: another sitrep is changing the same files")
 
 // Lock takes an exclusive lock on a file (made if needed), waiting a moment for another holder, and gives up rather than hang a prompt. The
 // returned function releases it. Locks are advisory: every writer of what the lock guards takes it.
 func Lock(path string) (unlock func(), err error) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, FileMode)
+	f, err := OpenRegular(path, os.O_RDWR|os.O_CREATE, FileMode)
 	if err != nil {
 		return nil, err
 	}
@@ -350,12 +368,8 @@ func Lock(path string) (unlock func(), err error) {
 
 // TryLock is Lock without the wait: one attempt, and ok is false when another holder has the lock. A hook uses it for work it can skip.
 func TryLock(path string) (unlock func(), ok bool) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, FileMode)
+	f, err := OpenRegular(path, os.O_RDWR|os.O_CREATE, FileMode)
 	if err != nil {
-		return nil, false
-	}
-	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() {
-		f.Close()
 		return nil, false
 	}
 	if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil {

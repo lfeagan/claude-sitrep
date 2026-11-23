@@ -321,7 +321,7 @@ func (s *session) pin() error {
 	if err := s.Store.EnsureSession(s.id); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(s.Store.Path(s.id, "pinned"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, state.FileMode)
+	f, err := state.OpenRegular(s.Store.Path(s.id, "pinned"), os.O_WRONLY|os.O_CREATE, state.FileMode) // the marker is empty: nothing to truncate
 	if err != nil {
 		return err
 	}
