@@ -95,6 +95,8 @@ When a newer release exists, the status line says so under the queue line. Updat
 
 The inbox is a queue that belongs to no session, for work you have not yet matched to one: use `inbox` where a command takes an id (`sitrep add inbox <text>`). Inside a Claude Code session, `+ <text>` queues the text to this session, `+inbox <text>` to the inbox, `+take [n]` takes an inbox item, and `+pin <text>` pins the Objective; none of them is sent to Claude. The full list of commands, the guards that keep a program from changing the wrong item, and the exact rules for the prefixes are in [docs/QUEUE.md](docs/QUEUE.md).
 
+The queue does not feed work to Claude automatically. With `SITREP_QUEUE_NUDGE=on` the hooks tell Claude how many items are queued, so that it asks you whether to start the next one when a task is done; it never starts one without a yes (see [docs/QUEUE-NEXT.md](docs/QUEUE-NEXT.md)).
+
 `eval "$(sitrep completion bash)"` in `~/.bashrc` completes commands, flags and session ids.
 
 ## Listing Sessions
@@ -145,23 +147,15 @@ The rest (single colours, how long a session that needs you keeps its colour, re
 
 `sitrep ls --json` prints one JSON document that describes the running sessions, for a program that draws its own view. It always prints a valid document, every text field is a single line with no control characters, and `version` changes only when a field is removed or changes meaning, so a program should ignore fields it does not know. `needs_input` is the field that says a session waits for you. The fields are in [docs/JSON.md](docs/JSON.md), and the history log, `sitrep log --json`, is in [docs/LOG.md](docs/LOG.md).
 
-## How It Works
-
-State is plain files in `~/.claude/sitrep/`, so the status line renders instantly and there is no server. The hooks run `sitrep hook`, which answers within milliseconds, and a short Haiku call writes Progress and Now afterwards in a detached process. The layout, the files and the migration of older state are in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
-
 ## Privacy And Safety
 
 Each summary is one Haiku call on the tail of the transcript, capped at $0.05, and at most one runs for a session in 45 seconds. The cost has not been measured; [docs/COMPARISON.md](docs/COMPARISON.md#where-sitrep-is-weaker) works out the worst case.
 
 Session state is stored in `~/.claude/sitrep`, which is owner-only (`700`, files `600`). Prompt and model text is treated as untrusted terminal input, so control characters (escape sequences and the C1 range) and format characters (such as bidi overrides) are removed before it is stored and again before it is printed. The summarizer sends the tail of the transcript to Haiku through `claude -p`, the same service the session itself uses. It runs from an empty temporary directory with no tools, no MCP servers, no settings and a 60 second limit, in its own process group that the limit ends whole, and only reads transcripts that live under `~/.claude/projects`. The daily update check is the only other network use: it asks this repository for its tag names and sends nothing from your sessions.
 
-## Development
+## Contributing
 
-`make test` runs `gofmt`, `go mod tidy -diff`, `go vet` and `go test -race`, in CI on Linux and macOS. `make build` builds `./sitrep`. The tests use a throwaway `$HOME` and a stub `claude`, so they never touch real settings or the API. The scenario tests run the built program through commands and hook events and compare with golden files (`go test ./internal/cli -update-golden` rewrites them). They began as comparisons with the last shell version, the git tag `bash-final`, which nothing uses now. `docs/GO-PORT.md` describes the port from shell to Go.
-
-## Status
-
-The queue does not feed work to Claude automatically. With `SITREP_QUEUE_NUDGE=on` the hooks tell Claude how many items are queued, so that it asks you whether to start the next one when a task is done; it never starts one without a yes (see [docs/QUEUE-NEXT.md](docs/QUEUE-NEXT.md)). Whether a `Stop` hook should hand over the next item on its own is still undecided, as an unattended session that keeps itself busy is also a runaway session. Pushing the same text to the cmux sidebar has not been built; the state is plain files, so a script can read it.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and change sitrep.
 
 ## License
 
