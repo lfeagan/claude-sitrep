@@ -314,3 +314,15 @@ func TestTheUpstreamCommandRunsInItsOwnProcessGroupWithALimit(t *testing.T) {
 		t.Error("a command that starts others must be killed as a group")
 	}
 }
+
+func TestALongLineOfTheNotesIsCut(t *testing.T) {
+	got := render(t, map[string]string{"s1.txt": "Objective: " + strings.Repeat("x", 100000) + "\nProgress: p\n"}, `{"session_id":"s1"}`, &runner.Fake{})
+	for _, l := range strings.Split(got, "\n") {
+		if n := len([]rune(l)); n > 400 {
+			t.Errorf("a line of %d characters", n)
+		}
+	}
+	if !strings.Contains(got, "Progress: p") {
+		t.Errorf("the other lines stay: %q", got[:min(len(got), 200)])
+	}
+}

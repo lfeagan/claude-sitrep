@@ -284,13 +284,22 @@ func TestSummarizerDeadlineKillsTheWholeGroup(t *testing.T) {
 	os.WriteFile(filepath.Join(home, "bin", "claude"), []byte(script), 0o755)
 	tp := w.transcript("sess0041", jsonl("user", "work"))
 	w.fire(ev("sess0041", "Stop", "transcript_path", tp), "SITREP_SUMMARIZE_TIMEOUT=1")
-	time.Sleep(3500 * time.Millisecond)
-	b, err := os.ReadFile(pidFile)
-	if err != nil {
-		t.Fatalf("the stub never started its child: %v", err)
+	// wait for the stub to start its child, then for the deadline to end it: polled, not a fixed sleep, so a slow machine only takes longer
+	var pid int
+	for end := time.Now().Add(15 * time.Second); time.Now().Before(end); time.Sleep(50 * time.Millisecond) {
+		if b, err := os.ReadFile(pidFile); err == nil {
+			if n, _ := strconv.Atoi(strings.TrimSpace(string(b))); n > 0 {
+				pid = n
+				break
+			}
+		}
 	}
-	pid, _ := strconv.Atoi(strings.TrimSpace(string(b)))
-	if pid > 0 && syscall.Kill(pid, 0) == nil {
+	if pid == 0 {
+		t.Fatal("the stub never started its child")
+	}
+	for end := time.Now().Add(15 * time.Second); time.Now().Before(end) && syscall.Kill(pid, 0) == nil; time.Sleep(50 * time.Millisecond) {
+	}
+	if syscall.Kill(pid, 0) == nil {
 		t.Errorf("a process started by claude (pid %d) outlived the deadline", pid)
 		syscall.Kill(pid, syscall.SIGKILL)
 	}

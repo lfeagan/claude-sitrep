@@ -116,7 +116,7 @@ The reviewer found these in the bash. Each becomes a differential case before th
 
 Decided: the user builds the binary during setup, so Go 1.26 or newer is a requirement. A plugin is a git checkout and holds no binary, so `/sitrep:setup` builds one and puts it at the stable path `~/.claude/sitrep/bin/sitrep`.
 
-1. **Primary:** `go build` in the plugin's own checkout, to a temp file in `bin`, then rename (`-mod=readonly`). It always matches the plugin version and needs no tag or module proxy.
+1. **Primary:** `go build` in the plugin's own checkout, to a temp file in `bin`, then rename (`-mod=readonly`, and `GOWORK=off`, so that a `go.work` file above the plugin cannot change what is built). It always matches the plugin version and needs no tag or module proxy.
 2. **Fallback:** `GOBIN=~/.claude/sitrep/bin go install github.com/lfeagan/claude-sitrep/cmd/sitrep@v0.4.0`.
 3. Setup stops with a plain message, changing nothing, when `go` is missing or too old.
 

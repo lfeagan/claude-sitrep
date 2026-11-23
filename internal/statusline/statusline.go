@@ -69,7 +69,8 @@ func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 	id := state.ID(ev.SessionID)
 	show := l.Conf.StatusLines()
 	if b, err := state.ReadFile(l.Store.Path(id, "notes"), 1<<20); err == nil {
-		fmt.Fprint(out, onlyShown(textsafe.Strip(string(b)).String(), show))
+		// each line of the notes is cut, as the queue's next item is: a notes file is not trusted to be short
+		fmt.Fprint(out, onlyShown(cutLines(textsafe.Strip(string(b)).String(), 300), show))
 	} else if show["objective"] {
 		fmt.Fprintln(out, "Objective: (set on your first prompt)")
 	}
@@ -110,6 +111,18 @@ func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 		}
 	}
 	l.recordContext(id, input) // last, and best effort: the line is already written
+}
+
+// cutLines cuts every line of text to at most n characters.
+func cutLines(text string, n int) string {
+	lines := strings.SplitAfter(text, "\n")
+	for i, l := range lines {
+		body := strings.TrimSuffix(l, "\n")
+		if r := []rune(body); len(r) > n {
+			lines[i] = string(r[:n]) + l[len(body):]
+		}
+	}
+	return strings.Join(lines, "")
 }
 
 // onlyShown drops the lines of the notes that the user has turned off; any other line stays.

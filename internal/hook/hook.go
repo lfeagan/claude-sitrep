@@ -345,19 +345,29 @@ func (s *session) start() {
 	}
 }
 
+// maxWindow is the longest debounce window, in seconds: a day. A larger setting is a mistake, and an enormous one would overflow the
+// arithmetic on it.
+const maxWindow = 86400
+
+// debounceWindow reads SITREP_DEBOUNCE: seconds between two summaries of a session. Empty is the default; a setting that is not a number, or
+// is negative, turns the debounce off (0), and one above a day is a day.
+func debounceWindow(v string) int64 {
+	if v == "" {
+		return int64(defaultWindow)
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return int64(min(n, maxWindow))
+}
+
 func (s *session) stop() {
 	s.setState("waiting")
 	if s.tp == "" {
 		return
 	}
-	window := int64(defaultWindow)
-	if v := s.Getenv("SITREP_DEBOUNCE"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil {
-			n = 0 // a setting that is not a number turns the debounce off
-		}
-		window = int64(n)
-	}
+	window := debounceWindow(s.Getenv("SITREP_DEBOUNCE"))
 	now := s.Clock.Now().Unix()
 	stamp := s.Store.Path(s.id, "stamp")
 	fi, err := os.Stat(stamp)

@@ -928,3 +928,20 @@ func TestThePinMarkerIsNotWrittenThroughALink(t *testing.T) {
 		t.Errorf("the target of the link was truncated or changed: %q", b)
 	}
 }
+
+func TestDebounceWindowIsClamped(t *testing.T) {
+	for in, want := range map[string]int64{
+		"":                    int64(defaultWindow),
+		"45":                  45,
+		"0":                   0,
+		"-5":                  0,
+		"soon":                0,
+		"86400":               86400,
+		"999999999":           86400,
+		"9223372036854775807": 86400,
+	} {
+		if got := debounceWindow(in); got != want {
+			t.Errorf("SITREP_DEBOUNCE=%q: %d, want %d", in, got, want)
+		}
+	}
+}

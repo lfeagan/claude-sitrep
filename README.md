@@ -27,7 +27,7 @@ Other tools, including Claude Code's own Agent View, show which sessions are wor
 
 Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts. [docs/COMPARISON.md](docs/COMPARISON.md) compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
-To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Install](#install)). To look around first, with nothing installed, run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@latest dash --demo` (it needs Go 1.26 or newer, and shows made-up sessions).
+To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Install](#install)). To look around first, with nothing installed, run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@latest dash --demo` (it needs Go 1.26 or newer, and shows made-up sessions). That runs the newest release as you, so it trusts this repository and its owner; `@v1.0.0` in place of `@latest` runs one fixed version, which the Go checksum database also vouches for.
 
 ## Contents
 

@@ -1115,3 +1115,12 @@ func TestRowLabelKeepsTheIDBesideAName(t *testing.T) {
 		t.Errorf("a long name is cut and the id stays: %q", got)
 	}
 }
+
+func TestAHugeFieldIsCutBeforeItIsKept(t *testing.T) {
+	if got := clean(strings.Repeat("é", 1_000_000)); len([]rune(got)) != maxFieldRunes {
+		t.Errorf("kept %d characters", len([]rune(got)))
+	}
+	if got := clean("a\x1b[31mb\tc"); got != "a[31mb c" {
+		t.Errorf("the filtering is as it was: %q", got)
+	}
+}

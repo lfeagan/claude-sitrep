@@ -112,7 +112,10 @@ func Claim(st state.Store, now time.Time) bool {
 func Check(ctx context.Context, run runner.Runner, st state.Store, now time.Time, repo string, env []string) {
 	ctx, cancel := context.WithTimeout(ctx, Deadline)
 	defer cancel()
-	out, err := run.Run(ctx, runner.Cmd{Name: "git", Args: []string{"ls-remote", "--tags", "--refs", repo}, Env: env, NewGroup: true})
+	// Not in the user's project: a repository there could carry a config that changes what git does (a URL rewrite, a command to run).
+	// Git looks for a repository from its working directory upwards, so the state folder's parent is its ceiling.
+	env = append(append([]string(nil), env...), "GIT_CEILING_DIRECTORIES="+filepath.Dir(st.Dir))
+	out, err := run.Run(ctx, runner.Cmd{Name: "git", Args: []string{"ls-remote", "--tags", "--refs", repo}, Dir: st.Dir, Env: env, NewGroup: true})
 	if err != nil || ctx.Err() != nil {
 		return
 	}

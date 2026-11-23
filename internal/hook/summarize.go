@@ -56,7 +56,7 @@ func (z Summarizer) Do(ctx context.Context, id state.ID, tp string, o Opts) {
 		// sleep toward the due time on the wall clock, which a suspended laptop moves past while the process sleeps
 		due := z.Clock.Now().Unix() + int64(o.Wait)
 		for i := 0; i < 5; i++ {
-			rem := min(due-z.Clock.Now().Unix(), int64(o.Wait)+1) // a clock that stepped back must not make it sleep for a day
+			rem := min(due-z.Clock.Now().Unix(), int64(min(o.Wait, maxWindow))+1) // a clock that stepped back must not make it sleep for a day
 			if rem <= 0 {
 				break
 			}

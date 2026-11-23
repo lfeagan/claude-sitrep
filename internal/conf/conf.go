@@ -4,6 +4,7 @@
 package conf
 
 import (
+	"bytes"
 	"errors"
 	"github.com/lfeagan/claude-sitrep/internal/settings"
 	"github.com/lfeagan/claude-sitrep/internal/state"
@@ -384,6 +385,10 @@ func (c Conf) DropHUD() error {
 	}
 	rest := strings.Join(keep, "\n")
 	if strings.TrimSpace(strings.ReplaceAll(rest, "\n", "")) == "" {
+		// the file goes only if it still holds what was read: a line the user added in between is theirs
+		if again, err := state.ReadFileFollow(c.File, 64<<10); err != nil || !bytes.Equal(again, b) {
+			return settings.ErrChanged
+		}
 		return os.Remove(c.File)
 	}
 	return c.write(rest, b)

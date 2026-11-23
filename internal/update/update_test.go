@@ -100,7 +100,7 @@ func TestCheck(t *testing.T) {
 		t.Errorf("record %+v", r)
 	}
 	c := f.Calls()
-	if len(c) != 1 || !c[0].NewGroup || len(c[0].Env) != 1 {
+	if len(c) != 1 || !c[0].NewGroup || len(c[0].Env) != 2 || c[0].Dir != st.Dir {
 		t.Errorf("calls %+v", c)
 	}
 }
@@ -153,5 +153,25 @@ func TestRecordIsOwnerOnly(t *testing.T) {
 	}
 	if fi, err := os.Stat(filepath.Join(st.Dir, file)); err != nil || fi.Mode().Perm() != 0o600 {
 		t.Errorf("mode %v, %v", fi, err)
+	}
+}
+
+func TestTheCheckDoesNotRunInTheUsersProject(t *testing.T) {
+	st := state.Store{Dir: filepath.Join(t.TempDir(), "sitrep")}
+	os.MkdirAll(st.Dir, 0o700)
+	f := fake("x\trefs/tags/v0.5.1\n", nil)
+	Check(context.Background(), f, st, t0, Repo, []string{"GIT_TERMINAL_PROMPT=0"})
+	c := f.Calls()[0]
+	if c.Dir != st.Dir {
+		t.Errorf("git ran in %q, not in the state folder", c.Dir)
+	}
+	found := false
+	for _, e := range c.Env {
+		if e == "GIT_CEILING_DIRECTORIES="+filepath.Dir(st.Dir) {
+			found = true
+		}
+	}
+	if !found || !strings.Contains(strings.Join(c.Env, " "), "GIT_TERMINAL_PROMPT=0") {
+		t.Errorf("the environment keeps the caller's and adds a ceiling for the search for a repository: %v", c.Env)
 	}
 }

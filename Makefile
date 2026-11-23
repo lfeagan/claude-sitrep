@@ -18,5 +18,5 @@ build:
 .PHONY: install
 install:
 	mkdir -p "$$HOME/.claude/sitrep"
-	go build -o "$$HOME/.claude/sitrep/sitrep.new" -mod=readonly -buildvcs=false ./cmd/sitrep
+	GOWORK=off go build -o "$$HOME/.claude/sitrep/sitrep.new" -mod=readonly -buildvcs=false ./cmd/sitrep
 	"$$HOME/.claude/sitrep/sitrep.new" setup
