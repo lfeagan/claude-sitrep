@@ -1,10 +1,10 @@
 # Comparison With Other Tools
 
-This compares claude-sitrep with other tools that help you keep track of several Claude Code sessions. It was written on 2026-11-20 from the public READMEs, documentation and articles listed at the end. The author did not run the other tools, so treat their rows as a starting point and check the current state of a tool before you decide. This space changes fast.
+This compares claude-sitrep with other tools that help you keep track of several Claude Code sessions. It was written on 2026-11-20 from the public READMEs, documentation and articles listed at the end. Rows for claude-valet and claude-queue were added on 2026-11-22, after a search of GitHub for the topics `task-queue` and `claude-code-plugin`. The author did not run the other tools, so treat their rows as a starting point and check the current state of a tool before you decide. This space changes fast.
 
 ## Short Version
 
-sitrep keeps two things per session: a short situation report (Objective, Progress, Now) and a queue of work you plan to do next, with an inbox for work you have not yet matched to a session. Most other tools show what sessions are doing and stop there. Tools that do hold tasks mostly track the agent's own task list, or start and supervise agents, rather than keeping your list.
+sitrep keeps two things per session: a short situation report (Objective, Progress, Now) and a queue of work you plan to do next, with an inbox for work you have not yet matched to a session. Most other tools show what sessions are doing and stop there. Tools that do hold tasks mostly track the agent's own task list, or start and supervise agents, rather than keeping your list. Two small plugins are closer: claude-valet keeps a list of your own parked thoughts, and claude-queue keeps a queue that Claude works through by itself.
 
 Choose sitrep if you want the whiteboard role: a place to write down the next items for each session without leaving the session, shown under the prompt. Choose something else if you need cost tracking, approvals from a dashboard, agent launching, or support for agents other than Claude Code.
 
@@ -34,6 +34,8 @@ Choose sitrep if you want the whiteboard role: a place to write down the next it
 | Agent View (Anthropic) | Built into Claude Code, research preview | Lists sessions grouped by state: Working, Needs input, Ready for review, Completed | First party and nothing to install. As described, it shows state across sessions. I found no per-session queue or inbox. |
 | Plate-Spinner | Rust crate, dashboard | Status and summaries of each session | The closest to sitrep's report side. I found no queue. |
 | claudectl | Rust terminal UI | Live status, cost and burn rate per session, blocked-session detection, desktop and webhook notices, dependency-ordered multi-session task runs, optional local-model approvals | Stronger on cost, alerts and orchestration. It reads local session files and logs and sends nothing out. It runs work for you, where the sitrep queue is a list for you. |
+| claude-valet | Claude Code plugin (Python: hooks, an MCP server and a script) | `/valet:park <text>` stores a follow-up before the model sees it (a hook blocks the turn, so it costs no tokens), and `/unpark` brings one back through a native picker as the next piece of work. It has a queue file for each project, and an optional count for the status line. | The closest in idea: the same trick as `+ text`, and the same rule that nothing fires on its own. As described, it keeps its queue for each project, not each session, and I found no inbox, no report of Objective, Progress and Now, and no dashboard. Picking an item hands it to Claude, where sitrep leaves that to you. It is heavier to install: a clone, `install.sh`, Python 3.10 or newer with two packages, and a restart of Claude Code. |
+| claude-queue | Claude Code plugin (Python standard library: hooks and a script) | `/queue:add` takes tasks and goals, and Claude works through them in order. A `Stop` hook starts the next item when Claude ends its reply with `QUEUE_DONE`, and a goal is judged by a separate `claude -p` model. It has a JSON queue file for each session. | The opposite design: a queue that runs for Claude, where the sitrep queue is a list for you. It fits when "done" can be checked (tests pass) and you want a run without you. Goal checks use your Claude usage, and pause limits stop a loop. I found no status line or dashboard. |
 | OpsDeck | Terminal UI | Finds sessions automatically, shows a daily briefing across projects, cost analytics through ccusage | Stronger on cost and history. |
 | claude-code-kanban, claudedash, atc-claude-kanban | Local web boards | Show Claude Code's own task list and session activity as a board. claude-code-kanban lets you add a task by hand in the Pending column | They mirror the agent's tasks. sitrep keeps your own per-session list. They need a local server and a browser tab. |
 | Vibe Kanban, Nimbalyst, agent-viewer | Boards, apps or a tmux-based web board | Sessions are cards. Some start, resume and manage agents, and agent-viewer works with agents in tmux | Heavier and agent-centred. Better if you want to launch and supervise agents. |
@@ -44,9 +46,11 @@ Choose sitrep if you want the whiteboard role: a place to write down the next it
 
 1. You want a place to write the next steps for each session, shown under the prompt: **sitrep**.
 2. You want one screen of every session's state with nothing to install, and no queue: **Agent View**.
-3. You care about spend, stalls and approvals, or want to run queued work in order: **claudectl** or **OpsDeck**.
-4. You think in boards and want to launch agents from them: **Vibe Kanban** or **Nimbalyst**.
-5. You run many subagents against one repository: **tracon**.
+3. You want to park a thought in the middle of a task and pull it back later, and nothing more: **claude-valet**, which works as sitrep's `+ text` does. Choose sitrep if you also want a queue for each session, an inbox, the report under the prompt and a dashboard.
+4. You want Claude to work through a list on its own, with goals it checks: **claude-queue**.
+5. You care about spend, stalls and approvals, or want to run queued work in order: **claudectl** or **OpsDeck**.
+6. You think in boards and want to launch agents from them: **Vibe Kanban** or **Nimbalyst**.
+7. You run many subagents against one repository: **tracon**.
 
 They are not exclusive. sitrep keeps its own files and prefixes its status line to whatever you already use, so it can run next to Agent View or a cost monitor.
 
@@ -61,3 +65,5 @@ They are not exclusive. sitrep keeps its own files and prefixes its status line 
 7. [agent-viewer](https://blog.brightcoding.dev/2026/09/24/hallucinogenagent-viewer-kanban-board-for-claude-code-in-tmux)
 8. [codeongrass, Multi-Agent Monitoring in 2026](https://codeongrass.com/blog/multi-agent-monitoring-agent-quest-baton-os-teamfuse/) (baton-os)
 9. [tracon](https://raw.githubusercontent.com/phalladar/tracon/main/README.md)
+10. [claude-valet](https://github.com/YeautyYE/claude-valet), README (a dual MIT and Apache 2.0 licence, last pushed 2026-06-03)
+11. [claude-queue](https://github.com/Mrcyberwarri0r/claude-queue), README (MIT, last pushed 2026-10-20)
