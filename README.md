@@ -20,6 +20,10 @@ In the picture:
 
 Other tools, including Claude Code's own Agent View, show which sessions are working and which are waiting. sitrep also keeps your own list of what comes next, for each session, and shows it under the prompt.
 
+![The status line under a prompt: Objective, Progress, Now and a queue line with the next item and the inbox count](docs/img/statusline.png)
+
+*Your queue under the prompt, on a made-up session: the last line is the queue, its next item, and the inbox.*
+
 1. **A queue for each session.** In a Claude Code session, type `+ call Sam` and press enter: the text goes on this session's queue, and nothing is sent to Claude. The queue is yours, and the next item shows under the prompt.
 2. **An inbox for work that has no session yet.** Type `+inbox <text>` in a prompt to write it down without sending anything to Claude. The inbox is yours too, and you take an item into a session when you know where it belongs: press `1` to `9` in the dashboard, or run `sitrep move inbox <id>`.
 3. **A report for each session.** The Objective, the Progress and what it is doing Now show under each prompt. A short Haiku call rewrites them after each turn. It uses a little of your Claude usage, capped at $0.05 a call (see Privacy And Safety for what is sent).
@@ -41,11 +45,7 @@ More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](do
 
 ## What It Looks Like
 
-Under each prompt in Claude Code, sitrep draws a short report of the session, in your terminal's own colours:
-
-![The status line under a prompt: Objective, Progress, Now and a queue line with the next item and the inbox count](docs/img/statusline.png)
-
-The status line works as follows:
+Under each prompt in Claude Code, sitrep draws a short report of the session, in your terminal's own colours (the picture under "Why sitrep" above). It works as follows:
 
 1. Objective starts as the first prompt (a resumed session is seeded from its transcript), so the raw prompt shows until the first turn finishes. A short title written by the same Haiku call that writes Progress and Now then replaces it. A pinned Objective (`+pin` or `sitrep pin`) stays until you run `sitrep unpin`.
 2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
