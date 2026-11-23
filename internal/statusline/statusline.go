@@ -32,17 +32,31 @@ type Line struct {
 	Version string
 	// Now is the time recorded with the context window; time.Now when nil.
 	Now func() time.Time
+	// UpstreamLimit is how long the upstream command may take; UpstreamTimeout when zero.
+	UpstreamLimit time.Duration
 }
+
+// UpstreamTimeout bounds the upstream status line: a prompt must not wait for a command that hangs.
+const UpstreamTimeout = 3 * time.Second
 
 // Render reads the event from in and writes the status line to out. It never fails: whatever goes wrong, what could be drawn is drawn.
 func (l Line) Render(ctx context.Context, in io.Reader, out io.Writer) {
 	defer func() { _ = recover() }()
 	input, _ := io.ReadAll(io.LimitReader(in, maxInput))
 	if cmd := l.Conf.Get("SITREP_HUD_CMD"); cmd != "" {
-		up, _ := l.Run.Run(ctx, runner.Cmd{Name: "sh", Args: []string{"-c", cmd}, Stdin: strings.NewReader(string(input)), Env: append(append([]string(nil), l.Env...), "SITREP_RENDERING=1")})
+		limit := l.UpstreamLimit
+		if limit <= 0 {
+			limit = UpstreamTimeout
+		}
+		uctx, cancel := context.WithTimeout(ctx, limit)
+		// its own process group, so that a timeout kills the shell and whatever the shell started
+		up, _ := l.Run.Run(uctx, runner.Cmd{Name: "sh", Args: []string{"-c", cmd}, Stdin: strings.NewReader(string(input)), Env: append(append([]string(nil), l.Env...), "SITREP_RENDERING=1"), NewGroup: true})
+		timedOut := uctx.Err() != nil
+		cancel()
 		// the shell's command substitution drops trailing newlines; exactly one is added. The upstream line is the user's own command and
-		// is passed as it is, colors included; only text that came from sessions is filtered.
-		if s := strings.TrimRight(string(up), "\n"); s != "" {
+		// is passed as it is, colors included; only text that came from sessions is filtered. What a command printed before it was cut off
+		// at the limit is not drawn: the sitrep lines below are.
+		if s := strings.TrimRight(string(up), "\n"); s != "" && !timedOut {
 			fmt.Fprintln(out, s)
 		}
 	}

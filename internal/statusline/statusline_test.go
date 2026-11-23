@@ -284,3 +284,33 @@ func TestStatusLinesWithNoNotesYet(t *testing.T) {
 		t.Errorf("%q", out.String())
 	}
 }
+
+func TestAHangingUpstreamCommandDoesNotHoldBackTheStatusLine(t *testing.T) {
+	s := state.Open(t.TempDir())
+	s.Ensure()
+	os.WriteFile(filepath.Join(s.Dir, "sitrep.conf"), []byte("SITREP_HUD_CMD='echo early; sleep 30'\n"), 0o600)
+	s.EnsureSession("s1")
+	os.WriteFile(s.Path("s1", "notes"), []byte("Objective: x\n"), 0o600)
+	l := Line{Store: s, Conf: conf.Open(s.Dir), Run: runner.Exec{}, Env: os.Environ(), UpstreamLimit: 300 * time.Millisecond}
+	var out bytes.Buffer
+	start := time.Now()
+	l.Render(context.Background(), strings.NewReader(`{"session_id":"s1"}`), &out)
+	if took := time.Since(start); took > 5*time.Second {
+		t.Errorf("the status line waited %v for the upstream command", took)
+	}
+	if !strings.HasPrefix(out.String(), "Objective: x") || strings.Contains(out.String(), "early") {
+		t.Errorf("our lines are drawn, and a line cut off at the limit is not:\n%q", out.String())
+	}
+}
+
+func TestTheUpstreamCommandRunsInItsOwnProcessGroupWithALimit(t *testing.T) {
+	fake := &runner.Fake{Answers: map[string]runner.Result{"sh -c echo up": {Out: []byte("up\n")}}}
+	s := state.Open(t.TempDir())
+	s.Ensure()
+	os.WriteFile(filepath.Join(s.Dir, "sitrep.conf"), []byte("SITREP_HUD_CMD='echo up'\n"), 0o600)
+	l := Line{Store: s, Conf: conf.Open(s.Dir), Run: fake}
+	l.Render(context.Background(), strings.NewReader(`{"session_id":"s1"}`), &bytes.Buffer{})
+	if c := fake.Calls()[0]; !c.NewGroup {
+		t.Error("a command that starts others must be killed as a group")
+	}
+}
