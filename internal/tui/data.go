@@ -9,6 +9,8 @@ import (
 	"math"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/lfeagan/claude-sitrep/internal/state"
 )
 
@@ -51,6 +53,15 @@ type Hidden struct {
 }
 
 // Label is the name a person is shown for a session: its alias, or the Short. Whatever is passed to a command is the ID, never this.
+// RowLabel is what the first column of a row holds: the short id, or, for a session with a name, the name (cut with an ellipsis) and the short
+// id in brackets, as `sitrep ls` shows it, so that the id to type for a command is never hidden by the name.
+func (x Session) RowLabel() string {
+	if x.Alias == "" {
+		return x.Short
+	}
+	return ansi.Truncate(x.Alias, 12, "…") + " (" + x.Short + ")"
+}
+
 func (x Session) Label() string {
 	if x.Alias != "" {
 		return x.Alias

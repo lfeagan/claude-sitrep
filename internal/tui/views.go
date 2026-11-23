@@ -445,7 +445,7 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 	}
 	for _, x := range list {
 		ids = append(ids, x.ID)
-		row := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %s", idCell(x.Label(), iw), padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
+		row := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %s", idCell(x.RowLabel(), iw), padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
 		block := []string{ansi.Truncate(row, o.Width, "…")}
 		if room.compact {
 			now, label := x.Now, "Now:"
@@ -656,7 +656,7 @@ func topBody(s Snapshot, o viewOpts) []string {
 		if showCtx {
 			ctx = ctxCell(x, o) + "  "
 		}
-		prefix := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %-5d  %s", idCell(x.Label(), iw), padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count, ctx)
+		prefix := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %-5d  %s", idCell(x.RowLabel(), iw), padRight(ansi.Truncate(x.Dir, dw, "…"), dw), padRight(stateText(x), sw), x.Queue.Count, ctx)
 		line := prefix + ansi.Truncate(text, max(o.Width-ansi.StringWidth(prefix), 1), "…")
 		blocks = append(blocks, selectBlock(mark(recentMark([]string{line}, x, o), x, o), x, o))
 	}
@@ -805,6 +805,15 @@ func helpStep(key string, height int) (int, bool) {
 // helpLines is the key list: the keys, what the tabs show, and what the colours mean, wrapped and cut to the width.
 func helpLines(width int, readOnly bool) []string {
 	lines := []string{
+		" Marks and colours (default theme)",
+		"",
+		"  ● pink-red   Claude has stopped and the next move is yours, until you reply",
+		"               the colour weakens after 10 minutes (SITREP_ATTN_FADE); the ● stays",
+		"  ○            snoozed: waiting, but you said it can wait",
+		"  ▶            the selected row",
+		"  grey         the session changed in the last minute (a · without colour)",
+		"  idle?        working, but quiet for 10 minutes: it may have been interrupted",
+		"",
 		" Keys",
 		"",
 		"  j, k, gg, G, ctrl+d, ctrl+u    move the selection (the \u25b6 arrow and bar)",
@@ -836,14 +845,6 @@ func helpLines(width int, readOnly bool) []string {
 		"  Cards   every session as a block: Objective, Progress, Now and the queue",
 		"  Table   a summary line, then one line per session (CTX: context left)",
 		"  Wall    the sessions as tiles of one size, many to a screen, those that need you first",
-		"",
-		" Colours (default theme)",
-		"",
-		"  ● pink-red   Claude has stopped and the next move is yours, until you reply",
-		"               the colour weakens after 10 minutes (SITREP_ATTN_FADE); the ● stays",
-		"  ○            snoozed: waiting, but you said it can wait",
-		"  grey         the session changed in the last minute (a · without colour)",
-		"  idle?        working, but quiet for 10 minutes: it may have been interrupted",
 	}
 	if readOnly { // the keys that change state are off, so they are not listed
 		kept := lines[:0]
@@ -888,6 +889,9 @@ func helpScreen(width, height int, readOnly bool, scroll int, th Theme) string {
 // render lays out the whole screen: tabs on top, the body, the status bar at the bottom.
 func render(s Snapshot, tab int, errText string, o viewOpts) string {
 	bar := tabBar(tab, o.Width, o.Theme)
+	if note := "  DEMO: made-up sessions"; o.Demo && ansi.StringWidth(bar[0])+ansi.StringWidth(note) <= o.Width { // said at the top too, not only in the status bar
+		bar[0] += o.Theme.Warn.Render(note)
+	}
 	bodyOpts := o
 	if o.Height > 0 { // a height of 0 means no limit, as for --once
 		bodyOpts.Height = max(o.Height-len(bar)-1, 1)
@@ -940,14 +944,14 @@ func render(s Snapshot, tab int, errText string, o viewOpts) string {
 }
 
 // maxLabelWidth is the widest the first column grows for an alias; a longer alias is cut with an ellipsis.
-const maxLabelWidth = 16
+const maxLabelWidth = 19 // a name of 12 columns, a space, and the short id in brackets
 
 // idWidth is the width of the first column: four, or the longest label of the whole snapshot (so that a filter does not move it) up to
 // maxLabelWidth.
 func idWidth(s Snapshot) int {
 	w := 4
 	for _, x := range s.Sessions {
-		w = max(w, min(ansi.StringWidth(x.Label()), maxLabelWidth))
+		w = max(w, min(ansi.StringWidth(x.RowLabel()), maxLabelWidth))
 	}
 	return w
 }

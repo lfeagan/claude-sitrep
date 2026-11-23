@@ -498,7 +498,7 @@ func TestAliasInTheDashboard(t *testing.T) {
 					t.Errorf("tab %d width %d: wide line %q", tab, w, l)
 				}
 			}
-			if w >= 80 && (!strings.Contains(out, "sitrep ") || !strings.Contains(out, "a-name-that-is-…")) {
+			if w >= 80 && (!strings.Contains(out, "sitrep (15f1)") || !strings.Contains(out, "a-name-that… (2cd8)")) {
 				t.Errorf("tab %d: the labels are not shown\n%s", tab, out)
 			}
 		}
@@ -508,7 +508,7 @@ func TestAliasInTheDashboard(t *testing.T) {
 		t.Errorf("width %d", w)
 	}
 	only := render(s, tabTable, strings.ToLower(s.Sessions[0].ID[:4]), opts(80, 40))
-	if !strings.Contains(only, "ID                ") {
+	if !strings.Contains(only, "ID"+strings.Repeat(" ", 19)) {
 		t.Errorf("the column narrowed with a filter:\n%s", only)
 	}
 	// the filter finds an alias
@@ -838,8 +838,11 @@ func TestHelpScrolls(t *testing.T) {
 		t.Errorf("a cut list says it scrolls:\n%s", long)
 	}
 	end := helpScreen(60, 10, false, 1<<20, plainTheme())
-	if !strings.Contains(end, "snoozed") || end == long {
-		t.Errorf("scrolled to the end the colours show:\n%s", end)
+	if !strings.Contains(end, "tiles") || end == long {
+		t.Errorf("scrolled to the end the last tab shows:\n%s", end)
+	}
+	if !strings.Contains(long, "snoozed") {
+		t.Errorf("the marks are above the fold:\n%s", long)
 	}
 	if tall := helpScreen(60, 80, false, 5, plainTheme()); !strings.Contains(tall, "any key closes") {
 		t.Errorf("a list that fits does not scroll:\n%s", tall)
@@ -1079,5 +1082,36 @@ func TestStatusBarHintsAreQuietAndTheCountKeepsTheAccent(t *testing.T) {
 	}
 	if got := ansi.StringWidth(bar); got != 100 {
 		t.Errorf("the bar is %d columns, want 100", got)
+	}
+}
+
+func TestDemoIsSaidAtTheTopToo(t *testing.T) {
+	s := loadFixture(t)
+	for _, tab := range []int{tabCards, tabTable, tabWall} {
+		out := render(s, tab, "", viewOpts{Width: 100, Height: 20, Demo: true, Theme: plainTheme()})
+		if first := strings.Split(out, "\n")[0]; !strings.Contains(first, "DEMO: made-up sessions") {
+			t.Errorf("tab %d: the top line does not say it is a demo: %q", tab, first)
+		}
+	}
+	if out := render(s, tabCards, "", viewOpts{Width: 100, Height: 20, Theme: plainTheme()}); strings.Contains(strings.Split(out, "\n")[0], "DEMO") {
+		t.Error("a demo label on real sessions")
+	}
+	if out := render(s, tabCards, "", viewOpts{Width: 30, Height: 20, Demo: true, Theme: plainTheme()}); strings.Contains(strings.Split(out, "\n")[0], "DEMO: made") {
+		t.Errorf("the note is left out when it does not fit, not cut: %q", strings.Split(out, "\n")[0])
+	}
+}
+
+func TestRowLabelKeepsTheIDBesideAName(t *testing.T) {
+	x := Session{Short: "15f1"}
+	if got := x.RowLabel(); got != "15f1" {
+		t.Errorf("no name: %q", got)
+	}
+	x.Alias = "api"
+	if got := x.RowLabel(); got != "api (15f1)" {
+		t.Errorf("a name: %q", got)
+	}
+	x.Alias = "a-name-that-is-much-too-long"
+	if got := x.RowLabel(); got != "a-name-that… (15f1)" || ansi.StringWidth(got) > maxLabelWidth {
+		t.Errorf("a long name is cut and the id stays: %q", got)
 	}
 }
