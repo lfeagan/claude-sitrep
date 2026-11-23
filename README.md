@@ -8,17 +8,19 @@ A to-do list for each of your Claude Code sessions, and a dashboard that shows w
 
 *`sitrep dash --demo`, on made-up sessions.*
 
+When you run several Claude Code sessions, you think of the next thing to ask one of them while it is still busy, or of something for another session. Where does that go? Into your head, a scratch file, or a prompt you have to remember to send. And you lose track of which session is waiting for you.
+
+In the picture:
+
 - Queue is your own list of what comes next for that session, and Inbox is your list for work that has no session yet. Nothing in them goes to Claude unless you ask.
 - Objective, Progress and Now say what a session is for, how far it has got and what it is doing right now.
 - `●` the session needs you, `○` it is snoozed, and `▶` marks the selected row.
-
-When you run several Claude Code sessions, you think of the next thing to ask one of them while it is still busy, or of something for another session. Where does that go? Into your head, a scratch file, or a prompt you have to remember to send. And you lose track of which session is waiting for you.
 
 ## Why sitrep
 
 Other tools, including Claude Code's own Agent View, show which sessions are working and which are waiting. sitrep also keeps your own list of what comes next, for each session, and shows it under the prompt.
 
-1. **A queue for each session.** Type `+ <text>` in a prompt to queue an item without sending anything to Claude. The queue is yours: nothing in it goes to Claude unless you ask, and the next item shows under the prompt.
+1. **A queue for each session.** In a Claude Code session, type `+ call Sam` and press enter: the text goes on this session's queue, and nothing is sent to Claude. The queue is yours: nothing in it goes to Claude unless you ask, and the next item shows under the prompt.
 2. **An inbox for work that has no session yet.** Type `+inbox <text>` in a prompt to write it down without sending anything to Claude. The inbox is yours too, and you take an item into a session when you know where it belongs: press `1` to `9` in the dashboard, or run `sitrep move inbox <id>`.
 3. **A report for each session.** The Objective, the Progress and what it is doing Now show under each prompt. A short Haiku call rewrites them after each turn (see Privacy And Safety for the cost cap and what is sent).
 4. **A dashboard that puts the sessions that need you first.** A session that has stopped and waits for you has a `●`, and the terminal bell rings when one newly does.
@@ -39,7 +41,17 @@ More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](do
 
 ## What It Looks Like
 
-The dashboard has three tabs, and `tab` switches between them. Cards shows the detail of a few sessions, as above. Table is a quick scan of many. `CTX` is the share of the context window left, so a low number is a warning, and it is bold when it is low. `idle?` marks a working session that has been quiet for a while:
+Under each prompt in Claude Code, sitrep draws a short report of the session, in your terminal's own colours:
+
+![The status line under a prompt: Objective, Progress, Now and a queue line with the next item and the inbox count](docs/img/statusline.png)
+
+The status line works as follows:
+
+1. Objective starts as the first prompt (a resumed session is seeded from its transcript), so the raw prompt shows until the first turn finishes. A short title written by the same Haiku call that writes Progress and Now then replaces it. A pinned Objective (`+pin` or `sitrep pin`) stays until you run `sitrep unpin`.
+2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
+3. Queue shows how many items are waiting, the next item and the first four characters of the session id, which is how `sitrep` addresses the session (`sitrep add a1b2 ...`).
+
+`sitrep dash` is a full-screen dashboard of every session, with three tabs, and `tab` switches between them. Cards shows the detail of a few sessions, as above. Table is a quick scan of many. `CTX` is the share of the context window left, so a low number is a warning, and it is bold when it is low. `idle?` marks a working session that has been quiet for a while:
 
 ![The Table tab: one line per session, with state, queue, context left and what it is doing now](docs/img/table.png)
 
@@ -71,21 +83,6 @@ Start on Cards for a few sessions, Table for many, and Wall when you have more t
 ### Updating
 
 When a newer release exists, the status line says so under the queue line. Update the plugin, restart Claude Code, then run `/sitrep:setup` again, so that the program matches the plugin. From a clone, run `git pull --tags && make install`. The details, upgrading from 0.3.x and taking sitrep out are in [docs/INSTALL.md](docs/INSTALL.md).
-
-## What You See
-
-```
-Objective: Build a three-line status block for my sessions
-Progress:  Wrote the wrapper and hooks; summarizer tested against a fake transcript.
-Now:       Waiting on a repo name.
-Queue [id a1b2]: 2 items, next: update README
-```
-
-The block works as follows:
-
-1. Objective starts as the first prompt (a resumed session is seeded from its transcript), so the raw prompt shows until the first turn finishes. A short title written by the same Haiku call that writes Progress and Now then replaces it. A pinned Objective (`+pin` or `sitrep pin`) stays until you run `sitrep unpin`.
-2. Progress and Now are rewritten after each turn by a short Haiku call that reads the tail of the transcript.
-3. Queue shows how many items are waiting, the next item and the first four characters of the session id, which is how `sitrep` addresses the session (`sitrep add a1b2 ...`).
 
 ## The Queue
 

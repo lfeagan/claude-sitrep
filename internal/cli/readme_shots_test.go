@@ -1,13 +1,21 @@
 package cli
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/lfeagan/claude-sitrep/internal/conf"
+	"github.com/lfeagan/claude-sitrep/internal/queue"
+	"github.com/lfeagan/claude-sitrep/internal/runner"
 	"github.com/lfeagan/claude-sitrep/internal/snapshot"
+	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/statusline"
+	"github.com/lfeagan/claude-sitrep/internal/textsafe"
 	"github.com/lfeagan/claude-sitrep/internal/tui"
 )
 
@@ -53,5 +61,39 @@ func TestWriteReadmeShots(t *testing.T) {
 	}
 	theme("dark", true, "eighties", "homebrew", "nord", "tokyo", "volcano", "gameboy")
 	theme("light", false, "paper", "novel", "bossa-nova", "arctic")
+	// the status line under a prompt, drawn by the program itself from the notes and queue of a demo session (c9d4)
+	write("statusline", "dark", "# the status line under each prompt\n"+statusLineFrame(t, demoSessions[2]))
 	write("cvd", "dark", "# cvd-safe\n"+frame("table", 84, 9, "cvd-safe", true, sel, false))
+}
+
+// statusLineFrame writes the notes and queues of one demo session in a throwaway state folder and returns what `sitrep statusline` draws for it.
+func statusLineFrame(t *testing.T, d demoSession) string {
+	t.Helper()
+	st := state.Open(t.TempDir())
+	if err := st.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	id := demoID(d.id)
+	if err := st.EnsureSession(id); err != nil {
+		t.Fatal(err)
+	}
+	notes := "Objective: " + d.objective + "\nProgress:  " + d.progress + "\nNow:       " + d.now + "\n"
+	if err := st.WriteFile(st.Path(id, "notes"), []byte(notes)); err != nil {
+		t.Fatal(err)
+	}
+	q := queue.Queue{Store: st}
+	for _, it := range d.queue {
+		if _, err := q.Add(id, textsafe.Clean(it, 0)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, it := range []string{"look at the flaky test in CI", "ask about the release date"} {
+		if _, err := q.Add(state.Inbox, textsafe.Clean(it, 0)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var out bytes.Buffer
+	line := statusline.Line{Store: st, Conf: conf.Conf{File: filepath.Join(st.Dir, "sitrep.conf"), Getenv: func(string) string { return "" }}, Run: &runner.Fake{}}
+	line.Render(context.Background(), strings.NewReader(`{"session_id":"`+d.id+`"}`), &out)
+	return strings.TrimRight(out.String(), "\n")
 }
