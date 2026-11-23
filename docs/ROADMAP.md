@@ -26,13 +26,13 @@ These ideas were not asked for by users. A synthetic persona ([docs/personas/pow
 | # | The persona's idea | What exists today | Verdict |
 | --- | --- | --- | --- |
 | 1 | A recap after a break | The Objective, Progress and Now are rewritten after every turn. Claude Code has its own one-line recap on return and `/recap`. Nothing in sitrep reads the repository. | The narrative is covered twice. The repository half is real: see A. |
-| 2 | Notifications when away | Only the dashboard's bell. Claude Code's `Notification` and `Stop` hooks can already run any command. | Mostly a recipe: see B. |
+| 2 | Notifications when away | Only the dashboard's bell. Claude Code's `Notification` and `Stop` hooks can already run any command. | Not sitrep's to build: Claude Code does it. See "What the persona would not build", and C. |
 | 3 | A git and pull request snapshot | Nothing: the JSON has no branch or repository field. | Real: see A. |
-| 4 | A daily and weekly digest | `sitrep log --since 1d --op queue.rm` lists the items done. | Mostly exists: see C. |
-| 5 | Search across sessions | `sitrep log --json \| jq` searches queue text, and `grep -r` over `sessions/*/notes` finds the latest summary of a session still on disk. | Mostly exists: see C. |
+| 4 | A daily and weekly digest | `sitrep log --since 1d --op queue.rm` lists the items done. | Mostly exists: see B. |
+| 5 | Search across sessions | `sitrep log --json \| jq` searches queue text, and `grep -r` over `sessions/*/notes` finds the latest summary of a session still on disk. | Mostly exists: see B. |
 | 6 | Relations between sessions | Nothing. | Dropped: an item's text can say "after 2f3a", and there is little evidence of the pain. |
 | 7 | A cost ledger | Nothing is recorded, but the status-line input that sitrep already reads carries the session's cost. | Not worth building: claudectl and OpsDeck do it better, and sitrep is meant to run beside them. See "What the persona would not build". |
-| 8 | An event stream | There is no `watch` command; scripts poll `sitrep ls --json`. | Weak: see D. |
+| 8 | An event stream | There is no `watch` command; scripts poll `sitrep ls --json`. | Weak, but the base for scripts that notify: see C. |
 | 9 | A multi-host view | The ssh loop and a note in [docs/REMOTE.md](REMOTE.md). | Duplicate of "Remote machines" above. |
 | 10 | A command from a queue item | `Y` in the dashboard copies a session's `claude --resume <id>`. | Dropped: starting a session from an item adds little, and running it would break the read-only dashboard. |
 
@@ -44,15 +44,7 @@ Idea: branch, dirty flag and ahead or behind in `sitrep ls --json` and as a dash
 
 Doubt: for one session the user is in, asking Claude "what changed?" works, and Claude can run `git` itself. The value is in the overview of many sessions. No tool in [docs/COMPARISON.md](COMPARISON.md) does it.
 
-### B. Notifications when away
-
-Pain: the bell rings only in an open dashboard that someone is looking at.
-
-What exists: the documentation of Claude Code's `Notification` hook lists notification types, among them `permission_prompt`, `idle_prompt` and `agent_needs_input`, and its `Stop` hook runs when a response ends. Either can run any command, such as a push to a phone. A hook can also return a `terminalSequence` that emits an OSC 9, 99 or 777 notification or a bell. A user can set this up today, with no help from sitrep.
-
-So the likely work is a recipe in the docs. A `SITREP_NOTIFY_CMD` setting would be worth its cost only if sitrep's own notion of a session that needs you (stopped and waiting, deduplicated for each session, with snooze) turns out to matter more than Claude Code's events. claudectl has desktop and webhook notices.
-
-### C. A daily view built on `sitrep log`
+### B. A daily view built on `sitrep log`
 
 Pain: "what did I finish yesterday", for a stand-up, is answered from memory.
 
@@ -62,14 +54,15 @@ What is missing: the log is off by default, because it keeps the text of the use
 
 Idea: a `sitrep log --digest` view that groups the items done and the sessions that ended for a day, and perhaps a record of the Objective when a session ends. Turning the log on by default is a decision about privacy, not a feature.
 
-### D. An event stream
+### C. An event stream
 
 Pain, as the persona put it: people who script around sitrep poll `sitrep ls --json` in a loop.
 
-Idea: `sitrep watch --json`, one line for each change of state, from a plain loop over the snapshot with no server. No user of this is known, so it should wait for one.
+Idea: `sitrep watch --json`, one line for each change of state, from a plain loop over the snapshot with no server. It would also let a script notify on what the dashboard shows: the moment a session starts needing you, with the snooze respected and the colour fade, which Claude Code's own events do not know about. A `SITREP_NOTIFY_CMD` setting on top of that would wait for someone who wants it. No user of either is known, so both should wait for one.
 
 ### What the persona would not build
 
+- Notifications through Claude Code's own hooks (the persona's idea 2). Claude Code's documentation lists a `Notification` hook with the types `permission_prompt`, `idle_prompt` and `agent_needs_input`, and a `Stop` hook for the end of a response. Either can run any command, such as a push to a phone, and a hook can return a `terminalSequence` that emits an OSC 9, 99 or 777 notification or a bell. A user can set this up without sitrep, so a recipe for it is a Claude Code tip, not part of sitrep. What sitrep alone knows is its own meaning of a session that needs you, and that is idea C.
 - A cost ledger (the persona's idea 7). The status-line input does carry `cost.total_cost_usd` (a client-side estimate at list price, not a bill), the duration, the lines added and removed, and `rate_limits`, and `sitrep statusline` already reads that input, so recording it would be cheap. Cheap is not a reason: claudectl and OpsDeck track cost and burn rate far better, [docs/COMPARISON.md](COMPARISON.md) sends people who need it to them, and sitrep is meant to run beside such a tool. The lines added and removed are still a free signal of how much a session has changed, and idea A may use them.
 - Approvals or input from the dashboard: it breaks the read-only rule, and claudectl does it.
 - A `Stop` hook that feeds the next item on its own ([docs/QUEUE-NEXT.md](QUEUE-NEXT.md), option 2): an unattended session that keeps itself busy is a runaway session.
