@@ -25,9 +25,16 @@ These ten ideas were not asked for by users. They come from a run of the persona
 
 ### 1. A recap after a break, with the changes in the repository
 
-Pain: after lunch, a meeting or a night, the user scrolls the transcript to recall what was done, then runs `git status`, `git diff --stat` and `gh pr checks` by hand. The summary says what Claude thought it did and nothing about the repository. The persona put it at three to ten minutes, several times a day, for one session or many.
+Pain, as the persona put it: after lunch, a meeting or a night, the user scrolls the transcript to recall what was done, then runs `git status`, `git diff --stat` and `gh pr checks` by hand. The summary says what Claude thought it did and nothing about the repository. It estimated three to ten minutes, several times a day.
 
 Idea: `sitrep recap [id]`, also shown at `SessionStart`: what the session did, the branch, the files changed since its last turn, and what is left in its queue. Fit: branch and diff stat are local `git` reads that the hook saves in the session folder, so no network, with a bounded wait (invariant 4) and cleaned text (invariant 1). Others: no tool in [docs/COMPARISON.md](COMPARISON.md) does the repository half.
+
+Doubts, added after the persona's run (this is a reading of the idea, not a second persona run):
+
+- **Asking Claude is as good for one session you are in.** "What did we do, and what is left?" works, and Claude can run `git status` and `git diff --stat` itself. The persona's scenario describes a user who does not think to ask, and it did not check that this is a common pain.
+- **The narrative half is already there.** The Objective, Progress and Now under each prompt are a Haiku summary after each turn. A second story from sitrep would add little.
+- **What is left is the repository half.** It is mechanical, with no model call, no tokens, no turn and no use of the context window. It reads the files, so it stays right after a compaction, a resume, or edits that the user or another session made in the same repository, where Claude's account comes from its own context and can be stale. It works for sessions the user is not in, such as eight sessions in a morning triage or one that has ended, and it is there at `SessionStart` without being asked.
+- **So** the part worth building is "the files changed since this session's last turn", shown in `ls --json` and the dashboard, together with the snapshot in item 3. Whether anyone needs a recap inside the session is an open question for people who use the tool. The persona ranked this first; with these doubts it is better read as a smaller addition to item 3.
 
 ### 2. Notifications when away
 
