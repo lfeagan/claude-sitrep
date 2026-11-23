@@ -1,6 +1,6 @@
 # Not built yet
 
-Things that have been thought about and are not built. Nothing here is promised. The first part is the list that used to live in the inbox, and each item has a page that holds the detail. The second part, from "Candidates from the power-user persona", is a set of ideas that a persona generated, and it says so.
+Things that have been thought about and are not built. Nothing here is promised. The first part is the list that used to live in the inbox, and each item has a page that holds the detail. The second part is a set of ideas that a synthetic persona (a model playing a kind of user) generated, and it says so.
 
 ## Remote machines
 
