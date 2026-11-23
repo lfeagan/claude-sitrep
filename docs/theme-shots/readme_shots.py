@@ -143,7 +143,7 @@ def social(frame, out):
     """The 1280 by 640 picture for GitHub's social preview: the name and the tagline over the top of the Cards window, which runs off the bottom."""
     dfg, dbg = (230, 230, 230), (30, 30, 30)
     page = (34, 36, 46)
-    lines = frame.rstrip("\n").split("\n")[1:]
+    lines = frame.rstrip("\n").split("\n")[1:23]  # whole rows only: the window runs off the bottom of the card, and no row is cut in half
     cols = max(sum(c[1] for c in a.parse(l, dfg, dbg)) for l in lines)
     w = cols * CW + 2 * PAD
     parts = [f'<text x="640" y="82" text-anchor="middle" font-family="{FONT}" font-size="54" font-weight="bold" fill="#e6e6e6">claude-sitrep</text>',

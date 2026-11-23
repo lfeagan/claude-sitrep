@@ -34,7 +34,7 @@ type demoSession struct {
 
 var demoSessions = []demoSession{
 	{"a1f3c9d2", "web", "waiting", "waiting", 190, true, false, false, false, "Dark mode for the settings page", "Theme tokens are in; the toggle works in Chrome", "Waiting for you: should the choice be saved per device or per account?", []string{"check the focus ring in dark mode"}, 71},
-	{"b7e20c41", "api", "waiting", "waiting", 40, true, true, false, false, "Add pagination to list_orders", "Cursor pagination written, tests pass", "Waiting at a permission dialog: run `go test ./...`", nil, 55},
+	{"b7e20c41", "api", "waiting", "blocked 40s", 40, true, true, false, false, "Add pagination to list_orders", "Cursor pagination written, tests pass", "Waiting at a permission dialog: run `go test ./...`", nil, 55},
 	{"c9d4a6e8", "infra", "working", "working", 20, false, false, false, false, "Move the nightly job to the new runner", "Image built; the schedule is copied", "Editing .github/workflows/nightly.yml", []string{"remove the old cron entry", "tell the team in the channel"}, 38},
 	{"d0b1f5a7", "docs", "working", "working", 75, false, false, false, false, "Split the README into pages", "Install and Queue are done", "Writing docs/SETTINGS.md", nil, 64},
 	{"e5a8b3c0", "mobile-app", "working", "working", 310, false, false, false, false, "Fix the crash when the camera permission is denied", "Reproduced on Android 14", "Reading CameraScreen.kt", []string{"add a test for the denied case", "update the changelog"}, 12},

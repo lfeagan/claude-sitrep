@@ -8,9 +8,9 @@ A to-do list for each of your Claude Code sessions, and a dashboard that shows w
 
 *`sitrep dash --demo`, on made-up sessions.*
 
-- `●` the session needs you, `○` it is snoozed, and `▶` marks the selected row.
+- Queue is your own list of what comes next for that session, and Inbox is your list for work that has no session yet. Nothing in them goes to Claude unless you ask.
 - Objective, Progress and Now say what a session is for, how far it has got and what it is doing right now.
-- Queue is your list of what comes next for that session. Inbox is your list for work that has no session yet.
+- `●` the session needs you, `○` it is snoozed, and `▶` marks the selected row.
 
 When you run several Claude Code sessions, you think of the next thing to ask one of them while it is still busy, or of something for another session. Where does that go? Into your head, a scratch file, or a prompt you have to remember to send. And you lose track of which session is waiting for you.
 
@@ -27,7 +27,9 @@ Other tools, including Claude Code's own Agent View, show which sessions are wor
 
 Limits: Claude Code only, one machine (other machines can be reached over ssh, see [docs/REMOTE.md](docs/REMOTE.md)), no cost tracking, and it cannot answer a session's approval prompts. [docs/COMPARISON.md](docs/COMPARISON.md) compares it with Agent View, claudectl, Plate-Spinner and the kanban boards, and says when one of them is the better choice.
 
-To install, run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup` (it needs Go 1.26 or newer and the `claude` CLI; see [Install](#install)). To look around first, with nothing installed, run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@latest dash --demo` (it needs Go 1.26 or newer, and shows made-up sessions). That runs the newest release as you, so it trusts this repository and its owner; `@v1.0.0` in place of `@latest` runs one fixed version, which the Go checksum database also vouches for.
+**Look around first**, with nothing installed: run `go run github.com/lfeagan/claude-sitrep/cmd/sitrep@latest dash --demo`. It shows made-up sessions and needs Go 1.26 or newer. It runs the newest release as you, so it trusts this repository and its owner; put a version in place of `@latest` (for example `@v1.0.1`) to run one fixed release, which the Go checksum database also vouches for.
+
+**Install:** run `/plugin install sitrep --marketplace lfeagan/claude-sitrep` in Claude Code, then `/sitrep:setup`. It needs Go 1.26 or newer and the `claude` CLI, and the details are in [Install](#install).
 
 ## Contents
 
@@ -41,7 +43,7 @@ The dashboard has three tabs, and `tab` switches between them. Cards shows the d
 
 ![The Table tab: one line per session, with state, queue, context left and what it is doing now](docs/img/table.png)
 
-Wall shows the sessions as tiles, many to a screen, with those that need you first. Text is cut to the width of a tile:
+Wall shows the sessions as tiles, many to a screen, with those that need you first. Text is cut to the width of a tile, `+2 more` counts the tiles that do not fit this window, and `a` shows the ended sessions:
 
 ![The Wall tab: tiles of one size, the sessions that need you first](docs/img/wall.png)
 
@@ -151,6 +153,8 @@ The rest (single colours, how long a session that needs you keeps its colour, re
 State is plain files in `~/.claude/sitrep/`, so the status line renders instantly and there is no server. The hooks run `sitrep hook`, which answers within milliseconds, and a short Haiku call writes Progress and Now afterwards in a detached process. The layout, the files and the migration of older state are in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
 
 ## Privacy And Safety
+
+Each summary is one Haiku call on the tail of the transcript, capped at $0.05, and at most one runs for a session in 45 seconds. The cost has not been measured; [docs/COMPARISON.md](docs/COMPARISON.md#where-sitrep-is-weaker) works out the worst case.
 
 Session state is stored in `~/.claude/sitrep`, which is owner-only (`700`, files `600`). Prompt and model text is treated as untrusted terminal input, so control characters (escape sequences and the C1 range) and format characters (such as bidi overrides) are removed before it is stored and again before it is printed. The summarizer sends the tail of the transcript to Haiku through `claude -p`, the same service the session itself uses. It runs from an empty temporary directory with no tools, no MCP servers, no settings and a 60 second limit, in its own process group that the limit ends whole, and only reads transcripts that live under `~/.claude/projects`. The daily update check is the only other network use: it asks this repository for its tag names and sends nothing from your sessions.
 
