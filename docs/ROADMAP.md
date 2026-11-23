@@ -19,74 +19,60 @@ Another tool's setup, such as Claude HUD's, can replace the status line, and the
 - Whether a `Stop` hook should hand over the next queued item on its own is undecided: [docs/QUEUE-NEXT.md](QUEUE-NEXT.md), option 2.
 - Pushing the queue to the cmux sidebar is not built: [docs/HOW-IT-WORKS.md](HOW-IT-WORKS.md), "Not built".
 
-## Candidates from the power-user persona
+## Candidates from the power-user persona, checked
 
-These ten ideas were not asked for by users. They come from a run of the persona in [docs/personas/power-user.md](personas/power-user.md) against sitrep 1.0.1 on 2026-11-22: a model playing a developer who walks through a day, with one session and with about eight, and reports the pain it finds. It worked from the documents and from `sitrep ls` on sample sessions, and it did not drive the dashboard. Treat each as an unchecked idea: what it says about today's behavior (for example what `sitrep log` records, or what is in `ls --json`) has not been verified, and the pain it names has not been confirmed with people who use the tool. They are ranked by the persona, pain first. Each says how it would fit the design (plain files, no server, a read-only dashboard, a queue that is the user's own list), and whether another tool already does it.
+These ideas were not asked for by users. A synthetic persona ([docs/personas/power-user.md](personas/power-user.md)) generated ten of them in a run against sitrep 1.0.1 on 2026-11-22: a model playing a developer who walks through a day, with one session and with about eight, and reports the pain it finds. It worked from the documents and from `sitrep ls` on sample sessions. Its first list was then checked, idea by idea, against what sitrep already does (the code, `sitrep help`, the JSON fields and the docs) and against what Claude Code documents (a reading of its documentation on 2026-11-22; the list of notification types came from a summary of a long page, not a verbatim read). The pain each one names has not been confirmed with people who use the tool.
 
-### 1. A recap after a break, with the changes in the repository
+| # | The persona's idea | What exists today | Verdict |
+| --- | --- | --- | --- |
+| 1 | A recap after a break | The Objective, Progress and Now are rewritten after every turn. Claude Code has its own one-line recap on return and `/recap`. Nothing in sitrep reads the repository. | The narrative is covered twice. The repository half is real: see A. |
+| 2 | Notifications when away | Only the dashboard's bell. Claude Code's `Notification` and `Stop` hooks can already run any command. | Mostly a recipe: see C. |
+| 3 | A git and pull request snapshot | Nothing: the JSON has no branch or repository field. | Real: see A. |
+| 4 | A daily and weekly digest | `sitrep log --since 1d --op queue.rm` lists the items done. | Mostly exists: see D. |
+| 5 | Search across sessions | `sitrep log --json \| jq` searches queue text, and `grep -r` over `sessions/*/notes` finds the latest summary of a session still on disk. | Mostly exists: see D. |
+| 6 | Relations between sessions | Nothing. | Dropped: an item's text can say "after 2f3a", and there is little evidence of the pain. |
+| 7 | A cost ledger | Nothing is recorded, but the status-line input that sitrep already reads carries the session's cost. | Real, and cheap: see B. |
+| 8 | An event stream | There is no `watch` command; scripts poll `sitrep ls --json`. | Weak: see E. |
+| 9 | A multi-host view | The ssh loop and a note in [docs/REMOTE.md](REMOTE.md). | Duplicate of "Remote machines" above. |
+| 10 | A command from a queue item | `Y` in the dashboard copies a session's `claude --resume <id>`. | Dropped: starting a session from an item adds little, and running it would break the read-only dashboard. |
 
-Pain, as the persona put it: after lunch, a meeting or a night, the user scrolls the transcript to recall what was done, then runs `git status`, `git diff --stat` and `gh pr checks` by hand. The summary says what Claude thought it did and nothing about the repository. It estimated three to ten minutes, several times a day.
+### A. The repository state of each session
 
-Idea: `sitrep recap [id]`, also shown at `SessionStart`: what the session did, the branch, the files changed since its last turn, and what is left in its queue. Fit: branch and diff stat are local `git` reads that the hook saves in the session folder, so no network, with a bounded wait (invariant 4) and cleaned text (invariant 1). Others: no tool in [docs/COMPARISON.md](COMPARISON.md) does the repository half.
+Pain, as the persona put it: in the morning triage the user changes into each working directory to learn the branch, whether the tree is dirty and whether CI passed, and after a break runs `git status` and `git diff --stat` by hand. The JSON of `sitrep ls` has `cwd` and nothing about the repository.
 
-Doubts, added after the persona's run (this is a reading of the idea, not a second persona run):
+Idea: branch, dirty flag and ahead or behind in `sitrep ls --json` and as a dashboard column, from local `git` reads that the hook saves in the session folder, with a bounded wait (invariant 4) and cleaned text (invariant 1). Pull request and CI state through `gh` only as an opt-in, in a detached refresh like the update check, which would be new network use (invariant 10). The status-line input has a `worktree` object and `cost.total_lines_added` and `total_lines_removed`, which cost nothing to record and say how much a session has changed; what is inside `worktree` was not checked. Claude Code already recaps what a session did, so sitrep would add the repository facts, which are exact after a compaction or after edits made outside the session, and which can be read for sessions the user is not in.
 
-- **Asking Claude is as good for one session you are in.** "What did we do, and what is left?" works, and Claude can run `git status` and `git diff --stat` itself. The persona's scenario describes a user who does not think to ask, and it did not check that this is a common pain.
-- **The narrative half is already there.** The Objective, Progress and Now under each prompt are a Haiku summary after each turn. A second story from sitrep would add little.
-- **What is left is the repository half.** It is mechanical, with no model call, no tokens, no turn and no use of the context window. It reads the files, so it stays right after a compaction, a resume, or edits that the user or another session made in the same repository, where Claude's account comes from its own context and can be stale. It works for sessions the user is not in, such as eight sessions in a morning triage or one that has ended, and it is there at `SessionStart` without being asked.
-- **So** the part worth building is "the files changed since this session's last turn", shown in `ls --json` and the dashboard, together with the snapshot in item 3. Whether anyone needs a recap inside the session is an open question for people who use the tool. The persona ranked this first; with these doubts it is better read as a smaller addition to item 3.
+Doubt: for one session the user is in, asking Claude "what changed?" works, and Claude can run `git` itself. The value is in the overview of many sessions. No tool in [docs/COMPARISON.md](COMPARISON.md) does it.
 
-### 2. Notifications when away
+### B. Cost, duration and rate limits from the status-line input
 
-Pain: the bell rings only in an open dashboard that someone is looking at, so a session can wait an hour, and a user with one session runs no dashboard at all.
+Pain: the user opens ccusage or claudectl to see what a session has cost. [docs/COMPARISON.md](COMPARISON.md) lists the lack of it as a weakness.
 
-Idea: a setting such as `SITREP_NOTIFY_CMD=<program>`. The hook runs the program once when a session starts needing you, in its own process group with a deadline, and passes the id, the alias and the Now line as environment variables, never on the command line. Dedup is kept in a file. Fit: the user's program does any network use, so sitrep itself stays offline (invariant 10). Others: claudectl has desktop and webhook notices, so this would catch up.
+Idea: Claude Code's status-line input documents `cost.total_cost_usd` (an estimate "computed client-side at list price", not a bill), `total_duration_ms` (accumulating across resumes), the lines added and removed, and `rate_limits`. `sitrep statusline` already reads that input for the context window, so recording the cost beside it needs no network and no transcript reading. It could show as a number in `ls --json` and a Table column, and as a total for the day. claudectl and OpsDeck do much more, and the aim would be only the number.
 
-### 3. A git and pull request snapshot for each session
+### C. Notifications when away
 
-Pain: in the morning triage the user changes into each working directory to learn the branch, whether the tree is dirty, and whether CI passed.
+Pain: the bell rings only in an open dashboard that someone is looking at.
 
-Idea: branch, dirty flag and ahead or behind in `ls --json` and as a dashboard column, from cheap local reads, cached. Pull request and CI state through `gh` only as an opt-in, in a detached refresh like the update check, which would be new network use. Others: none of the compared tools shows it; tracon covers worktree conflicts only.
+What exists: the documentation of Claude Code's `Notification` hook lists notification types, among them `permission_prompt`, `idle_prompt` and `agent_needs_input`, and its `Stop` hook runs when a response ends. Either can run any command, such as a push to a phone. A hook can also return a `terminalSequence` that emits an OSC 9, 99 or 777 notification or a bell. A user can set this up today, with no help from sitrep.
 
-### 4. A daily and weekly digest
+So the likely work is a recipe in the docs. A `SITREP_NOTIFY_CMD` setting would be worth its cost only if sitrep's own notion of a session that needs you (stopped and waiting, deduplicated for each session, with snooze) turns out to matter more than Claude Code's events. claudectl has desktop and webhook notices.
 
-Pain: "what did I finish yesterday", for a stand-up or a status report, is answered from memory.
+### D. A daily view built on `sitrep log`
 
-Idea: `sitrep recap --since 1d`: sessions ended, their last Objective, and the queue items done. Fit: it needs a durable record of ended sessions, so either the history log on by default or a small journal, which is new state and a question of how long to keep it. Others: OpsDeck has a daily briefing.
+Pain: "what did I finish yesterday", for a stand-up, is answered from memory.
 
-### 5. Search across sessions
+What exists: with `SITREP_LOG=on`, [the history log](LOG.md) records each queue change with its text, pins, snoozes, aliases, prunes, and the start and end of sessions. `sitrep log --since 1d --op queue.rm` lists the items done.
 
-Pain: finding which session did a change last week is a `grep` in the state folder, which the docs say not to do.
+What is missing: the log is off by default, because it keeps the text of the user's items. It does not record the Progress and Now summaries, which `notes` overwrites after every turn, and it records an Objective only when it is pinned. It is kept for 10 MB or 30 days. There is no view grouped by day or by session. Search is covered by `sitrep log --json \| jq` for queue text, and what a session did last week can be found only in Claude's own transcripts.
 
-Idea: `sitrep find <text>` over Objectives, Progress, queue and log text, ended sessions included, read through `state.ReadFile` with no index. It needs ended sessions to be kept.
+Idea: a `sitrep log --digest` view that groups the items done and the sessions that ended for a day, and perhaps a record of the Objective when a session ends. Turning the log on by default is a decision about privacy, not a feature.
 
-### 6. Relations between sessions
+### E. An event stream
 
-Pain: "this waits on that session's migration" lives in the user's head.
+Pain, as the persona put it: people who script around sitrep poll `sitrep ls --json` in a loop.
 
-Idea: an item tagged `after:<id>`, shown as "waiting on 2f3a". It is display only and nothing starts, so the queue rule holds. claudectl runs dependency-ordered tasks, which sitrep should not copy.
-
-### 7. A cost and token ledger
-
-Pain: the user opens ccusage or claudectl to see spend. A surprise bill is rare, and a worry for people on API billing.
-
-Idea: spend and tokens per session and per day, and a soft limit that feeds notifications. It is worth doing only if the data comes free from the status-line input. [docs/COMPARISON.md](COMPARISON.md) already lists the lack of it as a weakness, and claudectl and OpsDeck do it better.
-
-### 8. An event stream
-
-Pain: people who script around sitrep poll `sitrep ls --json` in a loop.
-
-Idea: `sitrep watch --json`, one line per state change, from a plain loop over the snapshot with no server. It would be the base for notifications (2) and for other tools.
-
-### 9. A multi-host view
-
-Pain: a laptop plus a server means a loop over ssh, which is the recipe in [docs/REMOTE.md](REMOTE.md). It is already under "Remote machines" above; the persona ranked it above the jump setting. It breaks the no-network rule on purpose, so it stays behind the recipe until the recipe is not enough.
-
-### 10. A ready command from a queue item
-
-Pain: copying an inbox item into a fresh terminal.
-
-Idea: print a `claude` command, with its working directory, for an item. Printing is fine; running it would break the read-only dashboard, and Vibe Kanban and agent-viewer do that better.
+Idea: `sitrep watch --json`, one line for each change of state, from a plain loop over the snapshot with no server. No user of this is known, so it should wait for one.
 
 ### What the persona would not build
 
@@ -95,5 +81,3 @@ Idea: print a `claude` command, with its working directory, for an item. Printin
 - A web interface, a server, or a synced state folder (already dropped).
 - Other agents, such as Codex or Gemini: a different product.
 - A kanban view of the agent's own tasks: the user's own list is the point.
-
-The persona's closing view: the features that would make it rely on sitrep are the recap with repository changes (1) and notifications (2), and what would turn sitrep into something it should not be is starting, resuming or driving sessions, or queue items that run themselves.
