@@ -37,7 +37,7 @@ Limits: Claude Code only, one machine (other machines can be reached over ssh, s
 
 [Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Install](#install) · [The Queue](#the-queue) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
 
-More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [the themes](docs/THEMES.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md) and [remote machines](docs/REMOTE.md).
+More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [the themes](docs/THEMES.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md), [remote machines](docs/REMOTE.md) and [changing the code](CONTRIBUTING.md).
 
 ## What It Looks Like
 
@@ -152,10 +152,6 @@ The rest (single colours, how long a session that needs you keeps its colour, re
 Each summary is one Haiku call on the tail of the transcript, capped at $0.05, and at most one runs for a session in 45 seconds. The cost has not been measured; [docs/COMPARISON.md](docs/COMPARISON.md#where-sitrep-is-weaker) works out the worst case.
 
 Session state is stored in `~/.claude/sitrep`, which is owner-only (`700`, files `600`). Prompt and model text is treated as untrusted terminal input, so control characters (escape sequences and the C1 range) and format characters (such as bidi overrides) are removed before it is stored and again before it is printed. The summarizer sends the tail of the transcript to Haiku through `claude -p`, the same service the session itself uses. It runs from an empty temporary directory with no tools, no MCP servers, no settings and a 60 second limit, in its own process group that the limit ends whole, and only reads transcripts that live under `~/.claude/projects`. The daily update check is the only other network use: it asks this repository for its tag names and sends nothing from your sessions.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and change sitrep.
 
 ## License
 
