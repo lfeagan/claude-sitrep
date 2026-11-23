@@ -8,7 +8,7 @@ A to-do list for each of your Claude Code sessions, and a dashboard that shows w
 
 *`sitrep dash --demo`, on made-up sessions.*
 
-When you run several Claude Code sessions, you think of the next thing to ask one of them while it is still busy, or of something for another session. Where does that go? Into your head, a scratch file, or a prompt you have to remember to send. And you lose track of which session is waiting for you.
+When you run several Claude Code sessions, you think of the next thing to ask one of them while it is still busy, or of something for another session. Where does that go? Your head, a scratch file, your whiteboard, or a prompt you have to remember to send. And you lose track of which session is waiting for you.
 
 In the picture:
 
