@@ -139,6 +139,11 @@ func (s Setup) install(doc settings.Doc, f file) int {
 		s.warn("The statusLine in %s is not an object; nothing was changed.", show(path))
 		return 1
 	}
+	if old != "" && old != Command && strings.ContainsAny(old, "\n\r") {
+		// sitrep.conf holds one setting per line, so this command could not be kept, and the status line would lose it
+		s.warn("The status line in %s has more than one line, which %s cannot keep; nothing was changed. Put it in a script, so that the command is one line, and run setup again.", show(path), show(s.conf().File))
+		return 1
+	}
 	newDoc, err := doc.SetStatusLine(Command)
 	if err == nil {
 		err = settings.Verify(doc, newDoc, Command)
@@ -198,11 +203,14 @@ func (s Setup) install(doc settings.Doc, f file) int {
 		s.say("Status line is already set up; keeping the saved upstream (if any).")
 	default:
 		if err := c.PutHUD(old); err != nil {
+			// without the saved upstream the status line would stop showing it, and `setup --remove` could not bring it back
+			s.rollback(f, newDoc)
 			extra := ""
 			if backup != "" {
-				extra = " The original is in " + show(backup) + "."
+				extra = " The original is also in " + show(backup) + "."
 			}
-			s.warn("Could not save the upstream status line to %s.%s", show(c.File), extra)
+			s.warn("Could not save the upstream status line to %s: %v. The settings were put back.%s", show(c.File), err, extra)
+			return 1
 		}
 		s.say("Wrapping the existing status line (it renders first): %s", show(old))
 	}

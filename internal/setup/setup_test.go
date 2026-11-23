@@ -603,18 +603,40 @@ func TestTheGuardToleratesOddHookShapes(t *testing.T) {
 	}
 }
 
-func TestAConfThatCannotBeWrittenDoesNotStopSetup(t *testing.T) {
+func TestAConfThatCannotBeWrittenPutsTheSettingsBackInsteadOfLosingTheUpstream(t *testing.T) {
 	e := newEnv(t)
-	e.write(e.settings(), `{"statusLine":{"type":"command","command":"my hud"}}`)
+	orig := `{"statusLine":{"type":"command","command":"my hud"}}`
+	e.write(e.settings(), orig)
 	os.MkdirAll(filepath.Join(e.nd(), "sitrep.conf"), 0o700) // a folder where the file should be
-	if code := e.run(false); code != 0 {
+	if code := e.run(false); code != 1 {
 		t.Fatalf("exit %d: %s", code, e.err.String())
 	}
-	if !strings.Contains(e.err.String(), "Could not save the upstream status line to ") || !strings.Contains(e.err.String(), "The original is in ") {
+	if !strings.Contains(e.err.String(), "Could not save the upstream status line to ") || !strings.Contains(e.err.String(), "The settings were put back.") {
 		t.Errorf("%q", e.err.String())
 	}
-	if !strings.Contains(e.read(e.settings()), Command[:20]) || !e.exists(filepath.Join(e.binDir, "sitrep")) {
-		t.Error("setup did not finish")
+	if got := e.read(e.settings()); got != orig {
+		t.Errorf("the status line was lost: %q", got)
+	}
+	if strings.Contains(e.out.String(), "Set up.") {
+		t.Errorf("it says it finished: %q", e.out.String())
+	}
+}
+
+func TestAnUpstreamOfSeveralLinesChangesNothing(t *testing.T) {
+	e := newEnv(t)
+	orig := `{"statusLine":{"type":"command","command":"echo a\necho b"}}`
+	e.write(e.settings(), orig)
+	if code := e.run(false); code != 1 {
+		t.Fatalf("exit %d: %s", code, e.err.String())
+	}
+	if !strings.Contains(e.err.String(), "more than one line") || !strings.Contains(e.err.String(), "nothing was changed") {
+		t.Errorf("%q", e.err.String())
+	}
+	if got := e.read(e.settings()); got != orig {
+		t.Errorf("the settings changed: %q", got)
+	}
+	if len(e.backups()) != 0 || e.exists(filepath.Join(e.binDir, "sitrep")) {
+		t.Error("setup left a backup or a link behind")
 	}
 }
 
