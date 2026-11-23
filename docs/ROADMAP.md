@@ -26,13 +26,13 @@ These ideas were not asked for by users. A synthetic persona ([docs/personas/pow
 | # | The persona's idea | What exists today | Verdict |
 | --- | --- | --- | --- |
 | 1 | A recap after a break | The Objective, Progress and Now are rewritten after every turn. Claude Code has its own one-line recap on return and `/recap`. Nothing in sitrep reads the repository. | The narrative is covered twice. The repository half is real: see A. |
-| 2 | Notifications when away | Only the dashboard's bell. Claude Code's `Notification` and `Stop` hooks can already run any command. | Mostly a recipe: see C. |
+| 2 | Notifications when away | Only the dashboard's bell. Claude Code's `Notification` and `Stop` hooks can already run any command. | Mostly a recipe: see B. |
 | 3 | A git and pull request snapshot | Nothing: the JSON has no branch or repository field. | Real: see A. |
-| 4 | A daily and weekly digest | `sitrep log --since 1d --op queue.rm` lists the items done. | Mostly exists: see D. |
-| 5 | Search across sessions | `sitrep log --json \| jq` searches queue text, and `grep -r` over `sessions/*/notes` finds the latest summary of a session still on disk. | Mostly exists: see D. |
+| 4 | A daily and weekly digest | `sitrep log --since 1d --op queue.rm` lists the items done. | Mostly exists: see C. |
+| 5 | Search across sessions | `sitrep log --json \| jq` searches queue text, and `grep -r` over `sessions/*/notes` finds the latest summary of a session still on disk. | Mostly exists: see C. |
 | 6 | Relations between sessions | Nothing. | Dropped: an item's text can say "after 2f3a", and there is little evidence of the pain. |
-| 7 | A cost ledger | Nothing is recorded, but the status-line input that sitrep already reads carries the session's cost. | Real, and cheap: see B. |
-| 8 | An event stream | There is no `watch` command; scripts poll `sitrep ls --json`. | Weak: see E. |
+| 7 | A cost ledger | Nothing is recorded, but the status-line input that sitrep already reads carries the session's cost. | Not worth building: claudectl and OpsDeck do it better, and sitrep is meant to run beside them. See "What the persona would not build". |
+| 8 | An event stream | There is no `watch` command; scripts poll `sitrep ls --json`. | Weak: see D. |
 | 9 | A multi-host view | The ssh loop and a note in [docs/REMOTE.md](REMOTE.md). | Duplicate of "Remote machines" above. |
 | 10 | A command from a queue item | `Y` in the dashboard copies a session's `claude --resume <id>`. | Dropped: starting a session from an item adds little, and running it would break the read-only dashboard. |
 
@@ -44,13 +44,7 @@ Idea: branch, dirty flag and ahead or behind in `sitrep ls --json` and as a dash
 
 Doubt: for one session the user is in, asking Claude "what changed?" works, and Claude can run `git` itself. The value is in the overview of many sessions. No tool in [docs/COMPARISON.md](COMPARISON.md) does it.
 
-### B. Cost, duration and rate limits from the status-line input
-
-Pain: the user opens ccusage or claudectl to see what a session has cost. [docs/COMPARISON.md](COMPARISON.md) lists the lack of it as a weakness.
-
-Idea: Claude Code's status-line input documents `cost.total_cost_usd` (an estimate "computed client-side at list price", not a bill), `total_duration_ms` (accumulating across resumes), the lines added and removed, and `rate_limits`. `sitrep statusline` already reads that input for the context window, so recording the cost beside it needs no network and no transcript reading. It could show as a number in `ls --json` and a Table column, and as a total for the day. claudectl and OpsDeck do much more, and the aim would be only the number.
-
-### C. Notifications when away
+### B. Notifications when away
 
 Pain: the bell rings only in an open dashboard that someone is looking at.
 
@@ -58,7 +52,7 @@ What exists: the documentation of Claude Code's `Notification` hook lists notifi
 
 So the likely work is a recipe in the docs. A `SITREP_NOTIFY_CMD` setting would be worth its cost only if sitrep's own notion of a session that needs you (stopped and waiting, deduplicated for each session, with snooze) turns out to matter more than Claude Code's events. claudectl has desktop and webhook notices.
 
-### D. A daily view built on `sitrep log`
+### C. A daily view built on `sitrep log`
 
 Pain: "what did I finish yesterday", for a stand-up, is answered from memory.
 
@@ -68,7 +62,7 @@ What is missing: the log is off by default, because it keeps the text of the use
 
 Idea: a `sitrep log --digest` view that groups the items done and the sessions that ended for a day, and perhaps a record of the Objective when a session ends. Turning the log on by default is a decision about privacy, not a feature.
 
-### E. An event stream
+### D. An event stream
 
 Pain, as the persona put it: people who script around sitrep poll `sitrep ls --json` in a loop.
 
@@ -76,6 +70,7 @@ Idea: `sitrep watch --json`, one line for each change of state, from a plain loo
 
 ### What the persona would not build
 
+- A cost ledger (the persona's idea 7). The status-line input does carry `cost.total_cost_usd` (a client-side estimate at list price, not a bill), the duration, the lines added and removed, and `rate_limits`, and `sitrep statusline` already reads that input, so recording it would be cheap. Cheap is not a reason: claudectl and OpsDeck track cost and burn rate far better, [docs/COMPARISON.md](COMPARISON.md) sends people who need it to them, and sitrep is meant to run beside such a tool. The lines added and removed are still a free signal of how much a session has changed, and idea A may use them.
 - Approvals or input from the dashboard: it breaks the read-only rule, and claudectl does it.
 - A `Stop` hook that feeds the next item on its own ([docs/QUEUE-NEXT.md](QUEUE-NEXT.md), option 2): an unattended session that keeps itself busy is a runaway session.
 - A web interface, a server, or a synced state folder (already dropped).
