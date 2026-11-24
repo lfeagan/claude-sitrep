@@ -139,7 +139,7 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 	}
 	snap.Inbox = readQueue(b.Store.Path(state.Inbox, "queue"), opt.Cap)
 
-	for _, f := range b.sessions(now) {
+	for _, f := range b.sessions(now, set) {
 		id := state.ID(f.id)
 		word := live.Word(b.Store, f.id)
 		dead := live.Dead(set, f.id, word, f.changed, now)
@@ -207,12 +207,13 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 	return snap
 }
 
-// sessions lists the sessions changed in the last day, newest first (by when the state last changed, else when the notes did).
-func (b Builder) sessions(now int64) []found {
+// sessions lists the sessions changed in the last day, and any session the registry shows alive however long it has been quiet (a
+// weekend away leaves a waiting session waiting), newest first (by when the state last changed, else when the notes did).
+func (b Builder) sessions(now int64, set live.Set) []found {
 	var out []found
 	for _, id := range b.Store.Sessions() {
 		changed, ok := live.Changed(b.Store, string(id))
-		if !ok || now-changed >= Window {
+		if !ok || (now-changed >= Window && !set.Has(string(id))) {
 			continue
 		}
 		out = append(out, found{string(id), changed})

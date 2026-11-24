@@ -7,7 +7,7 @@ The contract of `sitrep ls --json`, for programs. The short version is in the [R
 1. It exits 0 and prints a valid document even with no sessions (`"sessions": []`). On an internal error it exits non-zero, prints a message on stderr and prints nothing on stdout.
 2. Every text field is a single line with no control or format characters, so it is safe to draw. A program should still strip them again.
 3. `version` is an integer that changes only when a field is removed or its meaning changes. New fields can appear without a new version, so a program should ignore fields it does not know and refuse a version higher than it was written for.
-4. The sessions are those active in the last day, newest first by when their state last changed.
+4. The sessions are those active in the last day, and any session that is still running however long it has been quiet, newest first by when their state last changed.
 
 The top level holds these fields:
 

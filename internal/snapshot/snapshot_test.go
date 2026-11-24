@@ -140,6 +140,18 @@ func TestEndedHiddenAndStranded(t *testing.T) {
 	}
 }
 
+func TestARunningSessionStaysListedAfterADay(t *testing.T) {
+	w := newWorld(t)
+	w.session("away0001", "waiting", 3*24*time.Hour) // left over a weekend, the process still runs
+	w.register("away0001", 1)
+	w.session("dead0001", "waiting", 3*24*time.Hour) // not in the registry: outside the window, not listed
+	snap := w.build(Options{Cap: 5})
+	s := byID(snap, "away0001")
+	if len(snap.Sessions) != 1 || s == nil || !s.Running || !s.NeedsInput || s.StateLabel != "waiting 3d" {
+		t.Errorf("%d sessions: %+v", len(snap.Sessions), s)
+	}
+}
+
 func TestStaleEndedWordWhileAlive(t *testing.T) {
 	w := newWorld(t)
 	w.session("back0001", "ended", 10*time.Minute) // resumed: the process is alive though the file says ended

@@ -306,6 +306,33 @@ would mark 1 ended, would ask about 3 item(s)
       "state": "running",
       "state_changed": 0,
       "state_label": "running 12h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/eight",
+      "dir": "eight",
+      "highlight": false,
+      "id": "ancient8",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "too old",
+      "pid": 0,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 0,
+        "items": []
+      },
+      "quiet_secs": null,
+      "running": true,
+      "short": "anci",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "working 2d"
     }
   ],
   "settings": {
@@ -317,7 +344,7 @@ would mark 1 ended, would ask about 3 item(s)
   },
   "version": 1
 }
-ORDER: version,generated,registry,settings,queue_items,highlight_seconds,highlight_sgr,theme,colors,hidden,ended,stranded_items,inbox,count,items,sessions,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,attn_faded,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context
+ORDER: version,generated,registry,settings,queue_items,highlight_seconds,highlight_sgr,theme,colors,hidden,ended,stranded_items,inbox,count,items,sessions,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,attn_faded,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context,id,short,alias,running,state,state_label,age,state_changed,quiet_secs,idle,needs_input,snoozed,pid,pinned,highlight,dir,cwd,objective,progress,now,queue,count,items,context
 --- stderr
 == state files
 --- .ancient8.state (-rw-------)
