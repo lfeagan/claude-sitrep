@@ -39,7 +39,7 @@ Limits: Claude Code only, one machine (other machines can be reached over ssh, s
 
 ## Contents
 
-[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Install](#install) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
+[Why sitrep](#why-sitrep) · [What It Looks Like](#what-it-looks-like) · [Install](#install) · [How To Use It](#how-to-use-it) · [The Queue](#the-queue) · [Listing Sessions](#listing-sessions) · [The Dashboard](#the-dashboard) · [Settings](#settings) · [For Programs](#for-programs) · [Privacy And Safety](#privacy-and-safety)
 
 More detail is in `docs/`: [Install and update](docs/INSTALL.md), [the queue](docs/QUEUE.md), [listing and pruning](docs/LISTING.md), [the dashboard](docs/DASHBOARD.md), [the themes](docs/THEMES.md), [what is not built yet](docs/ROADMAP.md), [all settings](docs/SETTINGS.md), [the history log](docs/LOG.md), [the JSON format](docs/JSON.md), [how it works](docs/HOW-IT-WORKS.md), [remote machines](docs/REMOTE.md) and [changing the code](CONTRIBUTING.md).
 
@@ -83,6 +83,43 @@ Start on Cards for a few sessions, Table for many, and Wall when you have more t
 ### Updating
 
 When a newer release exists, the status line says so under the queue line. Update the plugin, restart Claude Code, then run `/sitrep:setup` again, so that the program matches the plugin. From a clone, run `git pull --tags && make install`. The details, upgrading from 0.3.x and taking sitrep out are in [docs/INSTALL.md](docs/INSTALL.md).
+
+## How To Use It
+
+A suggested workflow, which you can use all of or in part. Write work down the moment you think of it, put it where it belongs when you are ready, and let sitrep show you which session is waiting.
+
+1. **Capture.** When a task comes to mind, add it without stopping what you are doing: `+inbox <text>` in any Claude prompt, or `sitrep add inbox <text>` in a shell. A script can fill the inbox from your GitHub or Linear issues ([how](docs/INBOX-SOURCES.md)).
+2. **Sort.** When a session is free for it, pull an item in: `+take` in that session's prompt, `1-9` on a dashboard tab, or `sitrep move inbox <id>`. Work you already know belongs to a session goes straight there with `+ <text>`. `sitrep top` and `sitrep reorder` put the next item first, and the status line shows it under your prompt.
+3. **Work.** Run your sessions. The dashboard (`sitrep dash`) puts the ones that need you first, with a `●`, so you go to the one that is waiting and not the one you remember. When Claude finishes, send the next item as your next prompt. sitrep never sends one for you.
+4. **Finish.** `sitrep done <id>` removes the item you sent. When a session ends with items left, `sitrep prune` (or `p` in the dashboard) asks whether to move them back to the inbox, so nothing is lost with the window.
+
+The whole life of an item:
+
+```mermaid
+flowchart LR
+    shell["sitrep add inbox …<br/>(shell, script, cron)"]
+    prompt["+inbox …<br/>(in a Claude prompt)"]
+    issues["GitHub or Linear issues<br/>(a script you run)"]
+    inbox[("Inbox<br/>no session yet")]
+    direct["+ … in a prompt,<br/>or sitrep add id …"]
+    queue[("A session's queue<br/>top, reorder, edit")]
+    other[("Another session's queue")]
+    claude["You send the item<br/>to Claude as a prompt"]
+    done(["Removed<br/>sitrep done"])
+
+    shell --> inbox
+    prompt --> inbox
+    issues --> inbox
+    direct --> queue
+    inbox -->|"+take, 1-9 in the dashboard, sitrep move"| queue
+    queue -->|"sitrep move, m in the dashboard"| other
+    queue -->|"its session ended: sitrep prune asks"| inbox
+    queue --> claude
+    claude --> done
+    inbox -->|"not wanted: sitrep rm"| done
+```
+
+There is no done state: finishing an item removes it from the queue. A `+` prefix queues the text without sending it to Claude.
 
 ## The Queue
 
