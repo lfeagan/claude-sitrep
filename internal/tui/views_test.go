@@ -125,7 +125,7 @@ func TestHighlightOnlyForRecentRunning(t *testing.T) {
 	lines := strings.Split(render(s, tabCards, "", viewOpts{Width: 60, Height: 0, Theme: th}), "\n")
 	var recent, other int
 	for _, l := range lines {
-		if strings.Contains(l, sgrOf(th.Recent)+"▌") {
+		if strings.Contains(l, sgrOf(th.Recent)+"┃") {
 			recent++
 		} else if strings.Contains(ansi.Strip(l), "idle?") || strings.Contains(ansi.Strip(l), "waiting 3m") {
 			other++
@@ -231,10 +231,10 @@ func TestNeedsInputIsMarkedAndColoured(t *testing.T) {
 	th := newTheme(true, "48;5;238")
 	var needLines, recentLines int
 	for _, l := range strings.Split(render(s, tabCards, "", viewOpts{Width: 80, Height: 0, Theme: th}), "\n") {
-		if strings.Contains(l, sgrOf(th.Need)+"▌") {
+		if strings.Contains(l, sgrOf(th.Need)+"┃") {
 			needLines++
 		}
-		if strings.Contains(l, sgrOf(th.Recent)+"▌") {
+		if strings.Contains(l, sgrOf(th.Recent)+"┃") {
 			recentLines++
 		}
 	}
@@ -261,7 +261,7 @@ func TestNeedsInputBeatsRecentActivity(t *testing.T) {
 	for _, l := range strings.Split(render(s, tabCards, "", viewOpts{Width: 80, Height: 0, Theme: th}), "\n") {
 		if strings.Contains(ansi.Strip(l), "● waiting 3m") {
 			found = true
-			if !strings.HasPrefix(l, sgrOf(th.Need)+"▖") || strings.Contains(l, sgrOf(th.Recent)) {
+			if !strings.HasPrefix(l, sgrOf(th.Need)+"┏") || strings.Contains(l, sgrOf(th.Recent)) {
 				t.Errorf("a waiting session shows the attention colour even when it is recent: %q", l)
 			}
 		}
@@ -279,7 +279,7 @@ func TestAFadedSessionKeepsItsMarkerAndAWeakerColour(t *testing.T) {
 	for _, l := range strings.Split(render(s, tabCards, "", viewOpts{Width: 80, Height: 0, Theme: th}), "\n") {
 		if strings.Contains(ansi.Strip(l), "● waiting 3m") {
 			found = true
-			if !strings.HasPrefix(l, sgrOf(th.Fade)+"▖") || strings.Contains(l, sgrOf(th.Need)) {
+			if !strings.HasPrefix(l, sgrOf(th.Fade)+"┏") || strings.Contains(l, sgrOf(th.Need)) {
 				t.Errorf("a faded session has the weaker bar and no coloured state, not the full one: %q", l)
 			}
 		}

@@ -5,12 +5,12 @@ Inbox: 3 items
     2. check the CI flake on macOS and write
        down what the runner image does about th…
     +1 more
-▖  b1fb  timescaledb-storage-policy  ● waiting …
-▌   Objective: evil [31mred]0;title bidi sep Tab
-▌   Progress:  p
-▌   Now:       waiting for your call on the
-▌              branch
-▌   Queue:     1. one
+┏  b1fb  timescaledb-storage-policy  ● waiting …
+┃   Objective: evil [31mred]0;title bidi sep Tab
+┃   Progress:  p
+┃   Now:       waiting for your call on the
+┃              branch
+┗   Queue:     1. one
 ·  15f1  claude-sitrep               working 1m…
     Objective: Sitrep: add a Go front-end that
                reads sitrep ls --json, with a

@@ -64,7 +64,7 @@ func TestAPlainThemeHasNoCodesAndMonoNoColours(t *testing.T) {
 	if strings.Contains(frame, "38;") || strings.Contains(frame, "48;") {
 		t.Errorf("the mono theme has colours:\n%q", frame)
 	}
-	if !strings.Contains(frame, "\x1b[1m▌") || !strings.Contains(ansi.Strip(frame), "· ") {
+	if !strings.Contains(frame, "\x1b[1m┃") || !strings.Contains(ansi.Strip(frame), "· ") {
 		t.Errorf("mono marks a card that needs you with a bold bar and a recent one with a ·:\n%s", ansi.Strip(frame))
 	}
 }
@@ -238,33 +238,40 @@ func TestAFadedBarIsWeakerThanAFreshOneInEveryTheme(t *testing.T) {
 	}
 }
 
-func TestTheFirstLineOfACardHasHalfABar(t *testing.T) {
+func TestACardIsAHeavyBracket(t *testing.T) {
 	s := loadFixture(t)
 	lines := strings.Split(render(s, tabCards, "", styledOpts(newTheme(true, "48;5;238"))), "\n")
-	var bars, halves int
-	for i, l := range lines {
+	var tops, bottoms int
+	open := false
+	for _, l := range lines {
 		cols := []rune(ansi.Strip(l))
 		if len(cols) < 4 {
 			continue
 		}
 		switch cols[0] {
-		case '▌':
-			bars++
-			// a full bar on a header would run into the bar of the card above it
-			if cols[3] != ' ' && i > 0 && []rune(ansi.Strip(lines[i-1]))[0] == '▌' {
-				t.Errorf("two cards run into one stripe:\n%s\n%s", ansi.Strip(lines[i-1]), string(cols))
+		case '┏':
+			if open {
+				t.Errorf("a card starts before the one above it ends: %q", string(cols))
 			}
-		case '▖':
-			halves++
+			tops, open = tops+1, true
 			if cols[3] == ' ' {
-				t.Errorf("half a bar on a line that is not a header: %q", string(cols))
+				t.Errorf("a top corner on a line that is not a header: %q", string(cols))
 			}
-		case '▘':
-			t.Errorf("the half bar is on the first line, not the last: %q", string(cols))
+		case '┃':
+			if !open {
+				t.Errorf("a bar outside a card: %q", string(cols))
+			}
+		case '┗':
+			if !open {
+				t.Errorf("a bottom corner with no top: %q", string(cols))
+			}
+			bottoms, open = bottoms+1, false
+		case '▌', '▖', '▘':
+			t.Errorf("a block character where a bracket belongs: %q", string(cols))
 		}
 	}
-	if halves == 0 || bars == 0 {
-		t.Errorf("a marked card has half a bar on its first line and a whole one on the rest: %d whole, %d half", bars, halves)
+	if tops == 0 || tops != bottoms {
+		t.Errorf("each marked card has one top corner and one bottom corner: %d and %d", tops, bottoms)
 	}
 }
 
@@ -291,5 +298,25 @@ func TestTheThreeBarsAreToldApartInEveryTheme(t *testing.T) {
 				t.Errorf("%s dark=%v: the faded bar %s is hardly weaker than the fresh one %s (%.1f)", name, dark, fade, need, d)
 			}
 		}
+	}
+}
+
+func TestTheRailStopsHalfALineShortOfTheBar(t *testing.T) {
+	s := loadFixture(t)
+	o := viewOpts{Width: 80, Height: 40, Theme: newTheme(true, "48;5;238"), Sel: s.Sessions[0].ID}
+	var rails, ends int
+	for _, l := range strings.Split(render(s, tabCards, "", o), "\n") {
+		switch cols := []rune(ansi.Strip(l)); {
+		case len(cols) > 3 && cols[1] == '│':
+			rails++
+		case len(cols) > 3 && cols[1] == '╵':
+			ends++
+			if cols[0] != '┗' {
+				t.Errorf("the rail ends on a line that is not the bottom corner: %q", string(cols))
+			}
+		}
+	}
+	if rails < 3 || ends != 1 {
+		t.Errorf("%d rail lines and %d ends, want at least 3 and 1", rails, ends)
 	}
 }

@@ -438,40 +438,66 @@ func cardKind(x Session) int {
 	return markNone
 }
 
-// cardGutter is the three columns before a line of a card (first says whether it is the header): a bar in the colour of what the session is (with no colour to show it, a ▌ for a
-// session that needs you and a · on the first line of a recent one), the arrow or the rail of the selection, and a space. A screen under 20
-// columns wide has none.
-func cardGutter(x Session, o viewOpts, first bool) string {
+// markGlyphs are the characters of the three columns in front of a card, in one place. The mark column is a bracket down the card in the
+// colour of its state: a top corner on the first line, a bar on the lines between and a bottom corner on the last. The selection column is
+// an arrow on the first line, a rail down the card and half a line where it ends, so that it stops short of the bracket.
+type markGlyphs struct {
+	top, bar, bottom string // the mark column
+	arrow, rail, end string // the selection column
+	recent           string // the mark of a recent card on the first line, where there is no colour to show it
+}
+
+var cardMarks = markGlyphs{top: "┏", bar: "┃", bottom: "┗", arrow: "▶", rail: "│", end: "╵", recent: "·"}
+
+// mark is the glyph of the mark column for a line of a card.
+func (g markGlyphs) mark(first, last bool) string {
+	switch {
+	case first:
+		return g.top
+	case last:
+		return g.bottom
+	}
+	return g.bar
+}
+
+// selection is the glyph of the selection column for a line of the selected card.
+func (g markGlyphs) selection(first, last bool) string {
+	switch {
+	case first:
+		return g.arrow
+	case last:
+		return g.end
+	}
+	return g.rail
+}
+
+// cardGutter is the three columns before a line of a card (first and last say which line it is): the mark, the selection, and a space. With
+// no colour to show what a bracket means, a card that needs you has one in bold, a card that needed you long ago has none, and a recent card
+// has a · on its first line. A screen under 20 columns wide has no gutter.
+func cardGutter(x Session, o viewOpts, first, last bool) string {
 	if o.Width < 20 {
 		return ""
 	}
-	th, mark := o.Theme, " "
+	g, th, mark := cardMarks, o.Theme, " "
 	bare := th.Plain || th.Mono || o.NoColour
-	bar := "▌"
-	if first { // the first line of a card has half a bar, from the middle of the line where the arrow is, so that the bars of two cards in a row do not run into one stripe
-		bar = "▖"
-	}
 	switch cardKind(x) {
 	case markNeed:
-		mark = th.Need.Render(bar)
+		mark = th.Need.Render(g.mark(first, last))
 	case markFade:
 		if !bare {
-			mark = th.Fade.Render(bar)
+			mark = th.Fade.Render(g.mark(first, last))
 		}
 	case markRecent:
 		switch {
 		case !bare:
-			mark = th.Recent.Render(bar)
+			mark = th.Recent.Render(g.mark(first, last))
 		case first:
-			mark = "·"
+			mark = g.recent
 		}
 	}
 	sel := " "
 	if x.ID != "" && x.ID == o.Sel {
-		sel = th.Head.Render("│")
-		if first {
-			sel = th.Head.Render("▶")
-		}
+		sel = th.Head.Render(g.selection(first, last))
 	}
 	return mark + sel + " "
 }
@@ -633,7 +659,7 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 		ids = append(ids, x.ID)
 		e := newEmph(o)
 		row := fmt.Sprintf("%s  %s  %s  %s", e.bold(idCell(x.RowLabel(), iw)), padRight(x.Dir, dw), stateCell(x, sw, o), queueWord(x.Queue.Count))
-		block := []string{ansi.Truncate(cardGutter(x, o, true)+row, o.Width, "…")}
+		block := []string{ansi.Truncate(cardGutter(x, o, true, false)+row, o.Width, "…")}
 		if room.compact {
 			now, label := x.Now, "Now:"
 			if now == "" {
@@ -647,7 +673,7 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 			block = append(block, queueLinesWith(e, "Queue:", x.Queue, o.Width, room.item, 4+11, s.Settings.QueueItems)...)
 		}
 		for i := 1; i < len(block); i++ { // the lines under the header start with the indent that the gutter replaces
-			if g := cardGutter(x, o, false); g != "" && strings.HasPrefix(block[i], "    ") {
+			if g := cardGutter(x, o, false, i == len(block)-1); g != "" && strings.HasPrefix(block[i], "    ") {
 				block[i] = g + block[i][3:]
 			}
 		}
@@ -999,11 +1025,11 @@ func helpLines(width int, readOnly bool) []string {
 	lines := []string{
 		" Marks and colours (default theme)",
 		"",
-		"  ▌ ● pink-red  Claude has stopped and the next move is yours, until you reply",
+		"  ┃ ● pink-red  Claude has stopped and the next move is yours, until you reply",
 		"                the bar weakens after 10 minutes (SITREP_ATTN_FADE); the ● stays",
 		"  ○             snoozed: waiting, but you said it can wait",
 		"  ▶ │           the selected session: an arrow and a rail down its card",
-		"  ▌ grey        the session changed in the last minute (a · without colour)",
+		"  ┃ grey        the session changed in the last minute (a · without colour)",
 		"  idle?        working, but quiet for 10 minutes: it may have been interrupted",
 		"",
 		" Keys",

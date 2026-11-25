@@ -47,10 +47,13 @@ def window(parts, x0, y0, lines, label, dfg, dbg, m, page):
             for c in run:
                 ch = c[0]
                 cx = x0 + PAD + col * CW
-                if ch == "\u258c": parts.append(f'<rect x="{cx}" y="{y}" width="{CW/2}" height="{CH}" fill="{a.hexs(f)}"/>')
-                elif ch == "\u2596": parts.append(f'<rect x="{cx}" y="{y+CH/2}" width="{CW/2}" height="{CH/2}" fill="{a.hexs(f)}"/>')
-                elif ch == "\u2502": parts.append(f'<rect x="{cx+CW/2-0.75}" y="{y}" width="1.5" height="{CH}" fill="{a.hexs(f)}"/>')
-                drawn.append(" " if ch in "\u258c\u2596\u2502" else ch)
+                m, t = cx + CW / 2, 3 # the middle of the cell, and the weight of a heavy line
+                if ch == "\u2503": parts.append(f'<rect x="{m-t/2}" y="{y}" width="{t}" height="{CH}" fill="{a.hexs(f)}"/>')
+                elif ch == "\u250f": parts.append(f'<rect x="{m-t/2}" y="{y+CH/2-t/2}" width="{t}" height="{CH/2+t/2}" fill="{a.hexs(f)}"/><rect x="{m-t/2}" y="{y+CH/2-t/2}" width="{CW/2+t/2}" height="{t}" fill="{a.hexs(f)}"/>')
+                elif ch == "\u2517": parts.append(f'<rect x="{m-t/2}" y="{y}" width="{t}" height="{CH/2+t/2}" fill="{a.hexs(f)}"/><rect x="{m-t/2}" y="{y+CH/2-t/2}" width="{CW/2+t/2}" height="{t}" fill="{a.hexs(f)}"/>')
+                elif ch == "\u2502": parts.append(f'<rect x="{m-0.75}" y="{y}" width="1.5" height="{CH}" fill="{a.hexs(f)}"/>')
+                elif ch == "\u2575": parts.append(f'<rect x="{m-0.75}" y="{y}" width="1.5" height="{CH/2}" fill="{a.hexs(f)}"/>')
+                drawn.append(" " if ch in "\u2503\u250f\u2517\u2502\u2575" else ch)
                 col += c[1]
             text = "".join(drawn)
             if text.strip():

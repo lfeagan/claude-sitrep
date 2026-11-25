@@ -14,6 +14,12 @@ sitrep keeps its state on one machine, and [docs/REMOTE.md](REMOTE.md) gives a r
 
 Another tool's setup, such as Claude HUD's, can replace the status line, and the sitrep block then disappears without a word until `/sitrep:setup` runs again. A `SessionStart` check could notice that the status line is no longer ours (it ends in the tag `# claude-sitrep`, see invariant 6 in `AGENTS.md`) and say so once. It was left out of the first version, because a hook must never fail, hang or swallow a prompt (invariant 4), and the check must cost nothing when the status line is fine.
 
+## A choice of card marks, and a style tool
+
+The Cards mark a session by its state with a heavy bracket down the card (`┏`, `┃`, `┗`), and the selection by an arrow and a rail that stops half a line short of it. The half-bar form was tried first: `▖` on the first line and `▌` down the rest, with the rail the full length. Both forms look right; the bracket was chosen. The glyphs are one table in `internal/tui/views.go` (`cardMarks`), so a second form would be a second table.
+
+Offering both is a setting (`SITREP_CARD_MARK=bar|bracket`) that has to travel to the dashboard in the snapshot's `settings`, an additive change to the `ls --json` format. Setting it from `sitrep colors` would take a third known key in invariant 9 of `AGENTS.md` (the tool writes two lines of `sitrep.conf` today), and a row in the tool that previews the card. The tool would then set more than colours, and could be renamed `style`, with `colors` kept as an alias. Not planned: one form is simpler to keep, document and draw in the README pictures.
+
 ## Documented elsewhere
 
 - Whether a `Stop` hook should hand over the next queued item on its own is undecided: [docs/QUEUE-NEXT.md](QUEUE-NEXT.md), option 2.
