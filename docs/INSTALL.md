@@ -23,12 +23,13 @@ sitrep runs on macOS and Linux; it uses file locks and process groups, so there 
 
 ## Updating
 
-When a newer release exists, the status line says so under the queue line (`Update: sitrep 0.6.0 is out (you have 0.5.0)`). Updating is two steps, because the hooks and the status line run the built program, and a plugin update does not rebuild it:
+When a newer release exists, the status line says so under the queue line (`Update: sitrep 0.6.0 is out (you have 0.5.0)`). Updating is three steps, because the hooks and the status line run the built program, and a plugin update does not rebuild it:
 
-1. Update the plugin with `claude plugin marketplace update sitrep && claude plugin update sitrep@sitrep`, or from `/plugin` inside Claude Code. Restart Claude Code to apply it.
-2. Run `/sitrep:setup` again, so that the program matches the new plugin. It is safe to run again. `sitrep version` prints the version of the program, and `.claude-plugin/plugin.json` the version of the plugin.
+1. Update the plugin with `claude plugin marketplace update sitrep && claude plugin update sitrep@sitrep`, or from `/plugin` inside Claude Code.
+2. Make the session you will run setup from load the new plugin: restart it, or run `/reload-plugins` in it. A session that was open during step 1 still has the old plugin loaded, and `/sitrep:setup` there builds the old program again.
+3. Run `/sitrep:setup`, so that the program matches the new plugin. It is safe to run again. `sitrep version` prints the version of the program, and `.claude-plugin/plugin.json` the version of the plugin; if the program still has the old version, the session had not loaded the new plugin, so reload it and run setup again. Sessions that were already running keep the old hooks until they are restarted, and so does a `sitrep dash` that is open.
 
-Between the two steps the hooks run the older program, and if you skipped step 2 after the first install they name a program that does not exist yet, so each hook ends with a non-blocking error and a `+` prompt goes to Claude as written.
+Until the last step the hooks run the older program, and if you skipped it after the first install they name a program that does not exist yet, so each hook ends with a non-blocking error and a `+` prompt goes to Claude as written.
 
 From a clone, with no plugin: `git pull --tags && make install`. `make install` builds the program and runs its `setup`, as `/sitrep:setup` does. `go install github.com/lfeagan/claude-sitrep/cmd/sitrep@latest` builds the same program from the newest version tag, and `sitrep setup` then puts it in place, wraps the status line and links the command; the hooks come only with the plugin.
 

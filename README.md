@@ -82,7 +82,7 @@ Start on Cards for a few sessions, Table for many, and Wall when you have more t
 
 ### Updating
 
-When a newer release exists, the status line says so under the queue line. Update the plugin, restart Claude Code, then run `/sitrep:setup` again, so that the program matches the plugin. From a clone, run `git pull --tags && make install`. The details, upgrading from 0.3.x and taking sitrep out are in [docs/INSTALL.md](docs/INSTALL.md).
+When a newer release exists, the status line says so under the queue line. Update the plugin, then restart Claude Code (or run `/reload-plugins` in the session you will use), and only then run `/sitrep:setup` again, so that the program matches the plugin: a session that was open during the update still has the old plugin loaded and would build the old program. From a clone, run `git pull --tags && make install`. The details, upgrading from 0.3.x and taking sitrep out are in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## How To Use It
 
