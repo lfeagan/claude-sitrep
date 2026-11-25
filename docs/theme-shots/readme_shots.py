@@ -41,6 +41,18 @@ def window(parts, x0, y0, lines, label, dfg, dbg, m, page):
                 end = x0c + ncols
                 if end * CW + 2 * PAD >= w - 0 and end >= cols: ncols_px = x0 + w - px
                 parts.append(f'<rect x="{px}" y="{y}" width="{ncols_px}" height="{CH}" fill="{a.hexs(b)}"/>')
+            # a terminal paints the block characters over the whole cell, and a font's glyphs leave gaps between lines: draw the bars of the cards,
+            # and the rail of the selection, as shapes
+            col, drawn = x0c, []
+            for c in run:
+                ch = c[0]
+                cx = x0 + PAD + col * CW
+                if ch == "\u258c": parts.append(f'<rect x="{cx}" y="{y}" width="{CW/2}" height="{CH}" fill="{a.hexs(f)}"/>')
+                elif ch == "\u2598": parts.append(f'<rect x="{cx}" y="{y}" width="{CW/2}" height="{CH/2}" fill="{a.hexs(f)}"/>')
+                elif ch == "\u2502": parts.append(f'<rect x="{cx+CW/2-0.75}" y="{y}" width="1.5" height="{CH}" fill="{a.hexs(f)}"/>')
+                drawn.append(" " if ch in "\u258c\u2598\u2502" else ch)
+                col += c[1]
+            text = "".join(drawn)
             if text.strip():
                 parts.append(f'<text x="{x0+PAD+x0c*CW}" y="{y+CH-5}" font-family="{FONT}" font-size="{FS}" textLength="{ncols*CW}" lengthAdjust="spacing" xml:space="preserve" fill="{a.hexs(f)}"' + (' font-weight="bold"' if bold else '') + (' text-decoration="underline"' if ul else '') + f'>{escape(text)}</text>')
         for c in cells:
