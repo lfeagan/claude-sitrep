@@ -472,8 +472,8 @@ func cardGutter(x Session, o viewOpts, first bool) string {
 	return mark + sel + " "
 }
 
-// stateCell is the state of a session, padded to w columns. The state of one that needs you is bold in the colour of its bar, and that of a
-// snoozed one in the snooze colour.
+// stateCell is the state of a session, padded to w columns. The state of one that needs you is bold in the colour of its bar, that of a
+// recent one is in its colour, and that of a snoozed one in the snooze colour.
 func stateCell(x Session, w int, o viewOpts) string {
 	text := stateText(x)
 	pad := strings.Repeat(" ", max(w-ansi.StringWidth(text), 0))
@@ -483,6 +483,8 @@ func stateCell(x Session, w int, o viewOpts) string {
 		text = o.Theme.Snooze.Render(text)
 	case cardKind(x) == markNeed:
 		text = o.Theme.Need.Bold(true).Render(text)
+	case cardKind(x) == markRecent:
+		text = o.Theme.RecentWord.Render(text)
 	}
 	return text + pad
 }

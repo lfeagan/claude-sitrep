@@ -17,16 +17,16 @@ type Theme struct {
 	Head                                                                              lipgloss.Style // the labels of a card and the numbers of a queue: they stand out from the text they head
 	// the mark down the left edge of a card and the state word of one that needs you: the colour of what needs the user, of what needed them
 	// long ago, and of recent activity, each made to read on the terminal's own background
-	Need, Fade, Recent lipgloss.Style
-	Dull               lipgloss.Style // a session that has needed the user for long: the needs-you colour, weakened
-	HasDull            bool
-	Plain              bool
-	Mono               bool // the mono theme: no colours, so marks carry the meaning
+	Need, Fade, Recent, RecentWord lipgloss.Style // RecentWord is the state of a recent card: the colour of its bar, readable as text
+	Dull                           lipgloss.Style // a session that has needed the user for long: the needs-you colour, weakened
+	HasDull                        bool
+	Plain                          bool
+	Mono                           bool // the mono theme: no colours, so marks carry the meaning
 }
 
 func plainTheme() Theme {
 	s := lipgloss.NewStyle()
-	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Head: s, Need: s, Fade: s, Recent: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Snooze: s, Plain: true}
+	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Head: s, Need: s, Fade: s, Recent: s, RecentWord: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Snooze: s, Plain: true}
 }
 
 // palette is the colours a theme is made of, each as a light and a dark value: a hex colour or the number of a terminal colour.
@@ -272,24 +272,25 @@ func themeFor(isDark bool, st Settings) Theme {
 	}
 	on := lipgloss.Color(onColor(p.accent[side]))
 	return Theme{
-		Tab:       lipgloss.NewStyle().Foreground(dim).Padding(0, 1),
-		TabActive: lipgloss.NewStyle().Foreground(accent).Bold(true).Underline(true).Padding(0, 1),
-		Rule:      lipgloss.NewStyle().Foreground(accent),
-		Label:     lipgloss.NewStyle().Foreground(dim),
-		Need:      lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.attn[side], isDark, 4.5))),
-		Fade:      lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.attn[side], isDark, 3))),
-		Recent:    lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.hot[side], isDark, 3))),
-		Head:      lipgloss.NewStyle().Foreground(ld(lipgloss.Color(p.accent[0]), lipgloss.Color(headOnDark(p.accent[1], custom["accent"])))).Bold(true),
-		Dim:       lipgloss.NewStyle().Foreground(dim),
-		Err:       lipgloss.NewStyle().Background(pick(p.errc)).Foreground(lipgloss.Color(onColor(p.errc[side]))).Bold(true),
-		Status:    lipgloss.NewStyle().Foreground(on).Background(accent),
-		StatusKey: lipgloss.NewStyle().Foreground(on).Background(accent).Bold(true),
-		Hot:       withText(lipgloss.NewStyle().Background(pick(p.hot)), custom["hot"], p.hot[side]),
-		Attn:      withText(lipgloss.NewStyle().Background(pick(p.attn)), custom["attn"], p.attn[side]),
-		Dull:      withText(lipgloss.NewStyle().Background(lipgloss.Color(blendHex(p.attn[side], []string{"#ffffff", "#1e1e1e"}[side], dullShare))), custom["attn"], p.attn[side]),
-		HasDull:   true,
-		Warn:      lipgloss.NewStyle().Bold(true),
-		Snooze:    lipgloss.NewStyle().Foreground(pick(p.snooze)),
+		Tab:        lipgloss.NewStyle().Foreground(dim).Padding(0, 1),
+		TabActive:  lipgloss.NewStyle().Foreground(accent).Bold(true).Underline(true).Padding(0, 1),
+		Rule:       lipgloss.NewStyle().Foreground(accent),
+		Label:      lipgloss.NewStyle().Foreground(dim),
+		Need:       lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.attn[side], isDark, 4.5))),
+		Fade:       lipgloss.NewStyle().Foreground(lipgloss.Color(fadedBar(p.attn[side], isDark))),
+		Recent:     lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.hot[side], isDark, 3))),
+		RecentWord: lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.hot[side], isDark, 4.5))),
+		Head:       lipgloss.NewStyle().Foreground(ld(lipgloss.Color(p.accent[0]), lipgloss.Color(headOnDark(p.accent[1], custom["accent"])))).Bold(true),
+		Dim:        lipgloss.NewStyle().Foreground(dim),
+		Err:        lipgloss.NewStyle().Background(pick(p.errc)).Foreground(lipgloss.Color(onColor(p.errc[side]))).Bold(true),
+		Status:     lipgloss.NewStyle().Foreground(on).Background(accent),
+		StatusKey:  lipgloss.NewStyle().Foreground(on).Background(accent).Bold(true),
+		Hot:        withText(lipgloss.NewStyle().Background(pick(p.hot)), custom["hot"], p.hot[side]),
+		Attn:       withText(lipgloss.NewStyle().Background(pick(p.attn)), custom["attn"], p.attn[side]),
+		Dull:       withText(lipgloss.NewStyle().Background(lipgloss.Color(blendHex(p.attn[side], []string{"#ffffff", "#1e1e1e"}[side], dullShare))), custom["attn"], p.attn[side]),
+		HasDull:    true,
+		Warn:       lipgloss.NewStyle().Bold(true),
+		Snooze:     lipgloss.NewStyle().Foreground(pick(p.snooze)),
 	}
 }
 
@@ -349,6 +350,19 @@ func readableOn(c string, dark bool, target float64) string {
 	}
 	return toward
 }
+
+// fadedBar is the bar of a card that needed the user long ago: the colour of one that needs them now, mixed with the terminal's own
+// background, and not below 3:1 against it. A colour that is bright already (rainbow's yellow) is weakened too, which a floor alone would not do.
+func fadedBar(attn string, dark bool) string {
+	bg := "#ffffff"
+	if dark {
+		bg = "#1e1e1e"
+	}
+	return readableOn(blendHex(readableOn(attn, dark, 4.5), bg, fadeShare), dark, 3)
+}
+
+// fadeShare is how much of the terminal's background the bar of a faded card is mixed with.
+const fadeShare = 0.45
 
 // dullShare is how much of the terminal's own background a needs-you colour is mixed with once its session has waited long: the row stays
 // tinted, so that the session that has waited longest is not the quietest, but it is clearly weaker than a new one.

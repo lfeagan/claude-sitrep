@@ -187,7 +187,7 @@ func TestTheBarAndTheStateReadOnTheTerminalsBackground(t *testing.T) {
 			for what, c := range map[string]struct {
 				st  lipgloss.Style
 				min float64
-			}{"needs you": {th.Need, 4.5}, "faded": {th.Fade, 3}, "recent": {th.Recent, 3}} {
+			}{"needs you": {th.Need, 4.5}, "faded": {th.Fade, 3}, "recent": {th.Recent, 3}, "recent state": {th.RecentWord, 4.5}} {
 				if got := contrastRatio(hex(c.st), bg); got < c.min-0.05 {
 					t.Errorf("%s, dark=%v: the %s colour %s has contrast %.1f on %s, want %.1f", name, dark, what, hex(c.st), got, bg, c.min)
 				}
@@ -196,5 +196,44 @@ func TestTheBarAndTheStateReadOnTheTerminalsBackground(t *testing.T) {
 	}
 	if th := themeFor(true, Settings{Theme: "rainbow", HighlightSGR: "48;5;238"}); hex(th.Need) != "#ffe566" {
 		t.Errorf("rainbow's yellow is kept as it is: %s", hex(th.Need))
+	}
+}
+
+func TestTheStateOfARecentCardIsInItsColour(t *testing.T) {
+	s := loadFixture(t)
+	th := newTheme(true, "48;5;238")
+	found := false
+	for _, l := range strings.Split(render(s, tabCards, "", styledOpts(th)), "\n") {
+		if strings.Contains(ansi.Strip(l), "working 1m") {
+			found = true
+			if !strings.Contains(l, sgrOf(th.RecentWord)+"working 1m") {
+				t.Errorf("the state of a recent card is not in its colour: %q", l)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no recent card on screen")
+	}
+}
+
+func TestAFadedBarIsWeakerThanAFreshOneInEveryTheme(t *testing.T) {
+	hex := func(st lipgloss.Style) string {
+		r, g, b, _ := st.GetForeground().RGBA()
+		return fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+	for _, name := range ThemeNames {
+		if name == "mono" {
+			continue
+		}
+		for _, dark := range []bool{true, false} {
+			bg := "#ffffff"
+			if dark {
+				bg = "#1e1e1e"
+			}
+			th := themeFor(dark, Settings{Theme: name, HighlightSGR: "48;5;238"})
+			if need, fade := contrastRatio(hex(th.Need), bg), contrastRatio(hex(th.Fade), bg); fade >= need || fade < 2.95 {
+				t.Errorf("%s, dark=%v: the faded bar (%s, %.1f:1) is not weaker than the fresh one (%s, %.1f:1), or it is below 3:1", name, dark, hex(th.Fade), fade, hex(th.Need), need)
+			}
+		}
 	}
 }
