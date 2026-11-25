@@ -9,7 +9,7 @@ Inbox: 3 items
 ▌   Objective: evil [31mred]0;title bidi sep Tab
 ▌   Progress:  p
 ▌   Now:       waiting for your call on the branch
-▌   Queue:     1. one
+▘   Queue:     1. one
 ·  15f1  claude-sitrep               working 1m    7 items
     Objective: Sitrep: add a Go front-end that reads sitrep ls --json, with a
                Watch tab and a Top tab, a status bar and a theme

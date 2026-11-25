@@ -237,3 +237,56 @@ func TestAFadedBarIsWeakerThanAFreshOneInEveryTheme(t *testing.T) {
 		}
 	}
 }
+
+func TestTheLastLineOfACardHasHalfABar(t *testing.T) {
+	s := loadFixture(t)
+	lines := strings.Split(render(s, tabCards, "", styledOpts(newTheme(true, "48;5;238"))), "\n")
+	var bars, halves int
+	for i, l := range lines {
+		cols := []rune(ansi.Strip(l))
+		if len(cols) < 4 {
+			continue
+		}
+		switch cols[0] {
+		case '▌':
+			bars++
+		case '▘':
+			halves++
+		}
+		// a header (the name starts in the third column) never follows a full bar: the card above it ended in half of one
+		if i > 0 && cols[0] == '▌' && cols[3] != ' ' {
+			if prev := []rune(ansi.Strip(lines[i-1])); len(prev) > 0 && prev[0] == '▌' {
+				t.Errorf("two cards run into one stripe:\n%s\n%s", string(prev), string(cols))
+			}
+		}
+	}
+	if halves == 0 || bars == 0 {
+		t.Errorf("a marked card has a full bar on its lines and half a bar on its last: %d full, %d half", bars, halves)
+	}
+}
+
+func TestTheThreeBarsAreToldApartInEveryTheme(t *testing.T) {
+	hex := func(st lipgloss.Style) string {
+		r, g, b, _ := st.GetForeground().RGBA()
+		return fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+	for _, name := range ThemeNames {
+		if name == "mono" {
+			continue
+		}
+		for _, dark := range []bool{true, false} {
+			bg := "#ffffff"
+			if dark {
+				bg = "#1e1e1e"
+			}
+			th := themeFor(dark, Settings{Theme: name, HighlightSGR: "48;5;238"})
+			need, fade, rec := hex(th.Need), hex(th.Fade), hex(th.Recent)
+			if need == fade || need == rec || fade == rec {
+				t.Errorf("%s dark=%v: two bars have the same colour: needs you %s, faded %s, recent %s", name, dark, need, fade, rec)
+			}
+			if d := contrastRatio(need, bg) - contrastRatio(fade, bg); d < 0.8 {
+				t.Errorf("%s dark=%v: the faded bar %s is hardly weaker than the fresh one %s (%.1f)", name, dark, fade, need, d)
+			}
+		}
+	}
+}

@@ -438,26 +438,30 @@ func cardKind(x Session) int {
 	return markNone
 }
 
-// cardGutter is the three columns before a line of a card: a bar in the colour of what the session is (with no colour to show it, a ▌ for a
+// cardGutter is the three columns before a line of a card (first and last say which line it is): a bar in the colour of what the session is (with no colour to show it, a ▌ for a
 // session that needs you and a · on the first line of a recent one), the arrow or the rail of the selection, and a space. A screen under 20
 // columns wide has none.
-func cardGutter(x Session, o viewOpts, first bool) string {
+func cardGutter(x Session, o viewOpts, first, last bool) string {
 	if o.Width < 20 {
 		return ""
 	}
 	th, mark := o.Theme, " "
 	bare := th.Plain || th.Mono || o.NoColour
+	bar := "▌"
+	if last && !first { // the last line of a card has half a bar, so that the bars of two cards in a row do not run into one stripe
+		bar = "▘"
+	}
 	switch cardKind(x) {
 	case markNeed:
-		mark = th.Need.Render("▌")
+		mark = th.Need.Render(bar)
 	case markFade:
 		if !bare {
-			mark = th.Fade.Render("▌")
+			mark = th.Fade.Render(bar)
 		}
 	case markRecent:
 		switch {
 		case !bare:
-			mark = th.Recent.Render("▌")
+			mark = th.Recent.Render(bar)
 		case first:
 			mark = "·"
 		}
@@ -629,7 +633,7 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 		ids = append(ids, x.ID)
 		e := newEmph(o)
 		row := fmt.Sprintf("%s  %s  %s  %s", e.bold(idCell(x.RowLabel(), iw)), padRight(x.Dir, dw), stateCell(x, sw, o), queueWord(x.Queue.Count))
-		block := []string{ansi.Truncate(cardGutter(x, o, true)+row, o.Width, "…")}
+		block := []string{ansi.Truncate(cardGutter(x, o, true, false)+row, o.Width, "…")}
 		if room.compact {
 			now, label := x.Now, "Now:"
 			if now == "" {
@@ -643,7 +647,7 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 			block = append(block, queueLinesWith(e, "Queue:", x.Queue, o.Width, room.item, 4+11, s.Settings.QueueItems)...)
 		}
 		for i := 1; i < len(block); i++ { // the lines under the header start with the indent that the gutter replaces
-			if g := cardGutter(x, o, false); g != "" && strings.HasPrefix(block[i], "    ") {
+			if g := cardGutter(x, o, false, i == len(block)-1); g != "" && strings.HasPrefix(block[i], "    ") {
 				block[i] = g + block[i][3:]
 			}
 		}
