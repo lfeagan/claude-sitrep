@@ -35,6 +35,7 @@ type viewOpts struct {
 	Width, Height int
 	ShowEnded     bool
 	Sort          int
+	CardsSort     int    // the Cards tab's sort, an index into cardsOrder (0, the zero value, puts the sessions that need you first)
 	Sel           string // the id of the selected session, "" for none
 	Filter        string // only sessions that contain this text are listed
 	Theme         Theme
@@ -50,12 +51,25 @@ type viewOpts struct {
 
 // visibleIDs lists the ids in the order a tab draws them, so selection moves the way the eye does.
 func visibleIDs(s Snapshot, tab int, showEnded bool, by int, filter string) []string {
+	return visibleIDsFor(s, tab, showEnded, by, 0, filter)
+}
+
+// cardsOrder is the sorts of the Cards tab, in the order that `s` cycles them. The first is the default: the sessions that need you first.
+var cardsOrder = [sortCount]int{sortState, sortActivity, sortDir, sortQueue}
+
+// cardsSort is the sort the Cards tab uses for the index i into cardsOrder.
+func cardsSort(i int) int { return cardsOrder[((i%sortCount)+sortCount)%sortCount] }
+
+// visibleIDsFor is visibleIDs with the Cards tab's own sort, an index into cardsOrder.
+func visibleIDsFor(s Snapshot, tab int, showEnded bool, by, cardsBy int, filter string) []string {
 	list, _ := shown(s, showEnded)
 	list = filterSessions(list, filter)
 	switch tab {
 	case tabTable:
 		list = sorted(list, by)
-	default: // Cards and the Wall: the sessions that need you first
+	case tabCards:
+		list = sorted(list, cardsSort(cardsBy))
+	default: // the Wall: the sessions that need you first
 		list = sorted(list, sortState)
 	}
 	ids := make([]string, len(list))
@@ -252,13 +266,18 @@ func queueWord(n int) string {
 
 // field lays out "    Label:   text" with a hanging indent, in at most maxLines lines.
 func field(label, text string, width, maxLines int) []string {
+	return fieldWith(emph{}, label, text, width, maxLines)
+}
+
+// fieldWith is field with the label set off by e.
+func fieldWith(e emph, label, text string, width, maxLines int) []string {
 	prefix := "    " + padRight(label, 11)
 	avail := max(width-ansi.StringWidth(prefix), 10)
 	lines := wrapText(text, avail, maxLines)
 	out := make([]string, len(lines))
 	for i, l := range lines {
 		if i == 0 {
-			out[i] = prefix + l
+			out[i] = "    " + e.label(padRight(label, 11)) + l
 		} else {
 			out[i] = strings.Repeat(" ", ansi.StringWidth(prefix)) + l
 		}
@@ -266,9 +285,59 @@ func field(label, text string, width, maxLines int) []string {
 	return out
 }
 
+// emph sets the words that head a card (the labels, the numbers of a queue, the session's name) off from the text. It is made of raw
+// terminal codes that end with the ones that began them and reset nothing else, since a row that is coloured sits inside a colour that a
+// full reset would end. On such a row the labels are bold only, as the colour behind them is the signal there; on a plain row they take
+// the accent colour as well. A row that is bold already, in the mono theme, gets none: nothing would stand out.
+type emph struct{ lead, trail, boldOn, boldOff string }
+
+// newEmph is the emphasis for a row that is painted with base (painted says whether it is painted at all).
+func newEmph(o viewOpts, painted bool, base lipgloss.Style) emph {
+	if o.Theme.Plain || base.GetBold() {
+		return emph{}
+	}
+	e := emph{boldOn: "\x1b[1m", boldOff: "\x1b[22m"}
+	e.lead, e.trail = e.boldOn, e.boldOff
+	if !painted {
+		if sgr := sgrOf(o.Theme.Head); sgr != "" {
+			e.lead, e.trail = sgr, "\x1b[22;39m"
+		}
+	}
+	return e
+}
+
+// sgrOf is the terminal codes that start a style, taken from what it draws.
+func sgrOf(st lipgloss.Style) string {
+	out := st.Render("x")
+	if i := strings.Index(out, "x"); i > 0 {
+		return out[:i]
+	}
+	return ""
+}
+
+func (e emph) label(s string) string {
+	if e.lead == "" || strings.TrimSpace(s) == "" {
+		return s
+	}
+	body := strings.TrimRight(s, " ")
+	return e.lead + body + e.trail + s[len(body):]
+}
+
+func (e emph) bold(s string) string {
+	if e.boldOn == "" {
+		return s
+	}
+	return e.boldOn + s + e.boldOff
+}
+
 // queueLines lists numbered items, the first under label, each wrapped to maxLines. Items
 // sit under the label column, or at indent when there is no label.
 func queueLines(label string, q Queue, width, maxLines, indent, limit int) []string {
+	return queueLinesWith(emph{}, label, q, width, maxLines, indent, limit)
+}
+
+// queueLinesWith is queueLines with the label and the numbers set off by e.
+func queueLinesWith(e emph, label string, q Queue, width, maxLines, indent, limit int) []string {
 	if limit >= 0 && len(q.Items) > limit { // sitrep sends every item; the setting says how many to list
 		q.Items = q.Items[:limit]
 	}
@@ -283,7 +352,11 @@ func queueLines(label string, q Queue, width, maxLines, indent, limit int) []str
 		avail := max(width-ansi.StringWidth(prefix), 10)
 		for j, l := range wrapText(it, avail, maxLines) {
 			if j == 0 {
-				out = append(out, prefix+l)
+				lead := pad + e.label(strings.TrimRight(num, " ")) + " "
+				if i == 0 && label != "" {
+					lead = "    " + e.label(padRight(label, 11)) + e.label(strings.TrimRight(num, " ")) + " "
+				}
+				out = append(out, lead+l)
 			} else {
 				out = append(out, strings.Repeat(" ", ansi.StringWidth(prefix))+l)
 			}
@@ -308,13 +381,10 @@ func paint(lines []string, st lipgloss.Style, width int) []string {
 // grey of recent activity. A session that has waited long (AttnFaded) keeps a weaker tint, so the one that has waited longest is not the
 // quietest, unless recent activity colours it.
 func mark(lines []string, x Session, o viewOpts) []string {
+	if st, ok := rowStyle(x, o); ok {
+		return paint(lines, st, o.Width)
+	}
 	switch {
-	case x.NeedsInput && x.Running && !x.AttnFaded:
-		return paint(lines, o.Theme.Attn, o.Width)
-	case x.Highlight && x.Running:
-		return paint(lines, o.Theme.Hot, o.Width)
-	case x.NeedsInput && x.Running && o.Theme.HasDull:
-		return paint(lines, o.Theme.Dull, o.Width)
 	case x.Snoozed && x.Running && len(lines) > 0: // only the mark and the state word, in the colour the theme gives them
 		out := append([]string(nil), lines...)
 		st := stateText(x)
@@ -322,6 +392,27 @@ func mark(lines []string, x Session, o viewOpts) []string {
 		return out
 	}
 	return lines
+}
+
+// rowStyle is the colour a session's whole row is painted in, and whether it is painted at all.
+func rowStyle(x Session, o viewOpts) (lipgloss.Style, bool) {
+	switch {
+	case x.NeedsInput && x.Running && !x.AttnFaded:
+		return o.Theme.Attn, true
+	case x.Highlight && x.Running:
+		return o.Theme.Hot, true
+	case x.NeedsInput && x.Running && o.Theme.HasDull:
+		return o.Theme.Dull, true
+	}
+	return lipgloss.NewStyle(), false
+}
+
+// cardsSortNote says how the Cards are sorted when that is not the default order.
+func cardsSortNote(o viewOpts) string {
+	if cardsSort(o.CardsSort) == sortState {
+		return ""
+	}
+	return "   sort: " + sortNames[cardsSort(o.CardsSort)]
 }
 
 // recentMark puts a · in the gutter of a recently active session when there is no colour to show it (the mono theme, NO_COLOR): bold alone
@@ -420,21 +511,30 @@ func cardsBody(s Snapshot, o viewOpts) []string {
 // layBlocks fits the blocks of the cards to the height.
 func layBlocks(s Snapshot, o viewOpts, head []string, blocks [][]string, ids []string) []string {
 	list, ended := shown(s, o.ShowEnded)
-	list = sorted(filterSessions(list, o.Filter), sortState)
+	list = sorted(filterSessions(list, o.Filter), cardsSort(o.CardsSort))
 	return fitBlocks(head, blocks, ids, indexOf(list, o.Sel), ended, s.Hidden.StrandedItems, o)
 }
 
 // cardBlocks lays out the header and a block per session within room, and counts the footer lines that follow.
 func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks [][]string, ids []string, foot int) {
 	list, ended := shown(s, o.ShowEnded)
-	list = sorted(filterSessions(list, o.Filter), sortState) // the Wall's order: the sessions that need you first
+	list = sorted(filterSessions(list, o.Filter), cardsSort(o.CardsSort))
+	note := cardsSortNote(o)
 	if s.Inbox.Count > 0 {
 		head = append(head, "Inbox: "+queueWord(s.Inbox.Count))
 		if room.compact {
 			head[len(head)-1] += " (i)"
-		} else {
-			head = append(head, queueLines("", s.Inbox, o.Width, room.item, 4, s.Settings.QueueItems)...)
 		}
+		if note != "" && ansi.StringWidth(head[len(head)-1]+note) <= o.Width {
+			head[len(head)-1] += note
+			note = ""
+		}
+		if !room.compact {
+			head = append(head, queueLinesWith(newEmph(o, false, lipgloss.NewStyle()), "", s.Inbox, o.Width, room.item, 4, s.Settings.QueueItems)...)
+		}
+	}
+	if note != "" { // no inbox line to carry it, or no room on it
+		head = append(head, strings.TrimLeft(note, " "))
 	}
 	dw, sw, iw := 9, 5, idWidth(s)
 	for _, x := range list {
@@ -445,19 +545,21 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 	}
 	for _, x := range list {
 		ids = append(ids, x.ID)
-		row := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %s", idCell(x.RowLabel(), iw), padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
+		base, painted := rowStyle(x, o)
+		e := newEmph(o, painted, base)
+		row := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %s", e.bold(idCell(x.RowLabel(), iw)), padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
 		block := []string{ansi.Truncate(row, o.Width, "…")}
 		if room.compact {
 			now, label := x.Now, "Now:"
 			if now == "" {
 				now, label = x.Objective, "Objective:"
 			}
-			block = append(block, field(label, now, o.Width, 1)...)
+			block = append(block, fieldWith(e, label, now, o.Width, 1)...)
 		} else {
-			block = append(block, field("Objective:", x.Objective, o.Width, room.field)...)
-			block = append(block, field("Progress:", x.Progress, o.Width, room.field)...)
-			block = append(block, field("Now:", x.Now, o.Width, room.field)...)
-			block = append(block, queueLines("Queue:", x.Queue, o.Width, room.item, 4+11, s.Settings.QueueItems)...)
+			block = append(block, fieldWith(e, "Objective:", x.Objective, o.Width, room.field)...)
+			block = append(block, fieldWith(e, "Progress:", x.Progress, o.Width, room.field)...)
+			block = append(block, fieldWith(e, "Now:", x.Now, o.Width, room.field)...)
+			block = append(block, queueLinesWith(e, "Queue:", x.Queue, o.Width, room.item, 4+11, s.Settings.QueueItems)...)
 		}
 		blocks = append(blocks, selectBlock(mark(recentMark(block, x, o), x, o), x, o))
 	}
@@ -710,7 +812,7 @@ func statusBar(s Snapshot, width int, errText string, isErr bool, tab int, typin
 	}
 	hints := []string{"q quit", "enter jump", "tab switch", "/ filter", "n name", "1-9 take", "a ended", "? help"}
 	switch tab {
-	case tabTable: // only the Table view has a sort
+	case tabTable, tabCards:
 		hints = []string{"q quit", "enter jump", "s sort", "tab switch", "/ filter", "n name", "1-9 take", "a ended", "? help"}
 	case tabWall:
 		hints = []string{"q quit", "enter jump", "tab switch", "hjkl move", "s size", "/ filter", "n name", "1-9 take", "a ended", "? help"}
@@ -826,7 +928,7 @@ func helpLines(width int, readOnly bool) []string {
 		"                                 (left of the first and right of the last: the tab)",
 		"  1-9                            take that inbox item into the selected session",
 		"  a                              show or hide ended sessions",
-		"  s                              cycle the Table sort, or the Wall's tile size",
+		"  s                              cycle the sort of the Cards or the Table, or the Wall's tile size",
 		"  /                              filter the sessions; enter keeps it, esc clears it",
 		"  ctrl+u, ctrl+w                 in a line you type: clear it, or its last word",
 		"  i, e                           the inbox, or the session's queue; in a queue, the other one",

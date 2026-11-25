@@ -26,6 +26,37 @@ would mark 1 ended, would ask about 3 item(s)
       "age": 0,
       "alias": "",
       "context": null,
+      "cwd": "/home/u/proj-one",
+      "dir": "proj-one",
+      "highlight": false,
+      "id": "run00001",
+      "idle": true,
+      "needs_input": false,
+      "now": "compiling",
+      "objective": "build it",
+      "pid": 0,
+      "pinned": false,
+      "progress": "half",
+      "queue": {
+        "count": 3,
+        "items": [
+          "first",
+          "second item",
+          "  third"
+        ]
+      },
+      "quiet_secs": 0,
+      "running": true,
+      "short": "run0",
+      "snoozed": false,
+      "state": "working",
+      "state_changed": 0,
+      "state_label": "idle? 2h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
       "cwd": "/a/four",
       "dir": "four",
       "highlight": false,
@@ -80,37 +111,6 @@ would mark 1 ended, would ask about 3 item(s)
       "state": "ended",
       "state_changed": 0,
       "state_label": "ended 4h"
-    },
-    {
-      "age": 0,
-      "alias": "",
-      "context": null,
-      "cwd": "/home/u/proj-one",
-      "dir": "proj-one",
-      "highlight": false,
-      "id": "run00001",
-      "idle": true,
-      "needs_input": false,
-      "now": "compiling",
-      "objective": "build it",
-      "pid": 0,
-      "pinned": false,
-      "progress": "half",
-      "queue": {
-        "count": 3,
-        "items": [
-          "first",
-          "second item",
-          "  third"
-        ]
-      },
-      "quiet_secs": 0,
-      "running": true,
-      "short": "run0",
-      "snoozed": false,
-      "state": "working",
-      "state_changed": 0,
-      "state_label": "idle? 2h"
     },
     {
       "age": 0,

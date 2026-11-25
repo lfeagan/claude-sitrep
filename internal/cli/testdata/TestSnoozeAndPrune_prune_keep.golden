@@ -55,36 +55,6 @@ kept 1 item(s) on old0 (five)
       "age": 0,
       "alias": "",
       "context": null,
-      "cwd": "/a/four",
-      "dir": "four",
-      "highlight": false,
-      "id": "end00004",
-      "idle": false,
-      "needs_input": false,
-      "now": "n",
-      "objective": "done",
-      "pid": null,
-      "pinned": false,
-      "progress": "p",
-      "queue": {
-        "count": 2,
-        "items": [
-          "stranded one",
-          "stranded two"
-        ]
-      },
-      "quiet_secs": null,
-      "running": false,
-      "short": "end0",
-      "snoozed": false,
-      "state": "ended",
-      "state_changed": 0,
-      "state_label": "ended 3h"
-    },
-    {
-      "age": 0,
-      "alias": "",
-      "context": null,
       "cwd": "/home/u/proj-one",
       "dir": "proj-one",
       "highlight": false,
@@ -111,6 +81,36 @@ kept 1 item(s) on old0 (five)
       "state": "working",
       "state_changed": 0,
       "state_label": "idle? 2h"
+    },
+    {
+      "age": 0,
+      "alias": "",
+      "context": null,
+      "cwd": "/a/four",
+      "dir": "four",
+      "highlight": false,
+      "id": "end00004",
+      "idle": false,
+      "needs_input": false,
+      "now": "n",
+      "objective": "done",
+      "pid": null,
+      "pinned": false,
+      "progress": "p",
+      "queue": {
+        "count": 2,
+        "items": [
+          "stranded one",
+          "stranded two"
+        ]
+      },
+      "quiet_secs": null,
+      "running": false,
+      "short": "end0",
+      "snoozed": false,
+      "state": "ended",
+      "state_changed": 0,
+      "state_label": "ended 3h"
     },
     {
       "age": 0,

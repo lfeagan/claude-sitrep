@@ -728,10 +728,11 @@ func queueScreen(v queueView, width, height int, th Theme) string {
 		if i == v.Sel {
 			start = len(lines)
 		}
-		for j, l := range wrapText(it, avail, 1<<20) {
+		wrapped := wrapText(it, avail, 1<<20)
+		for j, l := range wrapped {
 			mark, label := "  ", strings.Repeat(" ", ansi.StringWidth(num))
 			if j == 0 {
-				label = num
+				label = th.Head.Render(strings.TrimRight(num, " ")) + " "
 				if i == v.Sel {
 					mark = "▸ "
 				}
@@ -740,6 +741,9 @@ func queueScreen(v queueView, width, height int, th Theme) string {
 		}
 		if i == v.Sel {
 			end = len(lines)
+		}
+		if len(wrapped) > 1 && i < len(v.Items)-1 { // an item that took several lines is set apart, so that the next number is not mistaken for text
+			lines = append(lines, "")
 		}
 	}
 	if len(v.Items) == 0 {

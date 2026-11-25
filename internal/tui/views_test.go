@@ -366,8 +366,8 @@ func TestStatusBarHints(t *testing.T) {
 		lines := strings.Split(render(loadFixture(t), tabCards, "", opts(w, 20)), "\n")
 		return lines[len(lines)-1]
 	}
-	if got := last(80); !strings.Contains(got, "enter jump") || !strings.Contains(got, "? help") || !strings.Contains(got, "● 1 need you") || strings.Contains(got, "s sort") {
-		t.Errorf("at 80 columns the Cards bar keeps who needs you and the key hints, and has no sort: %q", got)
+	if got := last(80); !strings.Contains(got, "enter jump") || !strings.Contains(got, "? help") || !strings.Contains(got, "● 1 need you") || !strings.Contains(got, "s sort") {
+		t.Errorf("at 80 columns the Cards bar keeps who needs you and the key hints, with the sort: %q", got)
 	}
 	top := strings.Split(render(loadFixture(t), tabTable, "", opts(80, 20)), "\n")
 	if got := top[len(top)-1]; !strings.Contains(got, "s sort") || !strings.Contains(got, "? help") {
@@ -394,7 +394,7 @@ func TestFooterHintsDropFromTheEndAndKeepTheHelp(t *testing.T) {
 
 func TestHelpScreen(t *testing.T) {
 	out := helpScreen(80, 60, false, 0, plainTheme())
-	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Table sort", "refresh", "quit", "Cards", "Table ", "pink-red", "grey", "any key closes"} {
+	for _, want := range []string{"Keys", "switch tab", "ended sessions", "Cards or the Table", "refresh", "quit", "Cards", "Table ", "pink-red", "grey", "any key closes"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the help should mention %q", want)
 		}

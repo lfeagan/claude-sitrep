@@ -33,15 +33,15 @@ anci  eight      working 2d    empty
 --- stdout
 Inbox: 2 items, next: inbox one
 ID    DIRECTORY  STATE         QUEUE
+run0  proj-one   idle? 2h      3 items, next: first
+    Objective: build it
+    Now:       compiling
 end0  four       ended 3h      2 items, next: stranded one
     Objective: done
     Now:       n
 old0  five       ended 4h      1 item, next: left behind
     Objective: gone quiet
     Now:       n
-run0  proj-one   idle? 2h      3 items, next: first
-    Objective: build it
-    Now:       compiling
 snz0  three      ○ waiting 6h  empty
     Objective: snoozed
     Now:       n
@@ -101,6 +101,13 @@ Inbox: 2 items
     1. inbox one
     2. inbox two
 ID    DIRECTORY  STATE         QUEUE
+run0  proj-one   idle? 2h      3 items
+    Objective: build it
+    Progress:  half
+    Now:       compiling
+    Queue:     1. first
+               2. second item
+               3.   third
 end0  four       ended 3h      2 items
     Objective: done
     Progress:  p
@@ -112,13 +119,6 @@ old0  five       ended 4h      1 item
     Progress:  p
     Now:       n
     Queue:     1. left behind
-run0  proj-one   idle? 2h      3 items
-    Objective: build it
-    Progress:  half
-    Now:       compiling
-    Queue:     1. first
-               2. second item
-               3.   third
 snz0  three      ○ waiting 6h  empty
     Objective: snoozed
     Progress:  p

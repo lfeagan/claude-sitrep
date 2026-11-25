@@ -306,6 +306,16 @@ func TestHostilePipesDoNotHangTheListing(t *testing.T) {
 	}
 }
 
+// transcript writes a transcript last written ago before now.
+func (w *world) transcript(id string, ago time.Duration) {
+	w.t.Helper()
+	dir := filepath.Join(w.cfg, "projects", "p")
+	os.MkdirAll(dir, 0o755)
+	p := filepath.Join(dir, id+".jsonl")
+	os.WriteFile(p, []byte("{}\n"), 0o600)
+	os.Chtimes(p, now.Add(-ago), now.Add(-ago))
+}
+
 // block writes the record the permission hook leaves, at seconds before now, and a transcript last written at mtime seconds before now
 // (none when mtime is 0).
 func (w *world) block(id string, at, mtime time.Duration) {
@@ -325,6 +335,25 @@ func (w *world) block(id string, at, mtime time.Duration) {
 	p := filepath.Join(dir, id+".jsonl")
 	os.WriteFile(p, []byte("{}\n"), 0o600)
 	os.Chtimes(p, now.Add(-mtime), now.Add(-mtime))
+}
+
+func TestAWorkingSessionWithALiveTranscriptSortsByThat(t *testing.T) {
+	w := newWorld(t)
+	w.session("long0001", "working", 5*time.Hour) // one long turn: no hook has fired since the prompt
+	w.register("long0001", 1)
+	w.transcript("long0001", time.Minute)
+	w.session("stop0001", "waiting", time.Hour)
+	w.register("stop0001", 1)
+	w.session("late0001", "working", 4*time.Hour) // working, and its transcript is as old as its state
+	w.register("late0001", 1)
+	w.transcript("late0001", 4*time.Hour)
+	var order []string
+	for _, x := range w.build(Options{Cap: 5}).Sessions {
+		order = append(order, string(x.ID))
+	}
+	if strings.Join(order, " ") != "long0001 stop0001 late0001" {
+		t.Errorf("order %v", order)
+	}
 }
 
 func TestBlockedSessionNeedsInput(t *testing.T) {

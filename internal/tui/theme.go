@@ -14,6 +14,7 @@ import (
 // Theme holds every style the views use. The plain theme has none, so tests compare text.
 type Theme struct {
 	Tab, TabActive, Rule, Label, Dim, Err, Status, StatusKey, Hot, Attn, Warn, Snooze lipgloss.Style
+	Head                                                                              lipgloss.Style // the labels of a card and the numbers of a queue: they stand out from the text they head
 	Dull                                                                              lipgloss.Style // a session that has needed the user for long: the needs-you colour, weakened
 	HasDull                                                                           bool
 	Plain                                                                             bool
@@ -22,7 +23,7 @@ type Theme struct {
 
 func plainTheme() Theme {
 	s := lipgloss.NewStyle()
-	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Snooze: s, Plain: true}
+	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Head: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Snooze: s, Plain: true}
 }
 
 // palette is the colours a theme is made of, each as a light and a dark value: a hex colour or the number of a terminal colour.
@@ -272,6 +273,7 @@ func themeFor(isDark bool, st Settings) Theme {
 		TabActive: lipgloss.NewStyle().Foreground(accent).Bold(true).Underline(true).Padding(0, 1),
 		Rule:      lipgloss.NewStyle().Foreground(accent),
 		Label:     lipgloss.NewStyle().Foreground(dim),
+		Head:      lipgloss.NewStyle().Foreground(accent).Bold(true),
 		Dim:       lipgloss.NewStyle().Foreground(dim),
 		Err:       lipgloss.NewStyle().Background(pick(p.errc)).Foreground(lipgloss.Color(onColor(p.errc[side]))).Bold(true),
 		Status:    lipgloss.NewStyle().Foreground(on).Background(accent),
@@ -310,7 +312,7 @@ func monoTheme() Theme {
 	s := lipgloss.NewStyle()
 	return Theme{
 		Mono: true,
-		Tab:  s.Faint(true).Padding(0, 1), TabActive: s.Bold(true).Underline(true).Padding(0, 1), Rule: s, Label: s.Faint(true), Dim: s.Faint(true),
+		Tab:  s.Faint(true).Padding(0, 1), TabActive: s.Bold(true).Underline(true).Padding(0, 1), Rule: s, Label: s.Faint(true), Head: s.Bold(true), Dim: s.Faint(true),
 		Err: s.Bold(true), Status: s.Reverse(true), StatusKey: s.Reverse(true).Bold(true), Hot: s.Bold(true), Attn: s.Reverse(true), Warn: s.Bold(true),
 	}
 }

@@ -139,6 +139,7 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 	}
 	snap.Inbox = readQueue(b.Store.Path(state.Inbox, "queue"), opt.Cap)
 
+	last := map[state.ID]int64{} // when each session was last seen to do something
 	for _, f := range b.sessions(now, set) {
 		id := state.ID(f.id)
 		word := live.Word(b.Store, f.id)
@@ -191,6 +192,10 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 			}
 			s.Highlight = hlsec > 0 && age <= int64(hlsec)
 		}
+		last[id] = f.changed
+		if hasQuiet && now-quiet > f.changed { // a long turn fires no hook, but its transcript is alive
+			last[id] = now - quiet
+		}
 		s.Idle = strings.HasPrefix(s.StateLabel, "idle?")
 		if !labelOK(s.StateLabel) {
 			s.StateLabel = "-"
@@ -204,6 +209,8 @@ func (b Builder) Build(ctx context.Context, opt Options) Snapshot {
 		s.Queue = readQueue(b.Store.Path(id, "queue"), opt.Cap)
 		snap.Sessions = append(snap.Sessions, s)
 	}
+	// newest first by what each did last, the state change or a live transcript; a tie keeps the order of the state changes
+	sort.SliceStable(snap.Sessions, func(i, j int) bool { return last[snap.Sessions[i].ID] > last[snap.Sessions[j].ID] })
 	return snap
 }
 

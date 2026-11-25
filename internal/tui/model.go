@@ -100,7 +100,8 @@ type model struct {
 	prompt     *promptState // the open line of typing, if any
 	mover      *moverState  // the open list of places to send an item to, if any
 	scroll     int          // the top line of the detail pane
-	sortBy     int
+	sortBy     int          // the Table's sort
+	cardsBy    int          // the Cards tab's sort, an index into cardsOrder
 	help       bool
 	helpAt     int    // the first line of the key list that is shown
 	pending    string // the first key of a two-key command that waits for its second: g (gg, the first row) or d (dd, remove an item)
@@ -473,7 +474,7 @@ func (m model) rowStep() int {
 
 // visible is the ids on the current tab, in drawing order.
 func (m model) visible() []string {
-	return visibleIDs(m.snap, m.tab, m.showEnded, m.sortBy, m.filter)
+	return visibleIDsFor(m.snap, m.tab, m.showEnded, m.sortBy, m.cardsBy, m.filter)
 }
 
 // fixSel keeps the selection on a session that is still shown, else on the first one.
@@ -718,8 +719,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.fixSel()
 		case "s":
 			switch m.tab {
-			case tabTable: // only the Table view has a sort
+			case tabTable:
 				m.sortBy = (m.sortBy + 1) % sortCount
+				m.fixSel()
+			case tabCards:
+				m.cardsBy = (m.cardsBy + 1) % sortCount
+				m.fixSel()
 			case tabWall:
 				m.wallSize, m.wallSet = (m.wallNow()+1)%wallSizes, true
 			}
@@ -755,7 +760,7 @@ func (m model) click(c tea.Mouse) (tea.Model, tea.Cmd) {
 	}
 	var hits []string
 	var cells []wallCell
-	render(m.snap, m.tab, "", viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Size: m.wallSize, Auto: !m.wallSet, Theme: plainTheme(), Hits: &hits, Cells: &cells})
+	render(m.snap, m.tab, "", viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, CardsSort: m.cardsBy, Sel: m.selID, Filter: m.filter, Size: m.wallSize, Auto: !m.wallSet, Theme: plainTheme(), Hits: &hits, Cells: &cells})
 	id := ""
 	if m.tab == tabWall {
 		for _, cell := range cells {
@@ -813,7 +818,7 @@ func (m model) View() tea.View {
 		if status == "" && (m.filtering || m.filter != "") {
 			status = m.filterStatus()
 		}
-		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Demo: m.demo, NoColour: m.noColour, Error: m.statusIsError() && m.prompt == nil && m.ask == nil && !m.filtering, Theme: theme})
+		body = render(m.snap, m.tab, status, viewOpts{Width: m.width, Height: m.height, ShowEnded: m.showEnded, Sort: m.sortBy, CardsSort: m.cardsBy, Sel: m.selID, Filter: m.filter, Typing: m.filtering, Size: m.wallSize, Auto: !m.wallSet, Demo: m.demo, NoColour: m.noColour, Error: m.statusIsError() && m.prompt == nil && m.ask == nil && !m.filtering, Theme: theme})
 	}
 	if m.colors != nil {
 		body = m.colors.body()
