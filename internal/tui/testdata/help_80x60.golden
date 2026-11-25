@@ -5,6 +5,7 @@
   ○             snoozed: waiting, but you said it can wait
   ▶ │           the selected session: an arrow and a rail down its card
   ┃ grey        the session changed in the last minute (a · without colour)
+  ┃ dim grey    any other session: the bracket shows where its card is
   idle?        working, but quiet for 10 minutes: it may have been interrupted
 
  Keys
@@ -46,7 +47,6 @@
   Table   a summary line, then one line per session (CTX: context left)
   Wall    the sessions as tiles of one size, many to a screen, those that need
           you first
-
 
 
 

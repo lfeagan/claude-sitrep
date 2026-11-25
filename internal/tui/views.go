@@ -471,35 +471,38 @@ func (g markGlyphs) selection(first, last bool) string {
 	return g.rail
 }
 
-// cardGutter is the three columns before a line of a card (first and last say which line it is): the mark, the selection, and a space. With
-// no colour to show what a bracket means, a card that needs you has one in bold, a card that needed you long ago has none, and a recent card
-// has a · on its first line. A screen under 20 columns wide has no gutter.
+// cardGutter is the three columns before a line of a card (first and last say which line it is): the mark, the selection, and a space. Every
+// card has a bracket, in the colour of what it is: needs you, needed you long ago, recent, or a quiet grey for the rest. With no colour to
+// show that, a card that needs you has a bold bracket, and a recent one a · on its first line, in the space before its name. A screen under
+// 20 columns wide has no gutter.
 func cardGutter(x Session, o viewOpts, first, last bool) string {
 	if o.Width < 20 {
 		return ""
 	}
-	g, th, mark := cardMarks, o.Theme, " "
+	g, th := cardMarks, o.Theme
 	bare := th.Plain || th.Mono || o.NoColour
+	style, gap := th.Quiet, " "
 	switch cardKind(x) {
 	case markNeed:
-		mark = th.Need.Render(g.mark(first, last))
+		style = th.Need
 	case markFade:
 		if !bare {
-			mark = th.Fade.Render(g.mark(first, last))
+			style = th.Fade
 		}
 	case markRecent:
-		switch {
-		case !bare:
-			mark = th.Recent.Render(g.mark(first, last))
-		case first:
-			mark = g.recent
+		style = th.Recent
+		if bare {
+			style = th.Quiet
+			if first {
+				gap = g.recent
+			}
 		}
 	}
 	sel := " "
 	if x.ID != "" && x.ID == o.Sel {
 		sel = th.Head.Render(g.selection(first, last))
 	}
-	return mark + sel + " "
+	return style.Render(g.mark(first, last)) + sel + gap
 }
 
 // stateCell is the state of a session, padded to w columns. The state of one that needs you is bold in the colour of its bar, that of a
@@ -1030,6 +1033,7 @@ func helpLines(width int, readOnly bool) []string {
 		"  ○             snoozed: waiting, but you said it can wait",
 		"  ▶ │           the selected session: an arrow and a rail down its card",
 		"  ┃ grey        the session changed in the last minute (a · without colour)",
+		"  ┃ dim grey    any other session: the bracket shows where its card is",
 		"  idle?        working, but quiet for 10 minutes: it may have been interrupted",
 		"",
 		" Keys",

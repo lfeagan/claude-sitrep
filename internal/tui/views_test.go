@@ -501,7 +501,7 @@ func TestScrollingKeepsTheSelectionOnScreen(t *testing.T) {
 			for h := minH; h <= 30; h++ {
 				o := viewOpts{Width: 80, Height: h, Sel: sess.ID, Theme: plainTheme()}
 				out := render(s, tab, "", o)
-				if !strings.Contains(out, "▶ "+sess.Short) {
+				if !strings.Contains(out, "▶ "+sess.Short) && !strings.Contains(out, "▶·"+sess.Short) { // a recent card has a · where the space is, without colour
 					t.Errorf("tab %d height %d: the selected session %s is not on screen:\n%s", tab, h, sess.Short, out)
 				}
 			}
@@ -1084,7 +1084,7 @@ func TestRecentSessionGetsADotWhenThereIsNoColour(t *testing.T) {
 	for _, tab := range []int{tabCards, tabTable} {
 		dots := 0
 		for _, l := range strings.Split(ansi.Strip(render(s, tab, "", mono)), "\n") {
-			if strings.HasPrefix(l, "· ") {
+			if strings.HasPrefix(l, "· ") || strings.HasPrefix(l, "┏ ·") { // the Table's row, or the first line of a card
 				dots++
 			}
 		}

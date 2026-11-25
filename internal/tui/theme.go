@@ -18,6 +18,7 @@ type Theme struct {
 	// the mark down the left edge of a card and the state word of one that needs you: the colour of what needs the user, of what needed them
 	// long ago, and of recent activity, each made to read on the terminal's own background
 	Need, Fade, Recent, RecentWord lipgloss.Style // RecentWord is the state of a recent card: the colour of its bar, readable as text
+	Quiet                          lipgloss.Style // the bracket of a card that is none of those: a grey that shows where the card is and no more
 	Dull                           lipgloss.Style // a session that has needed the user for long: the needs-you colour, weakened
 	HasDull                        bool
 	Plain                          bool
@@ -26,7 +27,7 @@ type Theme struct {
 
 func plainTheme() Theme {
 	s := lipgloss.NewStyle()
-	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Head: s, Need: s, Fade: s, Recent: s, RecentWord: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Snooze: s, Plain: true}
+	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Head: s, Need: s, Fade: s, Recent: s, RecentWord: s, Quiet: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Snooze: s, Plain: true}
 }
 
 // palette is the colours a theme is made of, each as a light and a dark value: a hex colour or the number of a terminal colour.
@@ -279,6 +280,7 @@ func themeFor(isDark bool, st Settings) Theme {
 		Need:       lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.attn[side], isDark, 4.5))),
 		Fade:       lipgloss.NewStyle().Foreground(lipgloss.Color(fadedBar(p.attn[side], isDark))),
 		Recent:     lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.hot[side], isDark, 3))),
+		Quiet:      lipgloss.NewStyle().Foreground(lipgloss.Color(quietBar(isDark))),
 		RecentWord: lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.hot[side], isDark, 4.5))),
 		Head:       lipgloss.NewStyle().Foreground(ld(lipgloss.Color(p.accent[0]), lipgloss.Color(headOnDark(p.accent[1], custom["accent"])))).Bold(true),
 		Dim:        lipgloss.NewStyle().Foreground(dim),
@@ -359,6 +361,15 @@ func fadedBar(attn string, dark bool) string {
 		bg = "#1e1e1e"
 	}
 	return readableOn(blendHex(readableOn(attn, dark, 4.5), bg, fadeShare), dark, 3)
+}
+
+// quietBar is the grey of a bracket that says nothing about the session: dimmer than the bar of recent activity, and not below 2:1 against the
+// terminal's own background.
+func quietBar(dark bool) string {
+	if dark {
+		return "#5a5a5a"
+	}
+	return "#b4b4b4"
 }
 
 // fadeShare is how much of the terminal's background the bar of a faded card is mixed with.

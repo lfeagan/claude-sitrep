@@ -64,7 +64,7 @@ func TestAPlainThemeHasNoCodesAndMonoNoColours(t *testing.T) {
 	if strings.Contains(frame, "38;") || strings.Contains(frame, "48;") {
 		t.Errorf("the mono theme has colours:\n%q", frame)
 	}
-	if !strings.Contains(frame, "\x1b[1m┃") || !strings.Contains(ansi.Strip(frame), "· ") {
+	if !strings.Contains(frame, "\x1b[1m┃") || !strings.Contains(ansi.Strip(frame), " ·") {
 		t.Errorf("mono marks a card that needs you with a bold bar and a recent one with a ·:\n%s", ansi.Strip(frame))
 	}
 }
@@ -318,5 +318,50 @@ func TestTheRailStopsHalfALineShortOfTheBar(t *testing.T) {
 	}
 	if rails < 3 || ends != 1 {
 		t.Errorf("%d rail lines and %d ends, want at least 3 and 1", rails, ends)
+	}
+}
+
+func TestEveryCardHasABracketAndTheQuietOneIsTheDimmest(t *testing.T) {
+	s := loadFixture(t)
+	s.Sessions = append(s.Sessions, Session{ID: "plain001", Short: "plai", Dir: "x", Running: true, State: "working", StateLabel: "working 2h", Objective: "quiet", Queue: Queue{Items: []string{}}})
+	th := newTheme(true, "48;5;238")
+	tops, bottoms, cards := 0, 0, 0
+	for _, l := range strings.Split(render(s, tabCards, "", styledOpts(th)), "\n") {
+		cols := []rune(ansi.Strip(l))
+		if len(cols) < 4 {
+			continue
+		}
+		switch cols[0] {
+		case '┏':
+			tops++
+		case '┗':
+			bottoms++
+		}
+		if cols[3] != ' ' && cols[0] != '·' && !strings.HasPrefix(string(cols), "Inbox") && !strings.HasPrefix(string(cols), "+") && !strings.HasPrefix(string(cols), "[") {
+			cards++
+		}
+	}
+	if tops == 0 || tops != bottoms {
+		t.Errorf("each card has a top and a bottom corner: %d and %d", tops, bottoms)
+	}
+	hex := func(st lipgloss.Style) string {
+		r, g, b, _ := st.GetForeground().RGBA()
+		return fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+	for _, name := range ThemeNames {
+		if name == "mono" {
+			continue
+		}
+		for _, dark := range []bool{true, false} {
+			bg := "#ffffff"
+			if dark {
+				bg = "#1e1e1e"
+			}
+			th := themeFor(dark, Settings{Theme: name, HighlightSGR: "48;5;238"})
+			quiet, recent := contrastRatio(hex(th.Quiet), bg), contrastRatio(hex(th.Recent), bg)
+			if quiet < 1.9 || recent-quiet < 0.5 {
+				t.Errorf("%s dark=%v: the quiet bracket (%.1f:1) is not dimmer than the recent one (%.1f:1), or it is below 2:1", name, dark, quiet, recent)
+			}
+		}
 	}
 }
