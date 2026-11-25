@@ -6,9 +6,9 @@ Inbox: 3 items
        about the node deprecation
     +1 more
 +2 above
-▶ 2cd8  savannah-dbagent-bench      idle? 25m     empty
-│   Objective: 日本語の目的: データベースの性能を調べる
-│   Progress:  Cleaned up worktrees and merged branches; only main remains
+ ▶ 2cd8  savannah-dbagent-bench      idle? 25m     empty
+ │  Objective: 日本語の目的: データベースの性能を調べる
+ │  Progress:  Cleaned up worktrees and merged branches; only main remains
 +2 ended (a)
 2 items stranded in ended sessions (sitrep prune)
 

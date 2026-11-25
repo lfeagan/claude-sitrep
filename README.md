@@ -148,7 +148,7 @@ The queue does not feed work to Claude automatically. With `SITREP_QUEUE_NUDGE=o
 2. **Table** is a summary line and one line per session, with its state, queue size, the share of its context window left (CTX) and what it is doing now.
 3. **Wall** lays the sessions out as tiles of one size, in as many columns as the width holds, for twenty sessions at once. The sessions that need you come first, `h` `l` `j` `k` move between tiles, and `s` changes the tile size.
 
-A session that needs you, meaning Claude has stopped and the next move is yours, or it waits at a permission dialog, has a `●` before its state and a coloured background, and the status bar leads with `● 2 need you`. The colour fades after ten minutes (`SITREP_ATTN_FADE`, see [docs/SETTINGS.md](docs/SETTINGS.md)) and the `●` stays. The terminal bell rings once when a session starts needing you.
+A session that needs you, meaning Claude has stopped and the next move is yours, or it waits at a permission dialog, has a `●` before its state and a coloured bar down its card (a coloured row in the Table and the Wall), and the status bar leads with `● 2 need you`. The colour fades after ten minutes (`SITREP_ATTN_FADE`, see [docs/SETTINGS.md](docs/SETTINGS.md)) and the `●` stays. The terminal bell rings once when a session starts needing you.
 
 `sitrep colors` is a tool for choosing the colours: it previews every use of colour on made-up sessions, lets you pick each one, and writes the two settings to `sitrep.conf` when you say so (see [the dashboard](docs/DASHBOARD.md#colours)); `C` in the dashboard opens it too.
 

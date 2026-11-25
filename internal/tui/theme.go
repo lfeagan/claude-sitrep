@@ -15,15 +15,18 @@ import (
 type Theme struct {
 	Tab, TabActive, Rule, Label, Dim, Err, Status, StatusKey, Hot, Attn, Warn, Snooze lipgloss.Style
 	Head                                                                              lipgloss.Style // the labels of a card and the numbers of a queue: they stand out from the text they head
-	Dull                                                                              lipgloss.Style // a session that has needed the user for long: the needs-you colour, weakened
-	HasDull                                                                           bool
-	Plain                                                                             bool
-	Mono                                                                              bool // the mono theme: no colours, so marks carry the meaning
+	// the mark down the left edge of a card and the state word of one that needs you: the colour of what needs the user, of what needed them
+	// long ago, and of recent activity, each made to read on the terminal's own background
+	Need, Fade, Recent lipgloss.Style
+	Dull               lipgloss.Style // a session that has needed the user for long: the needs-you colour, weakened
+	HasDull            bool
+	Plain              bool
+	Mono               bool // the mono theme: no colours, so marks carry the meaning
 }
 
 func plainTheme() Theme {
 	s := lipgloss.NewStyle()
-	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Head: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Snooze: s, Plain: true}
+	return Theme{Tab: s, TabActive: s, Rule: s, Label: s, Head: s, Need: s, Fade: s, Recent: s, Dim: s, Err: s, Status: s, StatusKey: s, Hot: s, Attn: s, Warn: s, Snooze: s, Plain: true}
 }
 
 // palette is the colours a theme is made of, each as a light and a dark value: a hex colour or the number of a terminal colour.
@@ -273,6 +276,9 @@ func themeFor(isDark bool, st Settings) Theme {
 		TabActive: lipgloss.NewStyle().Foreground(accent).Bold(true).Underline(true).Padding(0, 1),
 		Rule:      lipgloss.NewStyle().Foreground(accent),
 		Label:     lipgloss.NewStyle().Foreground(dim),
+		Need:      lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.attn[side], isDark, 4.5))),
+		Fade:      lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.attn[side], isDark, 3))),
+		Recent:    lipgloss.NewStyle().Foreground(lipgloss.Color(readableOn(p.hot[side], isDark, 3))),
 		Head:      lipgloss.NewStyle().Foreground(ld(lipgloss.Color(p.accent[0]), lipgloss.Color(headOnDark(p.accent[1], custom["accent"])))).Bold(true),
 		Dim:       lipgloss.NewStyle().Foreground(dim),
 		Err:       lipgloss.NewStyle().Background(pick(p.errc)).Foreground(lipgloss.Color(onColor(p.errc[side]))).Bold(true),
@@ -326,6 +332,24 @@ func contrastRatio(a, b string) float64 {
 	return (hi + 0.05) / (lo + 0.05)
 }
 
+// readableOn is colour c, or the nearest lighter one on a dark terminal (darker on a light one) that has the contrast target against
+// the terminal's own background, taken as #1e1e1e or #ffffff. The hue stays: it is the colour of a background, made into one for text.
+func readableOn(c string, dark bool, target float64) string {
+	bg, toward := "#ffffff", "#000000"
+	if dark {
+		bg, toward = "#1e1e1e", "#ffffff"
+	}
+	if contrastRatio(c, bg) >= target {
+		return c
+	}
+	for share := 0.04; share < 1; share += 0.04 {
+		if h := blendHex(c, toward, share); contrastRatio(h, bg) >= target {
+			return h
+		}
+	}
+	return toward
+}
+
 // dullShare is how much of the terminal's own background a needs-you colour is mixed with once its session has waited long: the row stays
 // tinted, so that the session that has waited longest is not the quietest, but it is clearly weaker than a new one.
 const dullShare = 0.55
@@ -350,8 +374,8 @@ func withText(st lipgloss.Style, custom bool, bg string) lipgloss.Style {
 func monoTheme() Theme {
 	s := lipgloss.NewStyle()
 	return Theme{
-		Mono: true,
-		Tab:  s.Faint(true).Padding(0, 1), TabActive: s.Bold(true).Underline(true).Padding(0, 1), Rule: s, Label: s.Faint(true), Head: s.Bold(true), Dim: s.Faint(true),
+		Mono: true, Need: s.Bold(true),
+		Tab: s.Faint(true).Padding(0, 1), TabActive: s.Bold(true).Underline(true).Padding(0, 1), Rule: s, Label: s.Faint(true), Head: s.Bold(true), Dim: s.Faint(true),
 		Err: s.Bold(true), Status: s.Reverse(true), StatusKey: s.Reverse(true).Bold(true), Hot: s.Bold(true), Attn: s.Reverse(true), Warn: s.Bold(true),
 	}
 }

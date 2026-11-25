@@ -300,22 +300,19 @@ func fieldWith(e emph, label, text string, width, maxLines int) []string {
 }
 
 // emph sets the words that head a card (the labels, the numbers of a queue, the session's name) off from the text. It is made of raw
-// terminal codes that end with the ones that began them and reset nothing else, since a row that is coloured sits inside a colour that a
-// full reset would end. On such a row the labels are bold only, as the colour behind them is the signal there; on a plain row they take
-// the accent colour as well. A row that is bold already, in the mono theme, gets none: nothing would stand out.
+// terminal codes that end with the ones that began them and reset nothing else, so that it can sit inside a line that has a colour, as a
+// full reset would end it. The labels take the accent colour and are bold, the name only bold.
 type emph struct{ lead, trail, boldOn, boldOff string }
 
-// newEmph is the emphasis for a row that is painted with base (painted says whether it is painted at all).
-func newEmph(o viewOpts, painted bool, base lipgloss.Style) emph {
-	if o.Theme.Plain || base.GetBold() {
+// newEmph is the emphasis the theme gives: none in the plain theme.
+func newEmph(o viewOpts) emph {
+	if o.Theme.Plain {
 		return emph{}
 	}
 	e := emph{boldOn: "\x1b[1m", boldOff: "\x1b[22m"}
 	e.lead, e.trail = e.boldOn, e.boldOff
-	if !painted {
-		if sgr := sgrOf(o.Theme.Head); sgr != "" {
-			e.lead, e.trail = sgr, "\x1b[22;39m"
-		}
+	if sgr := sgrOf(o.Theme.Head); sgr != "" {
+		e.lead, e.trail = sgr, "\x1b[22;39m"
 	}
 	return e
 }
@@ -419,6 +416,75 @@ func rowStyle(x Session, o viewOpts) (lipgloss.Style, bool) {
 		return o.Theme.Dull, true
 	}
 	return lipgloss.NewStyle(), false
+}
+
+// cardKind is how a card is marked: it needs you, it needed you long ago, it was active in the last minute, or it is not marked.
+const (
+	markNone = iota
+	markNeed
+	markFade
+	markRecent
+)
+
+func cardKind(x Session) int {
+	switch {
+	case x.NeedsInput && x.Running && !x.AttnFaded:
+		return markNeed
+	case x.Highlight && x.Running:
+		return markRecent
+	case x.NeedsInput && x.Running:
+		return markFade
+	}
+	return markNone
+}
+
+// cardGutter is the three columns before a line of a card: a bar in the colour of what the session is (with no colour to show it, a ▌ for a
+// session that needs you and a · on the first line of a recent one), the arrow or the rail of the selection, and a space. A screen under 20
+// columns wide has none.
+func cardGutter(x Session, o viewOpts, first bool) string {
+	if o.Width < 20 {
+		return ""
+	}
+	th, mark := o.Theme, " "
+	bare := th.Plain || th.Mono || o.NoColour
+	switch cardKind(x) {
+	case markNeed:
+		mark = th.Need.Render("▌")
+	case markFade:
+		if !bare {
+			mark = th.Fade.Render("▌")
+		}
+	case markRecent:
+		switch {
+		case !bare:
+			mark = th.Recent.Render("▌")
+		case first:
+			mark = "·"
+		}
+	}
+	sel := " "
+	if x.ID != "" && x.ID == o.Sel {
+		sel = th.Head.Render("│")
+		if first {
+			sel = th.Head.Render("▶")
+		}
+	}
+	return mark + sel + " "
+}
+
+// stateCell is the state of a session, padded to w columns. The state of one that needs you is bold in the colour of its bar, and that of a
+// snoozed one in the snooze colour.
+func stateCell(x Session, w int, o viewOpts) string {
+	text := stateText(x)
+	pad := strings.Repeat(" ", max(w-ansi.StringWidth(text), 0))
+	switch {
+	case o.Theme.Plain:
+	case x.Snoozed && x.Running:
+		text = o.Theme.Snooze.Render(text)
+	case cardKind(x) == markNeed:
+		text = o.Theme.Need.Bold(true).Render(text)
+	}
+	return text + pad
 }
 
 // cardsSortNote says how the Cards are sorted when that is not the default order.
@@ -544,7 +610,7 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 			note = ""
 		}
 		if !room.compact {
-			head = append(head, queueLinesWith(newEmph(o, false, lipgloss.NewStyle()), "", s.Inbox, o.Width, room.item, 4, s.Settings.QueueItems)...)
+			head = append(head, queueLinesWith(newEmph(o), "", s.Inbox, o.Width, room.item, 4, s.Settings.QueueItems)...)
 		}
 	}
 	if note != "" { // no inbox line to carry it, or no room on it
@@ -559,10 +625,9 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 	}
 	for _, x := range list {
 		ids = append(ids, x.ID)
-		base, painted := rowStyle(x, o)
-		e := newEmph(o, painted, base)
-		row := gutter(x.ID, o) + fmt.Sprintf("%s  %s  %s  %s", e.bold(idCell(x.RowLabel(), iw)), padRight(x.Dir, dw), padRight(stateText(x), sw), queueWord(x.Queue.Count))
-		block := []string{ansi.Truncate(row, o.Width, "…")}
+		e := newEmph(o)
+		row := fmt.Sprintf("%s  %s  %s  %s", e.bold(idCell(x.RowLabel(), iw)), padRight(x.Dir, dw), stateCell(x, sw, o), queueWord(x.Queue.Count))
+		block := []string{ansi.Truncate(cardGutter(x, o, true)+row, o.Width, "…")}
 		if room.compact {
 			now, label := x.Now, "Now:"
 			if now == "" {
@@ -575,7 +640,12 @@ func cardBlocks(s Snapshot, o viewOpts, room cardRoom) (head []string, blocks []
 			block = append(block, fieldWith(e, "Now:", x.Now, o.Width, room.field)...)
 			block = append(block, queueLinesWith(e, "Queue:", x.Queue, o.Width, room.item, 4+11, s.Settings.QueueItems)...)
 		}
-		blocks = append(blocks, selectBlock(mark(recentMark(block, x, o), x, o), x, o))
+		for i := 1; i < len(block); i++ { // the lines under the header start with the indent that the gutter replaces
+			if g := cardGutter(x, o, false); g != "" && strings.HasPrefix(block[i], "    ") {
+				block[i] = g + block[i][3:]
+			}
+		}
+		blocks = append(blocks, block)
 	}
 	if ended > 0 {
 		foot++
@@ -923,11 +993,11 @@ func helpLines(width int, readOnly bool) []string {
 	lines := []string{
 		" Marks and colours (default theme)",
 		"",
-		"  ● pink-red   Claude has stopped and the next move is yours, until you reply",
-		"               the colour weakens after 10 minutes (SITREP_ATTN_FADE); the ● stays",
-		"  ○            snoozed: waiting, but you said it can wait",
-		"  ▶            the selected row",
-		"  grey         the session changed in the last minute (a · without colour)",
+		"  ▌ ● pink-red  Claude has stopped and the next move is yours, until you reply",
+		"                the bar weakens after 10 minutes (SITREP_ATTN_FADE); the ● stays",
+		"  ○             snoozed: waiting, but you said it can wait",
+		"  ▶ │           the selected session: an arrow and a rail down its card",
+		"  ▌ grey        the session changed in the last minute (a · without colour)",
 		"  idle?        working, but quiet for 10 minutes: it may have been interrupted",
 		"",
 		" Keys",

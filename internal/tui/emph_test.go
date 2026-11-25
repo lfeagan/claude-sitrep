@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"charm.land/lipgloss/v2"
 	"fmt"
 	"strings"
 	"testing"
@@ -13,31 +14,33 @@ func styledOpts(theme Theme) viewOpts { return viewOpts{Width: 80, Height: 60, T
 func TestLabelsAndNamesStandOut(t *testing.T) {
 	s := loadFixture(t)
 	frame := render(s, tabCards, "", styledOpts(newTheme(true, "48;5;238")))
-	var painted, plain int
+	var heads, labels int
 	for _, l := range strings.Split(frame, "\n") {
+		plain := ansi.Strip(l)
 		switch {
-		case strings.Contains(l, "\x1b[1mObjective:\x1b[22m"): // a row with a background: bold, and the colour behind it is not reset
-			painted++
-			after := l[strings.Index(l, "\x1b[22m")+len("\x1b[22m"):] // the text that follows the label, still on the row's colour
-			if i := strings.Index(after, "\x1b[m"); i <= 1 || strings.Contains(l[:strings.Index(l, "Objective:")], "\x1b[m") {
-				t.Errorf("a reset right after the label ends the row's colour: %q", l)
+		case strings.Contains(plain, "Objective:") || strings.Contains(plain, "Progress:") || strings.Contains(plain, "Now:") || strings.Contains(plain, "Queue:"):
+			labels++ // under a header: the label is bold and in the accent colour
+			if strings.Contains(l, "48;") || !strings.Contains(l, "\x1b[22;39m") {
+				t.Errorf("a label is bold and in the accent colour: %q", l)
 			}
-		case strings.Contains(l, "Objective:\x1b[22;39m"): // a row with no background: bold and the accent colour
-			plain++
+		case strings.Contains(plain, " waiting ") || strings.Contains(plain, " working "):
+			heads++ // a header: the name is bold
+			if !strings.Contains(l, "\x1b[1m") || !strings.Contains(l, "\x1b[22m") {
+				t.Errorf("the name is bold: %q", l)
+			}
 		}
 	}
-	if painted == 0 || plain == 0 {
-		t.Errorf("labels on painted rows %d, on plain rows %d", painted, plain)
-	}
-	if !strings.Contains(frame, "\x1b[1m") || !strings.Contains(frame, "Now:\x1b[22") {
-		t.Errorf("the Now label is not set off")
+	if heads == 0 || labels == 0 {
+		t.Errorf("headers %d, labels %d", heads, labels)
 	}
 }
 
 func TestEmphasisAddsNoText(t *testing.T) {
 	s := loadFixture(t)
 	for name, th := range map[string]Theme{"default": newTheme(true, "48;5;238"), "light": newTheme(false, "48;5;238")} {
-		got := ansi.Strip(render(s, tabCards, "", styledOpts(th)))
+		o := styledOpts(th)
+		o.NoColour = true // with colour the bars are one glyph, with none a recent card has a · instead
+		got := ansi.Strip(render(s, tabCards, "", o))
 		want := ansi.Strip(render(s, tabCards, "", styledOpts(plainTheme())))
 		trim := func(x string) string {
 			lines := strings.Split(x, "\n")
@@ -52,22 +55,17 @@ func TestEmphasisAddsNoText(t *testing.T) {
 	}
 }
 
-func TestAPlainThemeAndABoldRowGetNoEmphasis(t *testing.T) {
+func TestAPlainThemeHasNoCodesAndMonoNoColours(t *testing.T) {
 	s := loadFixture(t)
 	if strings.ContainsRune(render(s, tabCards, "", styledOpts(plainTheme())), 0x1b) {
 		t.Error("the plain theme has no escape codes")
 	}
-	bold := 0
-	for _, l := range strings.Split(render(s, tabCards, "", styledOpts(monoTheme())), "\n") {
-		if strings.HasPrefix(l, "\x1b[1m") { // a recently active row is bold all through: a bold label inside it would end the bold
-			bold++
-			if strings.Contains(l, "\x1b[22m") {
-				t.Errorf("emphasis inside a bold row: %q", l)
-			}
-		}
+	frame := render(s, tabCards, "", styledOpts(monoTheme()))
+	if strings.Contains(frame, "38;") || strings.Contains(frame, "48;") {
+		t.Errorf("the mono theme has colours:\n%q", frame)
 	}
-	if bold == 0 {
-		t.Error("the fixture has no recent session in the mono theme")
+	if !strings.Contains(frame, "\x1b[1m▌") || !strings.Contains(ansi.Strip(frame), "· ") {
+		t.Errorf("mono marks a card that needs you with a bold bar and a recent one with a ·:\n%s", ansi.Strip(frame))
 	}
 }
 
@@ -168,5 +166,35 @@ func TestLabelsAreNeverLouderThanTheirText(t *testing.T) {
 	}
 	if th := themeFor(true, Settings{Theme: "punk", Colors: "accent=#ffff00/#ffff00", HighlightSGR: "48;5;238"}); hex(th) != "#ffff00" {
 		t.Errorf("a colour the user chose is kept: %s", hex(th))
+	}
+}
+
+func TestTheBarAndTheStateReadOnTheTerminalsBackground(t *testing.T) {
+	hex := func(st lipgloss.Style) string {
+		r, g, b, _ := st.GetForeground().RGBA()
+		return fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+	for _, name := range ThemeNames {
+		if name == "mono" {
+			continue
+		}
+		for _, dark := range []bool{true, false} {
+			bg := "#ffffff"
+			if dark {
+				bg = "#1e1e1e"
+			}
+			th := themeFor(dark, Settings{Theme: name, HighlightSGR: "48;5;238"})
+			for what, c := range map[string]struct {
+				st  lipgloss.Style
+				min float64
+			}{"needs you": {th.Need, 4.5}, "faded": {th.Fade, 3}, "recent": {th.Recent, 3}} {
+				if got := contrastRatio(hex(c.st), bg); got < c.min-0.05 {
+					t.Errorf("%s, dark=%v: the %s colour %s has contrast %.1f on %s, want %.1f", name, dark, what, hex(c.st), got, bg, c.min)
+				}
+			}
+		}
+	}
+	if th := themeFor(true, Settings{Theme: "rainbow", HighlightSGR: "48;5;238"}); hex(th.Need) != "#ffe566" {
+		t.Errorf("rainbow's yellow is kept as it is: %s", hex(th.Need))
 	}
 }

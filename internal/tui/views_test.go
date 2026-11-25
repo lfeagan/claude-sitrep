@@ -100,7 +100,7 @@ func TestPlainThemeHasNoEscapes(t *testing.T) {
 
 func TestStyledMatchesPlainText(t *testing.T) {
 	s := loadFixture(t)
-	styled := viewOpts{Width: 80, Height: 40, Theme: newTheme(true, "48;5;238")}
+	styled := viewOpts{Width: 80, Height: 40, Theme: newTheme(true, "48;5;238"), NoColour: true} // with colour, a recent card has a bar and with none a ·
 	got := render(s, tabCards, "", styled)
 	if !strings.ContainsRune(got, 0x1b) {
 		t.Fatalf("a styled frame should have escape codes")
@@ -121,21 +121,21 @@ func TestStyledMatchesPlainText(t *testing.T) {
 
 func TestHighlightOnlyForRecentRunning(t *testing.T) {
 	s := loadFixture(t)
-	hot := viewOpts{Width: 60, Height: 0, Theme: newTheme(true, "48;5;238")}
-	lines := strings.Split(render(s, tabCards, "", hot), "\n")
-	var hotLines, other int
+	th := newTheme(true, "48;5;238")
+	lines := strings.Split(render(s, tabCards, "", viewOpts{Width: 60, Height: 0, Theme: th}), "\n")
+	var recent, other int
 	for _, l := range lines {
-		if strings.Contains(l, "48;5;238") {
-			hotLines++
+		if strings.Contains(l, sgrOf(th.Recent)+"▌") {
+			recent++
 		} else if strings.Contains(ansi.Strip(l), "idle?") || strings.Contains(ansi.Strip(l), "waiting 3m") {
 			other++
 		}
 	}
-	if hotLines == 0 {
-		t.Errorf("the recent session should be highlighted")
+	if recent == 0 {
+		t.Errorf("the recent session should have its bar")
 	}
 	if other == 0 {
-		t.Errorf("the other sessions should be drawn without the highlight")
+		t.Errorf("the other sessions should be drawn without it")
 	}
 }
 
@@ -228,19 +228,18 @@ func TestNeedsInputIsMarkedAndColoured(t *testing.T) {
 	if !strings.Contains(top, "● waiting 3m") {
 		t.Errorf("the Table tab marks it too:\n%s", top)
 	}
-	const attn, hot = "48;2;150;52;92", "48;5;238" // the dark attention colour (#96345c), and the recent-activity colour
-	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
-	var attnLines, hotLines int
-	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
-		if strings.Contains(l, attn) {
-			attnLines++
+	th := newTheme(true, "48;5;238")
+	var needLines, recentLines int
+	for _, l := range strings.Split(render(s, tabCards, "", viewOpts{Width: 80, Height: 0, Theme: th}), "\n") {
+		if strings.Contains(l, sgrOf(th.Need)+"▌") {
+			needLines++
 		}
-		if strings.Contains(l, hot) {
-			hotLines++
+		if strings.Contains(l, sgrOf(th.Recent)+"▌") {
+			recentLines++
 		}
 	}
-	if attnLines == 0 || hotLines == 0 {
-		t.Errorf("both highlights should appear: attention %d, recent %d", attnLines, hotLines)
+	if needLines < 2 || recentLines == 0 { // the bar runs down the whole card
+		t.Errorf("both bars should appear: needs you %d, recent %d", needLines, recentLines)
 	}
 }
 
@@ -257,26 +256,31 @@ func TestSummaryLeavesOutCountsOfZero(t *testing.T) {
 func TestNeedsInputBeatsRecentActivity(t *testing.T) {
 	s := loadFixture(t)
 	s.Sessions[2].Highlight = true // recent as well as waiting
-	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
-	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
-		if strings.Contains(ansi.Strip(l), "waiting for your call on the branch") {
-			if !strings.Contains(l, "48;2;150;52;92") || strings.Contains(l, "48;5;238") {
+	th := newTheme(true, "48;5;238")
+	found := false
+	for _, l := range strings.Split(render(s, tabCards, "", viewOpts{Width: 80, Height: 0, Theme: th}), "\n") {
+		if strings.Contains(ansi.Strip(l), "● waiting 3m") {
+			found = true
+			if !strings.HasPrefix(l, sgrOf(th.Need)+"▌") || strings.Contains(l, sgrOf(th.Recent)) {
 				t.Errorf("a waiting session shows the attention colour even when it is recent: %q", l)
 			}
 		}
+	}
+	if !found {
+		t.Fatal("the session is not on screen")
 	}
 }
 
 func TestAFadedSessionKeepsItsMarkerAndAWeakerColour(t *testing.T) {
 	s := loadFixture(t)
 	s.Sessions[2].AttnFaded = true
-	styled := viewOpts{Width: 80, Height: 0, Theme: newTheme(true, "48;5;238")}
+	th := newTheme(true, "48;5;238")
 	found := false
-	for _, l := range strings.Split(render(s, tabCards, "", styled), "\n") {
-		if strings.Contains(ansi.Strip(l), "waiting for your call on the branch") || strings.Contains(ansi.Strip(l), "● waiting 3m") {
+	for _, l := range strings.Split(render(s, tabCards, "", viewOpts{Width: 80, Height: 0, Theme: th}), "\n") {
+		if strings.Contains(ansi.Strip(l), "● waiting 3m") {
 			found = true
-			if strings.Contains(l, "48;2;150;52;92") || !strings.Contains(l, "48;2;84;40;58") {
-				t.Errorf("a faded session has the weaker tint, not the full one: %q", l)
+			if !strings.HasPrefix(l, sgrOf(th.Fade)+"▌") || strings.Contains(l, sgrOf(th.Need)) {
+				t.Errorf("a faded session has the weaker bar and no coloured state, not the full one: %q", l)
 			}
 		}
 	}
@@ -572,21 +576,22 @@ func TestHostileAliasIsDroppedOnDecode(t *testing.T) {
 	}
 }
 
-func TestSelectionIsASolidBarOverTheWholeBlock(t *testing.T) {
+func TestTheSelectionIsAnArrowAndARail(t *testing.T) {
 	s := loadFixture(t)
 	o := viewOpts{Width: 80, Height: 40, Theme: newTheme(true, "48;5;238"), Sel: s.Sessions[0].ID}
 	lines := strings.Split(render(s, tabCards, "", o), "\n")
-	bar, first := 0, -1
+	rail, first := 0, -1
 	for i, l := range lines {
-		if strings.HasPrefix(l, o.Theme.StatusKey.Render("  ")) || strings.HasPrefix(l, o.Theme.StatusKey.Render("▶ ")) {
-			bar++
-			if strings.HasPrefix(l, o.Theme.StatusKey.Render("▶ ")) {
-				first = i
-			}
+		cols := []rune(ansi.Strip(l)) // the mark, the selection, a space
+		switch {
+		case len(cols) > 2 && cols[1] == '▶':
+			first = i
+		case len(cols) > 2 && cols[1] == '│':
+			rail++
 		}
 	}
-	if first < 0 || bar < 5 {
-		t.Errorf("the selected block has %d bar lines, arrow at %d:\n%s", bar, first, strings.Join(lines, "\n"))
+	if first < 0 || rail < 3 {
+		t.Errorf("the selected block has %d rail lines, arrow at %d:\n%s", rail, first, strings.Join(lines, "\n"))
 	}
 	if !strings.Contains(ansi.Strip(lines[first]), s.Sessions[0].Short) {
 		t.Errorf("the arrow is not on the session row: %q", ansi.Strip(lines[first]))
@@ -802,7 +807,7 @@ func TestHelpWrapsInsteadOfCuttingOnANarrowScreen(t *testing.T) {
 			}
 		}
 		flat := strings.Join(strings.Fields(out), " ")
-		for _, want := range []string{"the selected session in full (q closes; e, i: queues)", "snooze it until it changes; z again ends it", "the colour weakens after 10 minutes (SITREP_ATTN_FADE); the ● stays", "any key closes"} {
+		for _, want := range []string{"the selected session in full (q closes; e, i: queues)", "snooze it until it changes; z again ends it", "the bar weakens after 10 minutes (SITREP_ATTN_FADE); the ● stays", "any key closes"} {
 			if !strings.Contains(flat, want) {
 				t.Errorf("width %d: the help lost %q", w, want)
 			}

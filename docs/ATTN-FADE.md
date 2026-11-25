@@ -12,6 +12,7 @@ A session that needs the user (`needs_input`) is painted with `attn` only for `S
 
 - `SITREP_ATTN_FADE=<seconds>`, default 600 (ten minutes, the time after which a working session is called `idle?`). `0` never fades, as before. A value that is not a number is the default.
 - Only the colour fades. `needs_input` stays true, so the `●` mark, the Needs You count, the sort order, the bell (which rings on the change to needing the user) and the `needs_input` field of the JSON are unchanged. A program that reads the JSON is not affected.
+- Since 1.0.4 a card in the Cards tab has no background: its colour is a bar down its left edge and the state in bold, and after the time the bar is weaker and the state is plain. The Table and the Wall paint the row, as before.
 - A snooze is unchanged and still shows the hollow `○`.
 - The snapshot says it: a new field `attn_faded` (true only when `needs_input` is true and the time has passed; left out otherwise). The snapshot owns the rule so that every reader uses one time, and the dashboard needs no clock.
 - The CTX cell turns its own warning colour when the window is nearly full and no row colour is painted. A faded row is not painted, so it may show that warning again.
