@@ -6,6 +6,7 @@ import (
 
 	"github.com/lfeagan/claude-sitrep/internal/setup"
 	"github.com/lfeagan/claude-sitrep/internal/state"
+	"github.com/lfeagan/claude-sitrep/internal/version"
 )
 
 // cmdSetup puts the sitrep block on the status line, or with --remove takes it off.
@@ -25,7 +26,7 @@ func cmdSetup(e Env, args []string) error {
 	if exe == nil {
 		exe = os.Executable
 	}
-	s := setup.Setup{Home: e.Home, BinDir: e.Getenv("BIN_DIR"), SkillsDir: e.Getenv("SKILLS_DIR"), Executable: exe, Now: e.Clock.Now, Out: e.Stdout, Err: e.Stderr}
+	s := setup.Setup{Home: e.Home, BinDir: e.Getenv("BIN_DIR"), SkillsDir: e.Getenv("SKILLS_DIR"), Executable: exe, Now: e.Clock.Now, Out: e.Stdout, Err: e.Stderr, Version: version.Version}
 	if code := s.Run(remove); code != 0 {
 		return exitError(code)
 	}

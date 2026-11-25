@@ -17,7 +17,7 @@ Otherwise:
 1. Run `go version`. It needs Go 1.26 or newer. If `go` is missing or older, tell the user to install it (for example `brew install go`) and stop. Change nothing.
 2. Run `mkdir -p "$HOME/.claude/sitrep"`.
 3. Build from the plugin's own folder, so that the program always matches the plugin, into a new file beside the program in use, so that a hook running now never sees half a file: `GOWORK=off go build -C "${CLAUDE_PLUGIN_ROOT}" -o "$HOME/.claude/sitrep/sitrep.new" -mod=readonly -buildvcs=false ./cmd/sitrep`. `GOWORK=off` keeps a `go.work` file in a folder above the plugin from changing what is built. The first build downloads the Go modules, so it needs the network. If it fails, show the first lines of the error and stop.
-4. Run `"$HOME/.claude/sitrep/sitrep.new" setup` and report what it printed, in a few lines. Setup copies the program into `~/.claude/sitrep/bin/sitrep`, which replaces the old one in one step, and removes `sitrep.new`.
+4. Run `"$HOME/.claude/sitrep/sitrep.new" setup` and report what it printed, in a few lines. If it says a newer sitrep is out, pass that on, with what to do: this session still has the old plugin loaded, so restart it or run `/reload-plugins`, then run this setup again. Setup copies the program into `~/.claude/sitrep/bin/sitrep`, which replaces the old one in one step, and removes `sitrep.new`.
 
 If setup says it found an install from a checkout, it has changed nothing. Show the user what it names and how to take it out. Run nothing that removes those entries unless the user asks, and then run setup again.
 

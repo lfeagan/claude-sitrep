@@ -19,6 +19,7 @@ type env struct {
 	binDir   string
 	skills   string
 	exe      string
+	version  string
 	out, err bytes.Buffer
 }
 
@@ -53,7 +54,7 @@ func (e *env) read(path string) string {
 func (e *env) run(remove bool) int {
 	e.out.Reset()
 	e.err.Reset()
-	return Setup{Home: e.home, BinDir: e.binDir, SkillsDir: e.skills, Executable: func() (string, error) { return e.exe, nil }, Now: func() time.Time { return now }, Out: &e.out, Err: &e.err}.Run(remove)
+	return Setup{Home: e.home, BinDir: e.binDir, SkillsDir: e.skills, Executable: func() (string, error) { return e.exe, nil }, Now: func() time.Time { return now }, Out: &e.out, Err: &e.err, Version: e.version}.Run(remove)
 }
 
 func (e *env) backups() []string {
@@ -793,5 +794,28 @@ func TestRemoveDropsTheExamplesWhateverTheStatusLineIs(t *testing.T) {
 	}
 	if e.exists(confFile) {
 		t.Errorf("a conf that held only the examples is gone: %q", e.read(confFile))
+	}
+}
+
+func TestSetupSaysWhenANewerReleaseIsKnown(t *testing.T) {
+	e := newEnv(t)
+	e.version = "1.0.3"
+	e.write(filepath.Join(e.nd(), "update"), "1 1.0.4\n")
+	if code := e.run(false); code != 0 {
+		t.Fatalf("exit %d: %s", code, e.err.String())
+	}
+	got := e.out.String()
+	if !strings.Contains(got, "sitrep 1.0.4 is out (you have 1.0.3)") || !strings.Contains(got, "/reload-plugins") {
+		t.Errorf("no warning that the plugin may be old: %q", got)
+	}
+	e.version = "1.0.4" // up to date: nothing more is said
+	e.run(false)
+	if strings.Contains(e.out.String(), "reload") {
+		t.Errorf("a warning for a program that is up to date: %q", e.out.String())
+	}
+	e.version = "" // a program with no version, or no record, says nothing
+	e.run(false)
+	if strings.Contains(e.out.String(), "reload") {
+		t.Errorf("a warning for an unknown version: %q", e.out.String())
 	}
 }

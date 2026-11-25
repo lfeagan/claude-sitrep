@@ -16,6 +16,7 @@ import (
 	"github.com/lfeagan/claude-sitrep/internal/settings"
 	"github.com/lfeagan/claude-sitrep/internal/state"
 	"github.com/lfeagan/claude-sitrep/internal/textsafe"
+	"github.com/lfeagan/claude-sitrep/internal/update"
 )
 
 // Command is the status line command sitrep writes. $HOME is expanded by the shell when Claude Code runs it, so the command works
@@ -30,6 +31,7 @@ type Setup struct {
 	Executable func() (string, error)
 	Now        func() time.Time
 	Out, Err   io.Writer
+	Version    string // the version of this program, to tell whether a newer release is known
 }
 
 func (s Setup) settingsPath() string { return filepath.Join(s.Home, ".claude", "settings.json") }
@@ -220,6 +222,12 @@ func (s Setup) install(doc settings.Doc, f file) int {
 	s.link()
 	s.removeBuildCopy(exe)
 	s.say("Set up. Restart Claude Code sessions to pick up the status line.")
+	// the program is built from the plugin the session has loaded: if the daily check has seen a newer release than this, the session
+	// probably loaded the plugin before it was updated
+	if n := update.Notice(st, s.Version); n != "" {
+		s.say("%s", n)
+		s.say("If you meant to update: this session still has the old plugin loaded. Restart it, or run /reload-plugins in it, then run /sitrep:setup again.")
+	}
 	return 0
 }
 
