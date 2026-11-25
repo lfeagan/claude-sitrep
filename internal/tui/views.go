@@ -26,10 +26,11 @@ const (
 	sortState
 	sortDir
 	sortQueue
+	sortName
 	sortCount
 )
 
-var sortNames = [sortCount]string{"activity", "state", "directory", "queue"}
+var sortNames = [sortCount]string{"activity", "state", "directory", "queue", "name"}
 
 type viewOpts struct {
 	Width, Height int
@@ -55,7 +56,7 @@ func visibleIDs(s Snapshot, tab int, showEnded bool, by int, filter string) []st
 }
 
 // cardsOrder is the sorts of the Cards tab, in the order that `s` cycles them. The first is the default: the sessions that need you first.
-var cardsOrder = [sortCount]int{sortState, sortActivity, sortDir, sortQueue}
+var cardsOrder = [sortCount]int{sortState, sortActivity, sortDir, sortQueue, sortName}
 
 // cardsSort is the sort the Cards tab uses for the index i into cardsOrder.
 func cardsSort(i int) int { return cardsOrder[((i%sortCount)+sortCount)%sortCount] }
@@ -165,24 +166,37 @@ func stateRank(x Session) int {
 	return 4
 }
 
-// sorted returns a copy of list in the chosen order. Ties keep the order sitrep sent, then
-// break by id, so rows do not shuffle between refreshes.
+// byDir and byName compare two sessions by directory and by name, ignoring case. A session with a name comes before one without, and two
+// without one are equal.
+func byDir(a, b Session) int { return strings.Compare(strings.ToLower(a.Dir), strings.ToLower(b.Dir)) }
+
+func byName(a, b Session) int {
+	switch an, bn := a.Alias != "", b.Alias != ""; {
+	case an && bn:
+		return strings.Compare(strings.ToLower(a.Alias), strings.ToLower(b.Alias))
+	case an:
+		return -1
+	case bn:
+		return 1
+	}
+	return 0
+}
+
+// sorted returns a copy of list in the chosen order. A tie goes to the next key in the sort's list (the directory sort, for sessions in
+// one directory, goes on by name), and the last tie keeps the order sitrep sent, which is by activity, so rows do not shuffle between refreshes.
 func sorted(list []Session, by int) []Session {
 	out := append([]Session(nil), list...)
-	less := func(a, b Session) int {
-		switch by {
-		case sortState:
-			return stateRank(a) - stateRank(b)
-		case sortDir:
-			return strings.Compare(strings.ToLower(a.Dir), strings.ToLower(b.Dir))
-		case sortQueue:
-			return b.Queue.Count - a.Queue.Count
-		}
-		return 0
-	}
+	keys := map[int][]func(a, b Session) int{
+		sortState: {func(a, b Session) int { return stateRank(a) - stateRank(b) }},
+		sortDir:   {byDir, byName},
+		sortQueue: {func(a, b Session) int { return b.Queue.Count - a.Queue.Count }, byDir},
+		sortName:  {byName, byDir},
+	}[by]
 	sort.SliceStable(out, func(i, j int) bool {
-		if c := less(out[i], out[j]); c != 0 {
-			return c < 0
+		for _, key := range keys {
+			if c := key(out[i], out[j]); c != 0 {
+				return c < 0
+			}
 		}
 		return false
 	})

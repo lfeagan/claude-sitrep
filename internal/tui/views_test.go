@@ -335,6 +335,37 @@ func TestSortOrders(t *testing.T) {
 	}
 }
 
+func TestSortByNameKeepsNamedSessionsFirst(t *testing.T) {
+	list := []Session{
+		{Short: "u1", Dir: "Beta"}, {Short: "n1", Alias: "zed", Dir: "a"}, {Short: "u2", Dir: "alpha"},
+		{Short: "n2", Alias: "Mid", Dir: "z"}, {Short: "n3", Alias: "alpha", Dir: "m"}, {Short: "u3", Dir: "alpha"},
+	}
+	if got := ids(sorted(list, sortName)); got != "n3 n2 n1 u2 u3 u1" {
+		t.Errorf("named by name (ignoring case), then the unnamed by directory, ties as sitrep sent them: %s", got)
+	}
+}
+
+func TestSortTiesGoOnToTheNextKey(t *testing.T) {
+	list := []Session{
+		{Short: "u1", Dir: "api"}, {Short: "n1", Alias: "zed", Dir: "api"}, {Short: "n2", Alias: "Amy", Dir: "api"},
+		{Short: "u2", Dir: "api"}, {Short: "u3", Dir: "web"}, {Short: "n3", Alias: "bob", Dir: "web"},
+	}
+	// one directory: the named by name, then the others as sitrep sent them
+	if got := ids(sorted(list, sortDir)); got != "n2 n1 u1 u2 n3 u3" {
+		t.Errorf("directory: %s", got)
+	}
+	for i := range list {
+		list[i].Queue.Count = 1
+	}
+	list[0].Queue.Count = 3 // u1
+	if got := ids(sorted(list, sortQueue)); got != "u1 n1 n2 u2 u3 n3" {
+		t.Errorf("queue size, then directory, then as sent: %s", got)
+	}
+	if got := ids(sorted(list, sortName)); got != "n2 n3 n1 u1 u2 u3" {
+		t.Errorf("name, then directory: %s", got)
+	}
+}
+
 func TestSortTiesKeepSitrepOrder(t *testing.T) {
 	list := []Session{{Short: "aaaa", Dir: "x"}, {Short: "bbbb", Dir: "x"}, {Short: "cccc", Dir: "x"}}
 	for by := 0; by < sortCount; by++ {
