@@ -238,7 +238,7 @@ func TestAFadedBarIsWeakerThanAFreshOneInEveryTheme(t *testing.T) {
 	}
 }
 
-func TestTheLastLineOfACardHasHalfABar(t *testing.T) {
+func TestTheFirstLineOfACardHasHalfABar(t *testing.T) {
 	s := loadFixture(t)
 	lines := strings.Split(render(s, tabCards, "", styledOpts(newTheme(true, "48;5;238"))), "\n")
 	var bars, halves int
@@ -250,18 +250,21 @@ func TestTheLastLineOfACardHasHalfABar(t *testing.T) {
 		switch cols[0] {
 		case '▌':
 			bars++
-		case '▘':
-			halves++
-		}
-		// a header (the name starts in the third column) never follows a full bar: the card above it ended in half of one
-		if i > 0 && cols[0] == '▌' && cols[3] != ' ' {
-			if prev := []rune(ansi.Strip(lines[i-1])); len(prev) > 0 && prev[0] == '▌' {
-				t.Errorf("two cards run into one stripe:\n%s\n%s", string(prev), string(cols))
+			// a full bar on a header would run into the bar of the card above it
+			if cols[3] != ' ' && i > 0 && []rune(ansi.Strip(lines[i-1]))[0] == '▌' {
+				t.Errorf("two cards run into one stripe:\n%s\n%s", ansi.Strip(lines[i-1]), string(cols))
 			}
+		case '▖':
+			halves++
+			if cols[3] == ' ' {
+				t.Errorf("half a bar on a line that is not a header: %q", string(cols))
+			}
+		case '▘':
+			t.Errorf("the half bar is on the first line, not the last: %q", string(cols))
 		}
 	}
 	if halves == 0 || bars == 0 {
-		t.Errorf("a marked card has a full bar on its lines and half a bar on its last: %d full, %d half", bars, halves)
+		t.Errorf("a marked card has half a bar on its first line and a whole one on the rest: %d whole, %d half", bars, halves)
 	}
 }
 

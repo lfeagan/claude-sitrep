@@ -48,9 +48,9 @@ def window(parts, x0, y0, lines, label, dfg, dbg, m, page):
                 ch = c[0]
                 cx = x0 + PAD + col * CW
                 if ch == "\u258c": parts.append(f'<rect x="{cx}" y="{y}" width="{CW/2}" height="{CH}" fill="{a.hexs(f)}"/>')
-                elif ch == "\u2598": parts.append(f'<rect x="{cx}" y="{y}" width="{CW/2}" height="{CH/2}" fill="{a.hexs(f)}"/>')
+                elif ch == "\u2596": parts.append(f'<rect x="{cx}" y="{y+CH/2}" width="{CW/2}" height="{CH/2}" fill="{a.hexs(f)}"/>')
                 elif ch == "\u2502": parts.append(f'<rect x="{cx+CW/2-0.75}" y="{y}" width="1.5" height="{CH}" fill="{a.hexs(f)}"/>')
-                drawn.append(" " if ch in "\u258c\u2598\u2502" else ch)
+                drawn.append(" " if ch in "\u258c\u2596\u2502" else ch)
                 col += c[1]
             text = "".join(drawn)
             if text.strip():

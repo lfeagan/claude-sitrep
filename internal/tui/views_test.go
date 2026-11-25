@@ -261,7 +261,7 @@ func TestNeedsInputBeatsRecentActivity(t *testing.T) {
 	for _, l := range strings.Split(render(s, tabCards, "", viewOpts{Width: 80, Height: 0, Theme: th}), "\n") {
 		if strings.Contains(ansi.Strip(l), "● waiting 3m") {
 			found = true
-			if !strings.HasPrefix(l, sgrOf(th.Need)+"▌") || strings.Contains(l, sgrOf(th.Recent)) {
+			if !strings.HasPrefix(l, sgrOf(th.Need)+"▖") || strings.Contains(l, sgrOf(th.Recent)) {
 				t.Errorf("a waiting session shows the attention colour even when it is recent: %q", l)
 			}
 		}
@@ -279,7 +279,7 @@ func TestAFadedSessionKeepsItsMarkerAndAWeakerColour(t *testing.T) {
 	for _, l := range strings.Split(render(s, tabCards, "", viewOpts{Width: 80, Height: 0, Theme: th}), "\n") {
 		if strings.Contains(ansi.Strip(l), "● waiting 3m") {
 			found = true
-			if !strings.HasPrefix(l, sgrOf(th.Fade)+"▌") || strings.Contains(l, sgrOf(th.Need)) {
+			if !strings.HasPrefix(l, sgrOf(th.Fade)+"▖") || strings.Contains(l, sgrOf(th.Need)) {
 				t.Errorf("a faded session has the weaker bar and no coloured state, not the full one: %q", l)
 			}
 		}
