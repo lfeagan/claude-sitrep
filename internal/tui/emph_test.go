@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -141,5 +142,31 @@ func TestAWrappedQueueItemIsSetApart(t *testing.T) {
 		if strings.HasPrefix(strings.TrimSpace(texts[i]), "1. short") && texts[i+1] == "" {
 			t.Errorf("a one-line item has a gap after it: %q", texts)
 		}
+	}
+}
+
+func TestLabelsAreNeverLouderThanTheirText(t *testing.T) {
+	hex := func(th Theme) string {
+		r, g, b, _ := th.Head.GetForeground().RGBA()
+		return fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+	for _, name := range ThemeNames {
+		if name == "mono" {
+			continue
+		}
+		th := themeFor(true, Settings{Theme: name, HighlightSGR: "48;5;238"})
+		c := contrastRatio(hex(th), "#1e1e1e")
+		if c > 11.3 || c < 4.5 {
+			t.Errorf("%s: the label colour %s has contrast %.1f on a dark terminal", name, hex(th), c)
+		}
+		if p := presets[name]; strings.HasPrefix(p.accent[1], "#") && contrastRatio(p.accent[1], "#1e1e1e") <= maxHeadContrast && hex(th) != strings.ToLower(p.accent[1]) {
+			t.Errorf("%s: a label colour within the limit is kept, not %s", name, hex(th))
+		}
+	}
+	if th := themeFor(true, Settings{Theme: "rainbow", HighlightSGR: "48;5;238"}); hex(th) != strings.ToLower(presets["rainbow"].accent[1]) {
+		t.Errorf("rainbow's labels keep its accent: %s", hex(th))
+	}
+	if th := themeFor(true, Settings{Theme: "punk", Colors: "accent=#ffff00/#ffff00", HighlightSGR: "48;5;238"}); hex(th) != "#ffff00" {
+		t.Errorf("a colour the user chose is kept: %s", hex(th))
 	}
 }

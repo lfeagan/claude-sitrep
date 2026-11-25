@@ -273,7 +273,7 @@ func themeFor(isDark bool, st Settings) Theme {
 		TabActive: lipgloss.NewStyle().Foreground(accent).Bold(true).Underline(true).Padding(0, 1),
 		Rule:      lipgloss.NewStyle().Foreground(accent),
 		Label:     lipgloss.NewStyle().Foreground(dim),
-		Head:      lipgloss.NewStyle().Foreground(accent).Bold(true),
+		Head:      lipgloss.NewStyle().Foreground(ld(lipgloss.Color(p.accent[0]), lipgloss.Color(headOnDark(p.accent[1], custom["accent"])))).Bold(true),
 		Dim:       lipgloss.NewStyle().Foreground(dim),
 		Err:       lipgloss.NewStyle().Background(pick(p.errc)).Foreground(lipgloss.Color(onColor(p.errc[side]))).Bold(true),
 		Status:    lipgloss.NewStyle().Foreground(on).Background(accent),
@@ -285,6 +285,45 @@ func themeFor(isDark bool, st Settings) Theme {
 		Warn:      lipgloss.NewStyle().Bold(true),
 		Snooze:    lipgloss.NewStyle().Foreground(pick(p.snooze)),
 	}
+}
+
+// maxHeadContrast is how bright the labels of a card may be against a dark terminal. A theme's accent colours the bars and the tabs, where a
+// bright one is wanted, but a label in it outshouts the text it heads.
+const maxHeadContrast = 11.0
+
+// headOnDark is the accent for a label on a dark terminal: the accent itself, or a darker one when it would be brighter than
+// maxHeadContrast against the terminal's #1e1e1e. A colour the user chose is kept as it is.
+func headOnDark(accent string, chosen bool) string {
+	bg := "#1e1e1e"
+	if chosen || contrastRatio(accent, bg) <= maxHeadContrast {
+		return accent
+	}
+	for share := 0.02; share < 1; share += 0.02 {
+		if c := blendHex(accent, bg, share); contrastRatio(c, bg) <= maxHeadContrast {
+			return c
+		}
+	}
+	return accent
+}
+
+// contrastRatio is the WCAG contrast of two colours, each #rrggbb or a terminal colour number.
+func contrastRatio(a, b string) float64 {
+	lum := func(c string) float64 {
+		r, g, bl := rgbOf(c)
+		lin := func(v int) float64 {
+			x := float64(v) / 255
+			if x <= 0.03928 {
+				return x / 12.92
+			}
+			return math.Pow((x+0.055)/1.055, 2.4)
+		}
+		return 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(bl)
+	}
+	hi, lo := lum(a), lum(b)
+	if lo > hi {
+		hi, lo = lo, hi
+	}
+	return (hi + 0.05) / (lo + 0.05)
 }
 
 // dullShare is how much of the terminal's own background a needs-you colour is mixed with once its session has waited long: the row stays
