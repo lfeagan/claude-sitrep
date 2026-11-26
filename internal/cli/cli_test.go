@@ -495,3 +495,40 @@ func TestLsQueueShowsABlock(t *testing.T) {
 		t.Errorf("%d %q", code, out)
 	}
 }
+
+func TestAliasOfAnEndedSessionCanBeTaken(t *testing.T) {
+	home := t.TempDir()
+	st := state.Open(home)
+	for _, id := range []string{"c5d05701", "dfc08fd7"} {
+		if err := st.WriteFile(st.Path(state.ID(id), "notes"), []byte("Objective: x\n")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if code, _, _ := run(t, home, "alias", "c5d0", "deck"); code != 0 {
+		t.Fatal("set")
+	}
+	st.WriteFile(st.Path("c5d05701", "state"), []byte("working\n"))
+	// a session that is not over keeps its name, with --take as well
+	if code, _, errs := run(t, home, "alias", "dfc0", "deck"); code != 1 || !strings.Contains(errs, "already the alias of c5d0") || strings.Contains(errs, "--take") {
+		t.Errorf("running: %d %q", code, errs)
+	}
+	if code, _, errs := run(t, home, "alias", "dfc0", "deck", "--take"); code != 1 || !strings.Contains(errs, "has not ended") || st.Alias("c5d05701") != "deck" {
+		t.Errorf("running, --take: %d %q", code, errs)
+	}
+	st.WriteFile(st.Path("c5d05701", "state"), []byte("ended\n"))
+	if code, _, errs := run(t, home, "alias", "dfc0", "deck"); code != 1 || !strings.Contains(errs, "which has ended") || !strings.Contains(errs, "sitrep alias dfc0 deck --take") || st.Alias("dfc08fd7") != "" {
+		t.Errorf("ended: %d %q", code, errs)
+	}
+	if code, out, _ := run(t, home, "alias", "dfc0", "deck", "--take"); code != 0 || out != "dfc0 is now called deck, taken from c5d0, which has ended\n" {
+		t.Errorf("take: %d %q", code, out)
+	}
+	if st.Alias("dfc08fd7") != "deck" || st.Alias("c5d05701") != "" {
+		t.Errorf("the name moved: %q and %q", st.Alias("dfc08fd7"), st.Alias("c5d05701"))
+	}
+	if code, out, _ := run(t, home, "alias", "dfc0", "deck", "--take"); code != 0 || out != "dfc0 is already called deck\n" {
+		t.Errorf("again: %d %q", code, out)
+	}
+	if code, _, errs := run(t, home, "alias", "dfc0", "x", "--bogus"); code != 1 || !strings.Contains(errs, "usage: sitrep alias") {
+		t.Errorf("usage: %d %q", code, errs)
+	}
+}

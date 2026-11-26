@@ -87,29 +87,45 @@ func (e *AliasPrefixError) Error() string {
 // SetAlias gives a session an alias and says whether anything changed. A name that another session holds is refused, whatever that session's
 // state, as an ended session may be resumed. The check and the write happen under the folder's lock.
 func (s Store) SetAlias(id ID, name string) (bool, error) {
+	changed, _, err := s.SetAliasFrom(id, name, nil)
+	return changed, err
+}
+
+// SetAliasFrom is SetAlias for a caller that may take the name from the session that holds it: mayTake says, for that holder, whether it
+// may (the caller asked for it, and the holder has ended). The holder loses the name in the same locked step as the new session gets it,
+// and `from` is that holder, or "" when the name was free.
+func (s Store) SetAliasFrom(id ID, name string, mayTake func(holder ID) bool) (changed bool, from ID, err error) {
 	if id == Inbox {
-		return false, fmt.Errorf("the inbox has no alias")
+		return false, "", fmt.Errorf("the inbox has no alias")
 	}
 	if !ValidAlias(name) {
-		return false, fmt.Errorf("an alias is 1 to %d lowercase letters, digits and hyphens, starting with a letter, and not 'inbox'", MaxAlias)
+		return false, "", fmt.Errorf("an alias is 1 to %d lowercase letters, digits and hyphens, starting with a letter, and not 'inbox'", MaxAlias)
 	}
 	unlock, err := s.Lock()
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	defer unlock()
 	for _, o := range s.Sessions() {
 		if o != id && s.Alias(o) == name {
-			return false, &AliasTakenError{Name: name, Holder: o}
+			if mayTake == nil || !mayTake(o) {
+				return false, "", &AliasTakenError{Name: name, Holder: o}
+			}
+			from = o
 		}
 		if strings.HasPrefix(string(o), name) {
-			return false, &AliasPrefixError{Name: name, ID: o}
+			return false, "", &AliasPrefixError{Name: name, ID: o}
+		}
+	}
+	if from != "" {
+		if err := os.Remove(s.Path(from, "alias")); err != nil && !os.IsNotExist(err) {
+			return false, "", err
 		}
 	}
 	if s.Alias(id) == name {
-		return false, nil
+		return false, from, nil
 	}
-	return true, s.WriteFile(s.Path(id, "alias"), []byte(name+"\n"))
+	return true, from, s.WriteFile(s.Path(id, "alias"), []byte(name+"\n"))
 }
 
 // ClearAlias removes a session's alias and returns the name it had ("" when there was none).

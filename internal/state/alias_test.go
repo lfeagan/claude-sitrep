@@ -208,3 +208,34 @@ func TestAliasList(t *testing.T) {
 		t.Errorf("%v", l)
 	}
 }
+
+func TestSetAliasFromTakesAName(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	for _, id := range []string{"c5d05701", "dfc08fd7"} {
+		if err := s.WriteFile(s.Path(ID(id), "notes"), []byte("Objective: x\n")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.SetAlias("c5d05701", "deck"); err != nil {
+		t.Fatal(err)
+	}
+	no := func(ID) bool { return false }
+	yes := func(ID) bool { return true }
+	var taken *AliasTakenError
+	if _, _, err := s.SetAliasFrom("dfc08fd7", "deck", nil); !errors.As(err, &taken) {
+		t.Errorf("no way to take: %v", err)
+	}
+	if _, _, err := s.SetAliasFrom("dfc08fd7", "deck", no); !errors.As(err, &taken) || s.Alias("c5d05701") != "deck" {
+		t.Errorf("the holder may not be taken from: %v", err)
+	}
+	changed, from, err := s.SetAliasFrom("dfc08fd7", "deck", yes)
+	if err != nil || !changed || from != "c5d05701" || s.Alias("dfc08fd7") != "deck" || s.Alias("c5d05701") != "" {
+		t.Errorf("take: %v %v %q, names %q and %q", changed, err, from, s.Alias("dfc08fd7"), s.Alias("c5d05701"))
+	}
+	if _, _, err := s.SetAliasFrom("c5d05701", "dfc0", yes); err == nil {
+		t.Error("a name that is the start of an id is still refused")
+	}
+	if changed, from, err := s.SetAliasFrom("dfc08fd7", "free", yes); err != nil || !changed || from != "" {
+		t.Errorf("a free name takes from nobody: %v %v %q", changed, err, from)
+	}
+}

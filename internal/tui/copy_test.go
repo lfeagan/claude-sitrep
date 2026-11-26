@@ -362,3 +362,62 @@ func TestZOnASessionThatDoesNotNeedYouSaysSoAndRunsNothing(t *testing.T) {
 		t.Error("z on a snoozed session ends the snooze")
 	}
 }
+
+func TestNamingASessionWithTheNameOfAnEndedOneAsksFirst(t *testing.T) {
+	m, f := aliasModel(t)
+	snap := loadFixture(t)
+	var ended *Session
+	for i := range snap.Sessions {
+		if !snap.Sessions[i].Running {
+			ended = &snap.Sessions[i]
+		}
+	}
+	if ended == nil {
+		t.Skip("the fixture has no ended session")
+	}
+	ended.Alias = "deck"
+	next, _ := m.Update(snapMsg{snap: snap})
+	m = next.(model)
+	id := m.selID
+	m, _ = press(t, m, "n")
+	m = typed(t, m, "deck")
+	m, cmd := press(t, m, "enter")
+	if cmd != nil || m.ask == nil || m.ask.verb != "alias" || m.ask.target != ended.ID || len(f.calls) != 0 {
+		t.Fatalf("enter asks, and runs nothing: ask %+v, calls %v", m.ask, f.calls)
+	}
+	if v := m.View().Content; !strings.Contains(v, "y/n") || !strings.Contains(v, "which has ended") {
+		t.Errorf("the question is on the status line:\n%s", v)
+	}
+	// n and esc leave everything as it was
+	if m2, _ := press(t, m, "n"); m2.ask != nil || len(f.calls) != 0 {
+		t.Errorf("n cancels: %+v %v", m2.ask, f.calls)
+	}
+	m, cmd = press(t, m, "y")
+	if cmd == nil {
+		t.Fatal("y runs the command")
+	}
+	m = feed(t, m, cmd)
+	if len(f.calls) != 1 || f.calls[0] != "/x/sitrep alias "+id+" deck --take" {
+		t.Errorf("the command takes the name: %v", f.calls)
+	}
+}
+
+func TestAnAliasOfARunningSessionIsRefusedWithoutAsking(t *testing.T) {
+	m, f := aliasModel(t)
+	snap := loadFixture(t)
+	other := -1
+	for i := range snap.Sessions {
+		if snap.Sessions[i].Running && snap.Sessions[i].ID != m.selID {
+			other = i
+		}
+	}
+	snap.Sessions[other].Alias = "deck"
+	next, _ := m.Update(snapMsg{snap: snap})
+	m = next.(model)
+	m, _ = press(t, m, "n")
+	m = typed(t, m, "deck")
+	m, cmd := press(t, m, "enter")
+	if cmd != nil || m.ask != nil || len(f.calls) != 0 || !strings.Contains(m.statusText(), "which is running") {
+		t.Errorf("refused: ask %+v, calls %v, %q", m.ask, f.calls, m.statusText())
+	}
+}

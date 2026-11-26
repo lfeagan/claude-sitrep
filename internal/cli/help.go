@@ -12,15 +12,18 @@ text is cut. Quote text that holds shell characters such as ( ) ; or &.
   sitrep add 15f1 'fix the flaky test (CI)'
   sitrep add inbox 'look at the nightly job'
 `,
-	"alias": `usage: sitrep alias [<id> <name> | <id> --off]
+	"alias": `usage: sitrep alias [<id> <name> [--take] | <id> --off]
 
 Give a session a name, to use wherever an id goes (sitrep ls sitrep). A name is 1 to 32
 lowercase letters, digits and hyphens, starts with a letter, and is not 'inbox' or the
 start of a session id. One session has one name, and a name taken by another session is
-refused, so free it first with --off. With no arguments, list the names. An id always
-wins over a name, and a name must match whole: 'sit' does not find 'sitrep'.
+refused, so free it first with --off. A name held by a session that has ended can be
+moved to this one with --take; that session loses it, and a running one is never
+asked. With no arguments, list the names. An id always wins over a name, and a name
+must match whole: 'sit' does not find 'sitrep'.
 
   sitrep alias c5d0 sitrep
+  sitrep alias c5d0 sitrep --take
   sitrep alias c5d0 --off
 `,
 	"edit": `usage: sitrep edit <id> <n> <text> [--item <old text>]

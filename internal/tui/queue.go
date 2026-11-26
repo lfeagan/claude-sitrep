@@ -32,11 +32,11 @@ type queueMsg struct {
 // askState is the question about one change. It holds what it is about as it was when it was
 // asked, so `y` moves that item and no other, whatever a refresh has done since.
 type askState struct {
-	verb   string // "take" or "remove"
-	qid    string // the queue the item is in: inbox, or a session id
+	verb   string // "take", "remove" or "alias"
+	qid    string // the queue the item is in: inbox, or a session id; for alias, the session that gets the name
 	n      int    // its position,
-	item   string // and its text
-	target string // for take: the session that gets it
+	item   string // and its text; for alias, the name
+	target string // for take: the session that gets it; for alias, the ended session that has the name
 }
 
 // moverState is the list of places to send the selected item to: the inbox and the running sessions, but not where the item is. It holds
@@ -139,6 +139,13 @@ func (m *model) queueRefresh() {
 		return
 	}
 	a := *m.ask
+	if a.verb == "alias" { // not about an item: the session is still there, and the other one has still ended and still has the name
+		if x, h := m.session(a.qid), m.session(a.target); x == nil || h == nil || h.Running || h.Alias != a.item {
+			m.ask = nil
+			m.sayErr("alias: the sessions changed")
+		}
+		return
+	}
 	qi, ok := m.itemsOf(a.qid)
 	switch {
 	case !ok || (a.target != "" && !m.running(a.target)):
@@ -323,6 +330,12 @@ func (m model) removeStart() (tea.Model, tea.Cmd) {
 func (m model) askRun() (tea.Model, tea.Cmd) {
 	a := *m.ask
 	m.ask = nil
+	if a.verb == "alias" {
+		if why := m.aliasCheck(m.session(a.qid)); why != "" {
+			return m.refuse("alias", why)
+		}
+		return m.queueRun("alias", -1, "alias", a.qid, a.item, "--take")
+	}
 	if why := m.editCheck(a.qid, a.target); why != "" {
 		return m.refuse(a.verb, why)
 	}
@@ -367,6 +380,16 @@ func (m model) takeDigit(n int) (tea.Model, tea.Cmd) {
 
 // takeStatus is the question on the status bar of a tab.
 func (m model) takeStatus() string {
+	if a := m.ask; a.verb == "alias" {
+		who, from := a.qid, a.target
+		if x := m.session(a.qid); x != nil {
+			who = x.Short
+		}
+		if h := m.session(a.target); h != nil {
+			from = h.Short
+		}
+		return fmt.Sprintf("y/n  name %s %s, taking it from %s, which has ended?", who, a.item, from)
+	}
 	to := m.ask.target
 	if t := m.session(to); t != nil {
 		to = t.Label() + " " + t.Dir
@@ -607,6 +630,16 @@ func (m model) promptSubmit() (tea.Model, tea.Cmd) {
 			return m.refuse("alias", "nothing to set")
 		case text == "":
 			return m.queueRun("alias", -1, "alias", p.qid, "--off")
+		}
+		for _, o := range m.snap.Sessions { // a name that another session has: from an ended one it can be taken, once asked
+			if o.ID == p.qid || o.Alias != text {
+				continue
+			}
+			if o.Running {
+				return m.refuse("alias", text+" is the name of "+o.Label()+", which is running")
+			}
+			m.ask = &askState{verb: "alias", qid: p.qid, item: text, target: o.ID}
+			return m, nil
 		}
 		return m.queueRun("alias", -1, "alias", p.qid, text)
 	}
